@@ -10,28 +10,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
 
-  <!-- Firebase (Compat) -->
+  <!-- ★Firebase（Compat） -->
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
 
   <style>
     body { font-family: 'Noto Sans JP', sans-serif; }
-    .scrollbar-hide::-webkit-scrollbar { display: none; }
-    .editable {
-      min-height: 1.5em;
-      width: 100%;
-      transition: all 0.15s;
-    }
-    .editable:hover { background-color: #f8fafc; outline: 1px dashed #cbd5e1; }
-    .editable:focus { background-color: #fff; outline: 2px solid #3b82f6; }
-    .readonly {
-      pointer-events: none !important;
-      user-select: text;
-      background: transparent !important;
-      outline: none !important;
-    }
-    .readonly:hover { outline: none !important; background: transparent !important; }
 
     @media print {
       @page { size: A4 landscape; margin: 5mm; }
@@ -40,121 +25,127 @@
       .card { border: 1px solid #cbd5e1 !important; break-inside: avoid; margin-bottom: 2px !important; box-shadow: none !important; }
       main { margin-top: 0 !important; }
     }
+
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+    .editable {
+      min-height: 1.5em;
+      width: 100%;
+      transition: all 0.2s;
+    }
+    .editable:hover { background-color: #f8fafc; outline: 1px dashed #cbd5e1; }
+    .editable:focus { background-color: white; outline: 2px solid #3b82f6; }
+
+    /* ★閲覧モードの見た目 */
+    .readonly {
+      pointer-events: none !important;
+      user-select: text;
+      background-color: transparent !important;
+      outline: none !important;
+    }
+    .readonly:hover { outline: none !important; background-color: transparent !important; }
   </style>
 </head>
 
 <body class="bg-slate-100 text-slate-800 min-h-screen pb-10">
 
-  <!-- HEADER -->
   <header class="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm no-print">
-    <div class="max-w-7xl mx-auto px-3 sm:px-4 py-3">
-
-      <!-- Row 1 -->
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <!-- Left: Title -->
-        <div class="flex items-center gap-3 min-w-0">
-          <div class="bg-indigo-600 p-2 rounded-lg text-white shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
-
-          <div class="min-w-0">
-            <div class="flex items-center gap-2 flex-wrap">
-              <span class="text-sm text-slate-600 whitespace-nowrap">西暦</span>
-              <input type="number" id="yearInput" value="2025"
-                class="w-24 font-bold text-lg border-b-2 border-indigo-600 focus:outline-none bg-transparent"
-                onchange="generateYearlyCalendar()" />
-              <span class="text-xl font-bold whitespace-nowrap">年度 予定表</span>
-            </div>
-            <div id="schoolName"
-              class="text-xs text-slate-500 editable truncate"
-              contenteditable="true"
-              onblur="saveSchoolName()">
-              ここに学校名等を入力してください
-            </div>
-          </div>
-        </div>
-
-        <!-- Right: Login status + edit toggle -->
-        <div class="flex flex-wrap items-center gap-2 sm:gap-3 justify-start sm:justify-end">
-          <button id="loginBtn" onclick="openLoginModal()"
-            class="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 flex items-center gap-2">
-            <span class="text-slate-600 whitespace-nowrap">ログイン</span>
-            <span id="loginBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs whitespace-nowrap">未ログイン</span>
-            <span id="syncBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs whitespace-nowrap">未接続</span>
-          </button>
-
-          <button id="modeBtn" onclick="toggleEditMode()"
-            class="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 flex items-center gap-2 opacity-50 pointer-events-none"
-            title="ログイン後に切り替えできます">
-            <span class="text-slate-600 whitespace-nowrap">モード</span>
-            <span id="modeBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs whitespace-nowrap">閲覧</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Row 2: CSV + Search (スマホでも横並び) -->
-      <div class="mt-3 grid grid-cols-2 gap-2 sm:flex sm:items-center sm:justify-end">
-        <label id="csvLabel"
-          class="cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center shadow-sm active:scale-95 opacity-50 pointer-events-none"
-          title="編集モードで使えます">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
-            stroke="currentColor">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+      <!-- 左：タイトル -->
+      <div class="flex items-center space-x-3">
+        <div class="bg-indigo-600 p-2 rounded-lg text-white">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
-          <span class="whitespace-nowrap">CSVインポート</span>
-          <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="importCSV(this)">
-        </label>
+        </div>
 
-        <div class="relative w-full sm:w-72">
-          <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
-              stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </span>
-          <input type="text" id="searchInput" placeholder="検索"
-            class="block w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+        <div>
+          <div class="flex items-center space-x-2">
+            <span>西暦</span>
+            <input type="number" id="yearInput" value="2025"
+              class="w-20 font-bold text-lg border-b-2 border-indigo-600 focus:outline-none"
+              onchange="generateYearlyCalendar()" />
+            <span class="text-xl font-bold">年度 予定表</span>
+          </div>
+          <div id="schoolName" class="text-xs text-slate-500 editable" contenteditable="true" onblur="saveSchoolName()">
+            ここに学校名等を入力してください
+          </div>
         </div>
       </div>
 
-      <!-- Row 3: Month (PC: buttons / Mobile: dropdown) -->
-      <div class="mt-3">
-        <div class="sm:hidden">
-          <select id="monthSelect"
-            class="w-full px-3 py-3 rounded-xl border border-slate-200 bg-slate-50 text-base font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            onchange="setMonthFromSelect(this.value)">
-          </select>
-        </div>
+      <!-- 右：操作群（UI維持：ログイン＋CSV＋検索） -->
+      <div class="flex items-center space-x-3 w-full md:w-auto">
+        <!-- ログイン -->
+        <button id="loginBtn" onclick="openLoginModal()"
+          class="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 flex items-center gap-2 w-full md:w-auto justify-between md:justify-start">
+          <span class="text-slate-500">ログイン</span>
+          <span id="loginBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs">未ログイン</span>
+          <span id="syncBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs">未接続</span>
+          <span class="text-slate-400">モード</span>
+          <span id="modeBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs">閲覧</span>
+        </button>
 
-        <div class="hidden sm:block overflow-x-auto scrollbar-hide border-t border-slate-100 mt-2">
-          <div class="flex space-x-1 py-2" id="monthNav"></div>
+        <!-- スマホ：CSVと検索は横並び（自動調整） -->
+        <div class="flex items-center gap-2 w-full md:w-auto">
+          <div class="flex-1 md:flex-none flex items-center space-x-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl">
+            <label id="csvLabel"
+              class="w-full md:w-auto cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center shadow-sm active:scale-95">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              CSVインポート
+              <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="importCSV(this)">
+            </label>
+          </div>
+
+          <div class="relative flex-1 md:flex-none">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </span>
+            <input type="text" id="searchInput" placeholder="検索"
+              class="block w-full md:w-48 pl-10 pr-4 py-2 border border-slate-200 rounded-lg bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+          </div>
         </div>
       </div>
+    </div>
 
-      <!-- Row 4: Tabs -->
-      <div class="mt-2 overflow-x-auto scrollbar-hide border-t border-slate-100">
-        <div class="flex space-x-6 text-sm font-medium" id="tabs">
-          <button onclick="switchTab('all')" data-tab="all"
-            class="tab-btn py-3 border-b-2 border-indigo-600 text-indigo-600 whitespace-nowrap">全体表示</button>
-          <button onclick="switchTab('school')" data-tab="school"
-            class="tab-btn py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap">予定</button>
-          <button onclick="switchTab('business')" data-tab="business"
-            class="tab-btn py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap">出張</button>
-          <button onclick="switchTab('submission')" data-tab="submission"
-            class="tab-btn py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap">提出物</button>
-          <button onclick="switchTab('vacation')" data-tab="vacation"
-            class="tab-btn py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap">休暇</button>
-        </div>
+    <!-- 月：PCはボタン／スマホはドロップダウン -->
+    <div class="max-w-7xl mx-auto px-4 border-t border-slate-100">
+      <div class="hidden md:flex space-x-1 py-2 overflow-x-auto scrollbar-hide" id="monthNav"></div>
+
+      <div class="md:hidden py-2">
+        <select id="monthSelect"
+          class="w-full px-3 py-3 rounded-xl border border-slate-200 bg-slate-50 text-base font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          onchange="onMonthSelectChange(this.value)">
+        </select>
+      </div>
+    </div>
+
+    <!-- タブ -->
+    <div class="max-w-7xl mx-auto px-4 overflow-x-auto scrollbar-hide">
+      <div class="flex space-x-6 text-sm font-medium" id="tabs">
+        <button onclick="switchTab('all')" data-tab="all"
+          class="tab-btn py-3 border-b-2 border-indigo-600 text-indigo-600">全体表示</button>
+        <button onclick="switchTab('school')" data-tab="school"
+          class="tab-btn py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700">予定</button>
+        <button onclick="switchTab('business')" data-tab="business"
+          class="tab-btn py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700">出張</button>
+        <button onclick="switchTab('submission')" data-tab="submission"
+          class="tab-btn py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700">提出物</button>
+        <button onclick="switchTab('vacation')" data-tab="vacation"
+          class="tab-btn py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700">休暇</button>
       </div>
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-3 sm:px-4 mt-6">
+  <main class="max-w-7xl mx-auto px-4 mt-6">
     <div id="scheduleContainer" class="space-y-2"></div>
     <div id="emptyState"
       class="hidden py-20 text-center text-slate-400 bg-white rounded-xl border border-dashed border-slate-300">
@@ -162,36 +153,74 @@
     </div>
   </main>
 
+  <!-- ★右下クレジット（欄外） -->
   <div class="no-print fixed bottom-2 right-3 text-[11px] text-slate-400 select-none">
     @予定表アプリ Takayuki WAYAMA
   </div>
 
-  <!-- LOGIN MODAL -->
+  <!-- ★ログイン モーダル -->
   <div id="loginModal" class="hidden fixed inset-0 z-50">
     <div class="absolute inset-0 bg-black/40" onclick="closeLoginModal()"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4">
       <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
         <div class="p-4 border-b border-slate-100">
           <div class="text-lg font-bold">ID / Password ログイン</div>
-          <div class="text-sm text-slate-500 mt-1 leading-relaxed">
+          <div class="text-sm text-slate-500 mt-1">
             ・同じID/Passwordでログインした人は同じ予定表を共同編集できます。<br>
-            ・「新規作成」は、まだ使われていないIDで最初の1回だけ実行します。<br>
-            ・セキュリティ目的の本格ログインではなく「校内共有の合言葉」用途想定です。
+            ・「新規作成」は、未使用のIDで最初の1回だけ作れます。<br>
+            ・編集は「閲覧⇄編集」の切替で行います（誰でも切替可能）。
           </div>
         </div>
 
         <div class="p-4 space-y-4">
           <div>
-            <label class="text-sm font-medium text-slate-700">ID（英数字・記号 . _ - ）</label>
-            <input id="idInput" type="text" placeholder="例：otaki-staff"
+            <label class="text-sm font-medium text-slate-700">ID（英数・記号 . _ -）</label>
+            <input id="idInput" type="text" placeholder="例：otaki-office"
               class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            <div class="text-xs text-slate-500 mt-1">3〜32文字推奨（空白不可）</div>
           </div>
 
           <div>
-            <label class="text-sm font-medium text-slate-700">Password</label>
+            <label class="text-sm font-medium text-slate-700">Password（6文字以上）</label>
             <input id="passInput" type="password" placeholder=""
               class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <div class="text-xs text-slate-500 mt-1">
+              ※セキュリティ目的の“本格ログイン”ではなく「校内共有の合言葉」用途想定です。
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3">
+            <div>
+              <div class="text-sm font-medium text-slate-700">モード</div>
+              <div class="text-xs text-slate-500">ログイン後に切り替えできます</div>
+            </div>
+            <button onclick="toggleMode()"
+              class="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm">
+              <span id="modeBtnText">閲覧 ⇄ 編集</span>
+            </button>
+          </div>
+
+          <div class="border-t border-slate-100 pt-4">
+            <div class="text-sm font-bold text-slate-700">ID/Password変更（データ引き継ぎ）</div>
+            <div class="text-xs text-slate-500 mt-1">
+              同じ予定表のまま、IDやPasswordを変更できます（移行ボタンはありません）。
+            </div>
+
+            <div class="mt-3 grid grid-cols-1 gap-3">
+              <div>
+                <label class="text-xs font-medium text-slate-600">新しいID（任意）</label>
+                <input id="newIdInput" type="text" placeholder="（変更しないなら空欄）"
+                  class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label class="text-xs font-medium text-slate-600">新しいPassword（任意 / 6文字以上）</label>
+                <input id="newPassInput" type="password" placeholder="（変更しないなら空欄）"
+                  class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <button onclick="changeIdOrPassword()"
+                class="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
+                ID/Passwordを変更
+              </button>
+            </div>
           </div>
         </div>
 
@@ -204,69 +233,42 @@
             class="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
             新規作成
           </button>
-          <button onclick="loginExisting()"
+          <button onclick="loginWithIdPass()"
             class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
             ログイン
           </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- CHANGE ID/PASS MODAL -->
-  <div id="changeModal" class="hidden fixed inset-0 z-50">
-    <div class="absolute inset-0 bg-black/40" onclick="closeChangeModal()"></div>
-    <div class="absolute inset-0 flex items-center justify-center p-4">
-      <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-        <div class="p-4 border-b border-slate-100">
-          <div class="text-lg font-bold">ID / Password を変更</div>
-          <div class="text-sm text-slate-500 mt-1 leading-relaxed">
-            ・この変更は「データを引き継いだまま」ID/Passwordを差し替えます。<br>
-            ・新しいIDは未使用の場合のみ使えます。
-          </div>
-        </div>
-
-        <div class="p-4 space-y-4">
-          <div class="text-xs text-slate-500">
-            現在のID：<span id="currentIdLabel" class="font-medium text-slate-700"></span>
-          </div>
-
-          <div>
-            <label class="text-sm font-medium text-slate-700">新しいID（空欄なら変更しない）</label>
-            <input id="newIdInput" type="text" placeholder=""
-              class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          </div>
-
-          <div>
-            <label class="text-sm font-medium text-slate-700">新しいPassword（空欄なら変更しない）</label>
-            <input id="newPassInput" type="password" placeholder=""
-              class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          </div>
-        </div>
-
-        <div class="p-4 border-t border-slate-100 flex flex-wrap justify-end gap-2">
-          <button onclick="closeChangeModal()"
-            class="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
-            キャンセル
-          </button>
-          <button onclick="applyChangeIdPass()"
-            class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
-            変更を保存
+          <button onclick="logout()"
+            class="px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
+            ログアウト
           </button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- SIMPLE TOAST/ALERT -->
   <script>
-    function showMsg(message) { alert(message); }
-  </script>
+    // ========= ローカル保存キー =========
+    const STORAGE_KEY_PREFIX = 'school_schedule_data_v2_';
+    const SCHOOL_NAME_KEY = 'school_name_storage';
 
-  <script>
-    // ==============================
-    // Firebase Config（あなたの値）
-    // ==============================
+    // ========= 状態 =========
+    let scheduleData = [];
+    let currentMonth = 4;
+    let currentTab = 'all';
+    let searchQuery = '';
+
+    // ========= Firebase =========
+    let firebaseReady = false;
+    let db = null;
+    let authUser = null;
+
+    // ログインID表示用（保存はIDだけ。Passwordは保存しない）
+    const LAST_ID_KEY = 'schedule_last_id_v1';
+
+    // モード：閲覧/編集（ログイン後に誰でも切替）
+    let canEdit = false;
+
+    // ★あなたのFirebaseプロジェクトの設定（あなたの値を反映済み）
     const firebaseConfig = {
       apiKey: "AIzaSyA-FkCxNyT8C-HicXa4PbHcjNkwIvQWWw0",
       authDomain: "schedule-collab-38ed7.firebaseapp.com",
@@ -277,500 +279,344 @@
       measurementId: "G-JRY3LPRJ3H"
     };
 
-    // ==============================
-    // LocalStorage Keys
-    // ==============================
-    const LS_ID = 'schedule_login_id_v1';
-    const LS_PASS = 'schedule_login_pass_v1'; // 校内運用想定のため保存（必要なら消してください）
-    const LS_EDITMODE = 'schedule_editmode_v1';
-
-    const SCHOOL_NAME_KEY = 'school_name_storage';
-    const STORAGE_KEY_PREFIX = 'school_schedule_data_v3_'; // ローカル（未ログイン用）※基本はクラウド運用
-
-    // ==============================
-    // App State
-    // ==============================
-    let scheduleData = [];
-    let currentMonth = 4;
-    let currentTab = 'all';
-    let searchQuery = '';
-
-    // Firebase state
-    let firebaseReady = false;
-    let db = null;
-    let authUser = null;
-
-    // Login/account state
-    let loggedIn = false;
-    let currentId = '';
-    let currentIdHash = '';
-    let currentRoomId = '';
-    let passHash = '';
-
-    // Cloud listeners
-    let unsubscribeDays = null;
-    let unsubscribeRoom = null;
-
-    // Mode
-    let editMode = false;
-
-    // ==============================
-    // UI badges
-    // ==============================
-    function setSyncBadge(text, kind='idle') {
+    function setSyncBadge(text, kind = 'idle') {
       const el = document.getElementById('syncBadge');
       el.textContent = text;
       const cls = {
-        idle: 'bg-slate-100 text-slate-500',
+        idle: 'bg-slate-50 text-slate-500',
         ok: 'bg-emerald-50 text-emerald-700',
         ng: 'bg-rose-50 text-rose-700',
         wait: 'bg-amber-50 text-amber-700',
-      }[kind] || 'bg-slate-100 text-slate-500';
-      el.className = `px-2 py-0.5 rounded-full text-xs ${cls} whitespace-nowrap`;
+      }[kind] || 'bg-slate-50 text-slate-500';
+      el.className = `px-2 py-0.5 rounded-full text-xs ${cls}`;
     }
 
-    function setLoginBadge() {
+    function setLoginBadge(text, kind='off') {
       const el = document.getElementById('loginBadge');
-      if (!loggedIn) {
-        el.textContent = '未ログイン';
-        el.className = 'px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs whitespace-nowrap';
-      } else {
-        el.textContent = `ログイン中`;
-        el.className = 'px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs whitespace-nowrap';
-      }
+      el.textContent = text;
+      const cls = {
+        off: 'bg-slate-50 text-slate-500',
+        on: 'bg-slate-100 text-slate-600',
+      }[kind] || 'bg-slate-50 text-slate-500';
+      el.className = `px-2 py-0.5 rounded-full text-xs ${cls}`;
     }
 
     function setModeBadge() {
       const el = document.getElementById('modeBadge');
-      el.textContent = editMode ? '編集' : '閲覧';
-      el.className = `px-2 py-0.5 rounded-full text-xs whitespace-nowrap ${editMode ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`;
+      el.textContent = canEdit ? '編集' : '閲覧';
+      el.className = `px-2 py-0.5 rounded-full text-xs ${canEdit ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`;
 
-      // enable/disable CSV label
+      // CSVインポートは編集モードのみ
       const label = document.getElementById('csvLabel');
-      if (loggedIn && editMode) {
+      if (!label) return;
+      if (authUser && canEdit) {
         label.classList.remove('opacity-50', 'pointer-events-none');
         label.title = '';
       } else {
         label.classList.add('opacity-50', 'pointer-events-none');
-        label.title = loggedIn ? '閲覧モードではCSVインポートできません（編集に切替）' : 'ログイン後に使えます';
-      }
-
-      // enable mode button after login
-      const modeBtn = document.getElementById('modeBtn');
-      if (loggedIn) {
-        modeBtn.classList.remove('opacity-50', 'pointer-events-none');
-        modeBtn.title = '';
-      } else {
-        modeBtn.classList.add('opacity-50', 'pointer-events-none');
-        modeBtn.title = 'ログイン後に切り替えできます';
+        label.title = '編集モードでログインしている時だけCSVインポートできます';
       }
     }
 
     function applyEditLockToDOM() {
-      const canEditNow = loggedIn && editMode;
+      const editable = !!(authUser && canEdit);
       document.querySelectorAll('[contenteditable]').forEach(el => {
-        el.setAttribute('contenteditable', canEditNow ? 'true' : 'false');
-        if (canEditNow) el.classList.remove('readonly');
+        el.setAttribute('contenteditable', editable ? 'true' : 'false');
+        if (editable) el.classList.remove('readonly');
         else el.classList.add('readonly');
       });
+      setModeBadge();
     }
 
-    // ==============================
-    // Firebase helpers
-    // ==============================
+    function toEmailFromId(id) {
+      const s = String(id || '').trim();
+      if (!/^[A-Za-z0-9._-]+$/.test(s)) return null;
+      // 実メールではないが、Authのためメール形式にする
+      return `${s}@schedule.local`;
+    }
+
+    function friendlyAuthError(e, context) {
+      const code = (e && e.code) ? String(e.code) : '';
+      if (code === 'auth/email-already-in-use') return 'そのIDは既に使われています（新規作成できません）。';
+      if (code === 'auth/user-not-found') return 'そのIDは存在しません。新規作成してください。';
+      if (code === 'auth/wrong-password') return 'Passwordが違います。';
+      if (code === 'auth/invalid-email') return 'IDが不正です（英数・記号 . _ - のみ）。';
+      if (code === 'auth/weak-password') return 'Passwordが弱すぎます（6文字以上にしてください）。';
+      if (code === 'auth/requires-recent-login') return '安全のため、いったんログアウト→ログインし直してから再度お試しください。';
+      return `${context}に失敗しました。もう一度お試しください。`;
+    }
+
     async function ensureFirebase() {
       if (firebaseReady) return true;
       try {
         firebase.initializeApp(firebaseConfig);
         db = firebase.firestore();
-        setSyncBadge('接続中', 'wait');
-
-        // Anonymous auth
-        const res = await firebase.auth().signInAnonymously();
-        authUser = res.user;
-
         firebaseReady = true;
-        setSyncBadge('接続OK', 'ok');
+        setSyncBadge('準備OK', 'ok');
         return true;
       } catch (e) {
         console.error(e);
         setSyncBadge('接続失敗', 'ng');
-        showMsg('Firebase接続に失敗しました。\nAuthentication(匿名)の有効化 / 承認済みドメイン / Firestoreルールを確認してください。');
+        alert('Firebase初期化に失敗しました。firebaseConfig を確認してください。');
         return false;
       }
     }
 
-    async function sha256Hex(str) {
-      const data = new TextEncoder().encode(str);
-      const hash = await crypto.subtle.digest('SHA-256', data);
-      return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
+    // ========= Firestore参照（rooms/{uid}） =========
+    function getStartYear() {
+      return parseInt(document.getElementById('yearInput').value, 10);
+    }
+    function roomId() {
+      return authUser ? authUser.uid : null;
+    }
+    function roomDocRef() {
+      return db.collection('rooms').doc(roomId());
+    }
+    function cloudDaysRef(startYear) {
+      return roomDocRef()
+        .collection('years').doc(String(startYear))
+        .collection('days');
     }
 
-    function randHex(bytes=16) {
-      const arr = new Uint8Array(bytes);
-      crypto.getRandomValues(arr);
-      return [...arr].map(b => b.toString(16).padStart(2, '0')).join('');
+    let unsubscribeSnap = null;
+    let unsubscribeMeta = null;
+
+    function stopCloudSync() {
+      if (typeof unsubscribeSnap === 'function') unsubscribeSnap();
+      if (typeof unsubscribeMeta === 'function') unsubscribeMeta();
+      unsubscribeSnap = null;
+      unsubscribeMeta = null;
     }
 
-    function accountsRef() { return db.collection('accounts'); }
-    function accountDocRef(idHash) { return accountsRef().doc(idHash); }
-
-    function roomDocRef(roomId) { return db.collection('rooms').doc(roomId); }
-
-    function cloudDaysRef(roomId, startYear) {
-      return roomDocRef(roomId).collection('years').doc(String(startYear)).collection('days');
-    }
-
-    function stopCloudListeners() {
-      if (typeof unsubscribeDays === 'function') unsubscribeDays();
-      if (typeof unsubscribeRoom === 'function') unsubscribeRoom();
-      unsubscribeDays = null;
-      unsubscribeRoom = null;
-    }
-
-    // ==============================
-    // Login modal
-    // ==============================
-    function openLoginModal() {
-      document.getElementById('idInput').value = localStorage.getItem(LS_ID) || '';
-      document.getElementById('passInput').value = localStorage.getItem(LS_PASS) || '';
-      document.getElementById('loginModal').classList.remove('hidden');
-      setTimeout(() => document.getElementById('idInput').focus(), 0);
-    }
-    function closeLoginModal() {
-      document.getElementById('loginModal').classList.add('hidden');
-    }
-
-    function openChangeModal() {
-      if (!loggedIn) return;
-      document.getElementById('currentIdLabel').textContent = currentId;
-      document.getElementById('newIdInput').value = '';
-      document.getElementById('newPassInput').value = '';
-      document.getElementById('changeModal').classList.remove('hidden');
-      setTimeout(() => document.getElementById('newIdInput').focus(), 0);
-    }
-    function closeChangeModal() {
-      document.getElementById('changeModal').classList.add('hidden');
-    }
-
-    // ==============================
-    // Login/Create/Change
-    // ==============================
-    function validId(id) {
-      // 英数字 . _ - のみ、3〜32
-      return /^[A-Za-z0-9._-]{3,32}$/.test(id);
-    }
-
-    async function loginExisting() {
-      const id = (document.getElementById('idInput').value || '').trim();
-      const pass = (document.getElementById('passInput').value || '').trim();
-
-      if (!validId(id)) return showMsg('IDは英数字と . _ - のみ（3〜32文字）で入力してください。');
-      if (!pass) return showMsg('Passwordを入力してください。');
-
-      closeLoginModal();
-
-      const ok = await ensureFirebase();
-      if (!ok) return;
-
-      try {
-        setSyncBadge('確認中', 'wait');
-        const idHash = await sha256Hex(id);
-        const pHash = await sha256Hex(pass);
-
-        const snap = await accountDocRef(idHash).get();
-        if (!snap.exists) {
-          setSyncBadge('未接続', 'idle');
-          return showMsg('そのIDはまだ使われていません。\n「新規作成」で作成してください。');
-        }
-
-        const data = snap.data() || {};
-        if (String(data.passHash || '') !== pHash) {
-          setSyncBadge('未接続', 'idle');
-          return showMsg('Passwordが違います。');
-        }
-
-        // success
-        loggedIn = true;
-        currentId = id;
-        currentIdHash = idHash;
-        passHash = pHash;
-        currentRoomId = String(data.roomId || '');
-
-        localStorage.setItem(LS_ID, id);
-        localStorage.setItem(LS_PASS, pass);
-
-        setLoginBadge();
-        setSyncBadge('同期中', 'wait');
-
-        // default mode: 閲覧（前回保存があれば復元）
-        const savedMode = localStorage.getItem(LS_EDITMODE);
-        editMode = (savedMode === '1') ? true : false;
-
-        await startCloudSyncForYear();
-        await startRoomMetaSync();
-
-        setModeBadge();
-        renderSchedule();
-        applyEditLockToDOM();
-
-      } catch (e) {
-        console.error(e);
-        setSyncBadge('接続失敗', 'ng');
-        showMsg('ログインに失敗しました。Firestoreルール（accounts read）を確認してください。');
+    async function startCloudSyncForYear() {
+      if (!authUser) {
+        setSyncBadge('未接続', 'idle');
+        stopCloudSync();
+        return;
       }
-    }
-
-    async function createNewAccount() {
-      const id = (document.getElementById('idInput').value || '').trim();
-      const pass = (document.getElementById('passInput').value || '').trim();
-
-      if (!validId(id)) return showMsg('IDは英数字と . _ - のみ（3〜32文字）で入力してください。');
-      if (!pass) return showMsg('Passwordを入力してください。');
-
-      closeLoginModal();
-
       const ok = await ensureFirebase();
       if (!ok) return;
 
-      try {
-        setSyncBadge('作成中', 'wait');
+      stopCloudSync();
 
-        const idHash = await sha256Hex(id);
-        const pHash = await sha256Hex(pass);
-        const newRoomId = await sha256Hex(`${randHex(16)}:${Date.now()}:${idHash}`);
+      const startYear = getStartYear();
+      const ref = cloudDaysRef(startYear);
 
-        await db.runTransaction(async (tx) => {
-          const ref = accountDocRef(idHash);
-          const snap = await tx.get(ref);
-          if (snap.exists) {
-            throw new Error('ID_ALREADY_USED');
-          }
-          tx.set(ref, {
-            roomId: newRoomId,
-            passHash: pHash,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: false });
+      setSyncBadge('同期中', 'wait');
 
-          // room meta (optional)
-          tx.set(roomDocRef(newRoomId), {
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          }, { merge: true });
+      unsubscribeSnap = ref.onSnapshot((snap) => {
+        let changed = false;
+        snap.docChanges().forEach(ch => {
+          const data = ch.doc.data() || {};
+          const y = data.year, m = data.month, d = data.day;
+          if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return;
+
+          const target = scheduleData.find(it => it.year === y && it.month === m && it.day === d);
+          if (!target) return;
+
+          target.duty = data.duty || '';
+          target.events = data.events || '';
+          target.business = data.business || '';
+          target.submission = data.submission || '';
+          target.vacation = data.vacation || '';
+          changed = true;
         });
 
-        // auto login
-        loggedIn = true;
-        currentId = id;
-        currentIdHash = idHash;
-        passHash = pHash;
-        currentRoomId = newRoomId;
-
-        localStorage.setItem(LS_ID, id);
-        localStorage.setItem(LS_PASS, pass);
-
-        // start in view mode (編集は切替)
-        editMode = false;
-        localStorage.setItem(LS_EDITMODE, '0');
-
-        setLoginBadge();
-        setModeBadge();
-
-        await startCloudSyncForYear();
-        await startRoomMetaSync();
-
-        renderSchedule();
-        applyEditLockToDOM();
-        showMsg('新規作成しました。\n同じID/Passwordでログインした人は同じ予定表を共有します。');
-
-      } catch (e) {
-        console.error(e);
-        if (String(e.message || '').includes('ID_ALREADY_USED')) {
-          setSyncBadge('未接続', 'idle');
-          showMsg('そのIDは既に使われています。\n別のIDで「新規作成」してください。');
-          return;
-        }
-        setSyncBadge('接続失敗', 'ng');
-        showMsg('新規作成に失敗しました。\nほぼ原因はFirestoreルールで write が拒否されています。\n下の「Firestoreルール」を確認してください。');
-      }
-    }
-
-    async function applyChangeIdPass() {
-      if (!loggedIn) return;
-
-      const newId = (document.getElementById('newIdInput').value || '').trim();
-      const newPass = (document.getElementById('newPassInput').value || '').trim();
-
-      if (newId && !validId(newId)) return showMsg('新しいIDは英数字と . _ - のみ（3〜32文字）で入力してください。');
-      if (!newId && !newPass) return showMsg('変更する内容がありません（新IDまたは新Passwordを入力）。');
-
-      closeChangeModal();
-
-      const ok = await ensureFirebase();
-      if (!ok) return;
-
-      try {
-        setSyncBadge('更新中', 'wait');
-
-        const nextPassHash = newPass ? await sha256Hex(newPass) : passHash;
-
-        if (newId) {
-          const newIdHash = await sha256Hex(newId);
-
-          await db.runTransaction(async (tx) => {
-            const oldRef = accountDocRef(currentIdHash);
-            const newRef = accountDocRef(newIdHash);
-
-            const newSnap = await tx.get(newRef);
-            if (newSnap.exists) throw new Error('NEW_ID_USED');
-
-            const oldSnap = await tx.get(oldRef);
-            if (!oldSnap.exists) throw new Error('OLD_ACCOUNT_MISSING');
-
-            const oldData = oldSnap.data() || {};
-            const roomId = String(oldData.roomId || currentRoomId);
-
-            tx.set(newRef, {
-              roomId,
-              passHash: nextPassHash,
-              createdAt: oldData.createdAt || firebase.firestore.FieldValue.serverTimestamp(),
-              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: false });
-
-            tx.delete(oldRef);
-          });
-
-          // update local state
-          currentId = newId;
-          currentIdHash = await sha256Hex(newId);
-          passHash = nextPassHash;
-
-          localStorage.setItem(LS_ID, newId);
-          if (newPass) localStorage.setItem(LS_PASS, newPass);
-
-        } else {
-          // only password change
-          await accountDocRef(currentIdHash).set({
-            passHash: nextPassHash,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-
-          passHash = nextPassHash;
-          if (newPass) localStorage.setItem(LS_PASS, newPass);
-        }
-
+        if (changed) renderSchedule();
         setSyncBadge('同期OK', 'ok');
-        showMsg('ID/Passwordを変更しました（データは引き継がれます）。');
-
-      } catch (e) {
-        console.error(e);
+      }, (err) => {
+        console.error(err);
         setSyncBadge('同期失敗', 'ng');
-        if (String(e.message || '').includes('NEW_ID_USED')) {
-          showMsg('その新しいIDは既に使われています。別のIDを指定してください。');
-          return;
-        }
-        showMsg('変更に失敗しました。Firestoreルール（accounts write）を確認してください。');
-      }
-    }
+      });
 
-    function logout() {
-      stopCloudListeners();
-      loggedIn = false;
-      currentId = '';
-      currentIdHash = '';
-      currentRoomId = '';
-      passHash = '';
-      editMode = false;
-
-      setLoginBadge();
-      setSyncBadge('未接続', 'idle');
-      setModeBadge();
-
-      localStorage.removeItem(LS_ID);
-      localStorage.removeItem(LS_PASS);
-      localStorage.removeItem(LS_EDITMODE);
-
-      renderSchedule();
-      applyEditLockToDOM();
-      showMsg('ログアウトしました。');
-    }
-
-    // ==============================
-    // Mode
-    // ==============================
-    function toggleEditMode() {
-      if (!loggedIn) return;
-      editMode = !editMode;
-      localStorage.setItem(LS_EDITMODE, editMode ? '1' : '0');
-      setModeBadge();
-      renderSchedule();
-      applyEditLockToDOM();
-    }
-
-    // ==============================
-    // Room meta sync (school name)
-    // ==============================
-    async function startRoomMetaSync() {
-      if (!loggedIn || !currentRoomId) return;
-      const ok = await ensureFirebase();
-      if (!ok) return;
-
-      if (typeof unsubscribeRoom === 'function') unsubscribeRoom();
-
-      unsubscribeRoom = roomDocRef(currentRoomId).onSnapshot((snap) => {
+      // 学校名も共有（meta）
+      unsubscribeMeta = roomDocRef().onSnapshot((snap) => {
         if (!snap.exists) return;
         const data = snap.data() || {};
-        if (data.schoolName && !editMode) {
-          // 編集中は上書きしない（打ってる最中に戻るの防止）
-          document.getElementById('schoolName').innerText = String(data.schoolName);
-        } else if (data.schoolName && document.getElementById('schoolName').innerText.trim() === 'ここに学校名等を入力してください') {
-          document.getElementById('schoolName').innerText = String(data.schoolName);
+        if (typeof data.schoolName === 'string' && data.schoolName.trim()) {
+          const el = document.getElementById('schoolName');
+          // 編集中の上書きを避ける
+          if (document.activeElement !== el) el.innerText = data.schoolName;
         }
-      }, (err) => console.error(err));
+      });
     }
 
+    async function saveDayToCloud(item) {
+      if (!authUser) return;
+      const ok = await ensureFirebase();
+      if (!ok) return;
+
+      const startYear = getStartYear();
+      const docId = `${item.year}-${item.month}-${item.day}`;
+      const ref = cloudDaysRef(startYear).doc(docId);
+
+      await ref.set({
+        year: item.year,
+        month: item.month,
+        day: item.day,
+        duty: item.duty || '',
+        events: item.events || '',
+        business: item.business || '',
+        submission: item.submission || '',
+        vacation: item.vacation || '',
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: authUser ? authUser.uid : null
+      }, { merge: true });
+    }
+
+    async function batchSaveToCloud(items) {
+      if (!authUser) return;
+      const ok = await ensureFirebase();
+      if (!ok) return;
+
+      const startYear = getStartYear();
+      const ref = cloudDaysRef(startYear);
+
+      const batch = db.batch();
+      items.forEach(item => {
+        const docId = `${item.year}-${item.month}-${item.day}`;
+        batch.set(ref.doc(docId), {
+          year: item.year,
+          month: item.month,
+          day: item.day,
+          duty: item.duty || '',
+          events: item.events || '',
+          business: item.business || '',
+          submission: item.submission || '',
+          vacation: item.vacation || '',
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedBy: authUser ? authUser.uid : null
+        }, { merge: true });
+      });
+      await batch.commit();
+    }
+
+    // ========= ローカル保存 =========
+    function getStorageKey() {
+      const year = document.getElementById('yearInput').value;
+      return STORAGE_KEY_PREFIX + year;
+    }
+    function saveToStorage() {
+      localStorage.setItem(getStorageKey(), JSON.stringify(scheduleData));
+    }
     async function saveSchoolName() {
-      const name = (document.getElementById('schoolName').innerText || '').trim();
+      const name = document.getElementById('schoolName').innerText;
       localStorage.setItem(SCHOOL_NAME_KEY, name);
 
-      if (!loggedIn || !editMode || !currentRoomId) return;
-
-      try {
-        await roomDocRef(currentRoomId).set({
-          schoolName: name,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-      } catch (e) {
-        console.error(e);
+      // ログイン中はクラウドにも保存（共有）
+      if (authUser) {
+        try {
+          await roomDocRef().set({ schoolName: String(name || '') }, { merge: true });
+        } catch (e) { console.error(e); }
       }
     }
-
     function loadSchoolName() {
       const savedName = localStorage.getItem(SCHOOL_NAME_KEY);
       if (savedName) document.getElementById('schoolName').innerText = savedName;
     }
 
-    // ==============================
-    // Year & month
-    // ==============================
-    function getStartYear() {
-      return parseInt(document.getElementById('yearInput').value, 10);
+    // ========= 初期化 =========
+    async function init() {
+      loadSchoolName();
+      renderMonthNav();
+      renderMonthSelect();
+      setupSearch();
+      generateYearlyCalendar();
+
+      await ensureFirebase();
+
+      // 前回のIDを復元（入力補助）
+      const lastId = localStorage.getItem(LAST_ID_KEY) || '';
+      document.getElementById('idInput').value = lastId;
+
+      // 認証状態監視
+      firebase.auth().onAuthStateChanged(async (u) => {
+        authUser = u || null;
+        if (authUser) {
+          setLoginBadge('ログイン済み', 'on');
+          setSyncBadge('接続OK', 'ok');
+          // デフォは閲覧（必要なら自分で切替）
+          canEdit = false;
+          setModeBadge();
+          await startCloudSyncForYear();
+        } else {
+          setLoginBadge('未ログイン', 'off');
+          setSyncBadge('未接続', 'idle');
+          canEdit = false;
+          stopCloudSync();
+        }
+        renderSchedule();
+        applyEditLockToDOM();
+      });
     }
 
-    function setMonthFromSelect(val) {
-      const m = parseInt(val, 10);
-      if (!Number.isFinite(m)) return;
-      currentMonth = m;
-      renderMonthNav();
+    // ========= 年度生成 =========
+    function generateYearlyCalendar() {
+      const startYear = parseInt(document.getElementById('yearInput').value, 10);
+      const savedData = localStorage.getItem(getStorageKey());
+      const parsedSavedData = savedData ? JSON.parse(savedData) : null;
+
+      const newScheduleData = [];
+      const dows = ['日', '月', '火', '水', '木', '金', '土'];
+
+      for (let i = 0; i < 12; i++) {
+        const month = (i + 3) % 12 + 1;
+        const year = month >= 4 ? startYear : startYear + 1;
+        const daysInMonth = new Date(year, month, 0).getDate();
+
+        for (let day = 1; day <= daysInMonth; day++) {
+          const date = new Date(year, month - 1, day);
+          const dow = dows[date.getDay()];
+
+          const existing = parsedSavedData
+            ? parsedSavedData.find(d => d.month === month && d.day === day && d.year === year)
+            : null;
+
+          newScheduleData.push({
+            id: `${year}-${month}-${day}`,
+            year, month, day, dow,
+            duty: existing ? existing.duty : '',
+            events: existing ? existing.events : '',
+            business: existing ? existing.business : '',
+            submission: existing ? existing.submission : '',
+            vacation: existing ? existing.vacation : ''
+          });
+        }
+      }
+
+      scheduleData = newScheduleData;
       renderSchedule();
       applyEditLockToDOM();
+
+      // ログイン中なら年切替で同期も切替
+      if (authUser) startCloudSyncForYear();
     }
 
-    function fillMonthSelect() {
+    // ========= 月ナビ =========
+    function renderMonthNav() {
+      const nav = document.getElementById('monthNav');
+      if (!nav) return;
+      nav.innerHTML = '';
+      const fiscalMonths = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3];
+      fiscalMonths.forEach(m => {
+        const btn = document.createElement('button');
+        btn.className = `px-5 py-2 rounded-full text-sm font-medium transition-all ${currentMonth === m ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-200'}`;
+        btn.innerText = `${m}月`;
+        btn.onclick = () => {
+          currentMonth = m;
+          renderMonthNav();
+          renderMonthSelect();
+          renderSchedule();
+          applyEditLockToDOM();
+        };
+        nav.appendChild(btn);
+      });
+    }
+
+    function renderMonthSelect() {
       const sel = document.getElementById('monthSelect');
       if (!sel) return;
-      const fiscalMonths = [4,5,6,7,8,9,10,11,12,1,2,3];
+      const fiscalMonths = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3];
       sel.innerHTML = '';
       fiscalMonths.forEach(m => {
         const opt = document.createElement('option');
@@ -781,35 +627,14 @@
       });
     }
 
-    function renderMonthNav() {
-      // PC month buttons
-      const nav = document.getElementById('monthNav');
-      if (nav) {
-        nav.innerHTML = '';
-        const fiscalMonths = [4,5,6,7,8,9,10,11,12,1,2,3];
-        fiscalMonths.forEach(m => {
-          const btn = document.createElement('button');
-          btn.className =
-            `px-5 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ` +
-            (currentMonth === m ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-200');
-          btn.innerText = `${m}月`;
-          btn.onclick = () => {
-            currentMonth = m;
-            fillMonthSelect();
-            renderMonthNav();
-            renderSchedule();
-            applyEditLockToDOM();
-          };
-          nav.appendChild(btn);
-        });
-      }
-      // Mobile select
-      fillMonthSelect();
+    function onMonthSelectChange(val) {
+      currentMonth = parseInt(val, 10);
+      renderMonthNav();
+      renderSchedule();
+      applyEditLockToDOM();
     }
 
-    // ==============================
-    // Schedule rendering
-    // ==============================
+    // ========= 描画 =========
     function renderSchedule() {
       const container = document.getElementById('scheduleContainer');
       const emptyState = document.getElementById('emptyState');
@@ -890,145 +715,32 @@
         container.appendChild(card);
       });
 
-      // lock/unlock by mode
       applyEditLockToDOM();
     }
 
-    // ==============================
-    // Cloud sync
-    // ==============================
-    async function startCloudSyncForYear() {
-      if (!loggedIn || !currentRoomId) {
-        setSyncBadge('未接続', 'idle');
-        return;
-      }
-      const ok = await ensureFirebase();
-      if (!ok) return;
-
-      if (typeof unsubscribeDays === 'function') unsubscribeDays();
-
-      const startYear = getStartYear();
-      const ref = cloudDaysRef(currentRoomId, startYear);
-
-      setSyncBadge('同期中', 'wait');
-
-      unsubscribeDays = ref.onSnapshot((snap) => {
-        let changed = false;
-        snap.docChanges().forEach(ch => {
-          const data = ch.doc.data() || {};
-          const y = data.year, m = data.month, d = data.day;
-          if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return;
-
-          const target = scheduleData.find(it => it.year === y && it.month === m && it.day === d);
-          if (!target) return;
-
-          target.duty = data.duty || '';
-          target.events = data.events || '';
-          target.business = data.business || '';
-          target.submission = data.submission || '';
-          target.vacation = data.vacation || '';
-          changed = true;
-        });
-
-        if (changed) renderSchedule();
-        setSyncBadge('同期OK', 'ok');
-      }, (err) => {
-        console.error(err);
-        setSyncBadge('同期失敗', 'ng');
-        showMsg('同期に失敗しました。Firestoreルール（rooms read）を確認してください。');
-      });
-    }
-
-    async function saveDayToCloud(item) {
-      if (!loggedIn || !editMode || !currentRoomId) return;
-      const ok = await ensureFirebase();
-      if (!ok) return;
-
-      const startYear = getStartYear();
-      const docId = `${item.year}-${item.month}-${item.day}`;
-      const ref = cloudDaysRef(currentRoomId, startYear).doc(docId);
-
-      await ref.set({
-        year: item.year,
-        month: item.month,
-        day: item.day,
-        duty: item.duty || '',
-        events: item.events || '',
-        business: item.business || '',
-        submission: item.submission || '',
-        vacation: item.vacation || '',
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        updatedBy: authUser ? authUser.uid : null
-      }, { merge: true });
-    }
-
-    async function batchSaveToCloud(items) {
-      if (!loggedIn || !editMode || !currentRoomId) return;
-      const ok = await ensureFirebase();
-      if (!ok) return;
-
-      const startYear = getStartYear();
-      const ref = cloudDaysRef(currentRoomId, startYear);
-
-      const batch = db.batch();
-      items.forEach(item => {
-        const docId = `${item.year}-${item.month}-${item.day}`;
-        batch.set(ref.doc(docId), {
-          year: item.year,
-          month: item.month,
-          day: item.day,
-          duty: item.duty || '',
-          events: item.events || '',
-          business: item.business || '',
-          submission: item.submission || '',
-          vacation: item.vacation || '',
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          updatedBy: authUser ? authUser.uid : null
-        }, { merge: true });
-      });
-      await batch.commit();
-    }
-
-    // ==============================
-    // Local fallback (optional)
-    // ==============================
-    function getStorageKey() {
-      const year = document.getElementById('yearInput').value;
-      return STORAGE_KEY_PREFIX + year;
-    }
-    function saveToStorage() {
-      localStorage.setItem(getStorageKey(), JSON.stringify(scheduleData));
-    }
-
-    // ==============================
-    // Update field
-    // ==============================
     async function updateField(id, field, value) {
-      if (!loggedIn || !editMode) return;
-
+      // ★編集は「ログイン＋編集モード」の時だけ
+      if (!(authUser && canEdit)) return;
       const item = scheduleData.find(d => d.id === id);
       if (!item) return;
 
       item[field] = (value || '').trim();
-      saveToStorage(); // ローカルにも一応保存
+      saveToStorage();
+
       try { await saveDayToCloud(item); } catch (e) { console.error(e); }
     }
 
-    // ==============================
-    // Tabs
-    // ==============================
+    // ========= タブ =========
     function switchTab(tabId) {
       currentTab = tabId;
       document.querySelectorAll('.tab-btn').forEach(btn => {
         const active = btn.dataset.tab === tabId;
-        btn.className = `tab-btn py-3 border-b-2 text-sm font-medium transition-all whitespace-nowrap ${active ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`;
+        btn.className = `tab-btn py-3 border-b-2 text-sm font-medium transition-all ${active ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`;
       });
       renderSchedule();
     }
 
-    // ==============================
-    // Search
-    // ==============================
+    // ========= 検索 =========
     function setupSearch() {
       document.getElementById('searchInput').oninput = (e) => {
         searchQuery = e.target.value;
@@ -1036,9 +748,7 @@
       };
     }
 
-    // ==============================
-    // CSV import
-    // ==============================
+    // ========= CSV =========
     function parseCSVRow(text) {
       const result = [];
       let current = '';
@@ -1056,13 +766,8 @@
     }
 
     async function importCSV(input) {
-      if (!loggedIn) {
-        showMsg('ログインしてください。');
-        input.value = '';
-        return;
-      }
-      if (!editMode) {
-        showMsg('閲覧モードではCSVインポートできません（モードを「編集」に切替）。');
+      if (!(authUser && canEdit)) {
+        alert('CSVインポートは「ログイン＋編集モード」の時だけできます。');
         input.value = '';
         return;
       }
@@ -1074,7 +779,7 @@
       reader.onload = async function (e) {
         const text = e.target.result;
         const rows = text.split(/\r?\n/).filter(r => r.trim() !== '');
-        if (rows.length < 2) { showMsg('CSVにデータ行がありません。'); input.value=''; return; }
+        if (rows.length < 2) { alert('CSVにデータ行がありません。'); input.value=''; return; }
 
         const headerLine = parseCSVRow(rows[0]);
         const mapping = { '月': -1, '日': -1, '日直': -1, '予定': -1, '出張': -1, '提出物': -1, '休暇': -1 };
@@ -1082,7 +787,7 @@
           const cleanH = String(h ?? '').trim();
           if (Object.prototype.hasOwnProperty.call(mapping, cleanH)) mapping[cleanH] = i;
         });
-        if (mapping['月'] === -1 || mapping['日'] === -1) { showMsg('CSVのヘッダーに「月」「日」が見つかりませんでした。'); input.value=''; return; }
+        if (mapping['月'] === -1 || mapping['日'] === -1) { alert('CSVのヘッダーに「月」「日」が見つかりませんでした。'); input.value=''; return; }
 
         const dataRows = rows.slice(1);
         let count = 0, skipped = 0;
@@ -1113,144 +818,125 @@
           saveToStorage();
           renderSchedule();
           try { await batchSaveToCloud(touched); } catch (err) { console.error(err); }
-          showMsg(`${count}件の予定を更新しました。${skipped ? `（スキップ ${skipped}行）` : ''}`);
+          alert(`${count}件の予定を更新しました。${skipped ? `（スキップ ${skipped}行）` : ''}`);
         } else {
-          showMsg('有効なデータが見つかりませんでした。');
+          alert('有効なデータが見つかりませんでした。');
         }
+
         input.value = '';
       };
 
       reader.readAsText(file, 'Shift-JIS');
     }
 
-    // ==============================
-    // Generate yearly calendar (ローカル初期 + クラウド上書き)
-    // ==============================
-    function generateYearlyCalendar() {
-      const startYear = getStartYear();
-      const savedData = localStorage.getItem(getStorageKey());
-      const parsedSavedData = savedData ? JSON.parse(savedData) : null;
-
-      const newScheduleData = [];
-      const dows = ['日', '月', '火', '水', '木', '金', '土'];
-
-      for (let i = 0; i < 12; i++) {
-        const month = (i + 3) % 12 + 1; // 4月スタート
-        const year = month >= 4 ? startYear : startYear + 1;
-        const daysInMonth = new Date(year, month, 0).getDate();
-
-        for (let day = 1; day <= daysInMonth; day++) {
-          const date = new Date(year, month - 1, day);
-          const dow = dows[date.getDay()];
-
-          const existing = parsedSavedData
-            ? parsedSavedData.find(d => d.month === month && d.day === day && d.year === year)
-            : null;
-
-          newScheduleData.push({
-            id: `${year}-${month}-${day}`,
-            year, month, day, dow,
-            duty: existing ? existing.duty : '',
-            events: existing ? existing.events : '',
-            business: existing ? existing.business : '',
-            submission: existing ? existing.submission : '',
-            vacation: existing ? existing.vacation : ''
-          });
-        }
-      }
-
-      scheduleData = newScheduleData;
-      renderMonthNav();
-      renderSchedule();
-      applyEditLockToDOM();
-
-      // logged in -> re-sync new year
-      if (loggedIn) startCloudSyncForYear();
+    // ========= ログインUI =========
+    function openLoginModal() {
+      const lastId = localStorage.getItem(LAST_ID_KEY) || '';
+      if (!document.getElementById('idInput').value.trim()) document.getElementById('idInput').value = lastId;
+      document.getElementById('loginModal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('idInput').focus(), 0);
+    }
+    function closeLoginModal() {
+      document.getElementById('loginModal').classList.add('hidden');
     }
 
-    // ==============================
-    // Init
-    // ==============================
-    async function init() {
-      loadSchoolName();
-      setupSearch();
-      renderMonthNav();
-      generateYearlyCalendar();
+    async function createNewAccount() {
+      const id = document.getElementById('idInput').value.trim();
+      const pass = document.getElementById('passInput').value;
 
-      // restore edit mode
-      editMode = (localStorage.getItem(LS_EDITMODE) === '1');
-      setModeBadge();
+      const email = toEmailFromId(id);
+      if (!email) { alert('IDは英数・記号 . _ - のみで入力してください。'); return; }
+      if (!pass || pass.length < 6) { alert('Passwordは6文字以上で入力してください。'); return; }
 
-      // auto login if stored
-      const savedId = localStorage.getItem(LS_ID) || '';
-      const savedPass = localStorage.getItem(LS_PASS) || '';
-
-      if (savedId && savedPass) {
-        // silent login
-        const ok = await ensureFirebase();
-        if (ok) {
-          try {
-            const idHash = await sha256Hex(savedId);
-            const pHash = await sha256Hex(savedPass);
-            const snap = await accountDocRef(idHash).get();
-            if (snap.exists && String((snap.data()||{}).passHash||'') === pHash) {
-              loggedIn = true;
-              currentId = savedId;
-              currentIdHash = idHash;
-              passHash = pHash;
-              currentRoomId = String((snap.data()||{}).roomId || '');
-
-              setLoginBadge();
-              setModeBadge();
-              await startCloudSyncForYear();
-              await startRoomMetaSync();
-
-              renderSchedule();
-              applyEditLockToDOM();
-              return;
-            }
-          } catch (e) { console.error(e); }
-        }
+      try {
+        setSyncBadge('作成中', 'wait');
+        await firebase.auth().createUserWithEmailAndPassword(email, pass);
+        localStorage.setItem(LAST_ID_KEY, id);
+        closeLoginModal();
+      } catch (e) {
+        console.error(e);
+        setSyncBadge('未接続', 'idle');
+        alert(friendlyAuthError(e, '新規作成'));
       }
+    }
 
-      // not logged in
-      loggedIn = false;
-      setLoginBadge();
-      setSyncBadge('未接続', 'idle');
+    async function loginWithIdPass() {
+      const id = document.getElementById('idInput').value.trim();
+      const pass = document.getElementById('passInput').value;
+
+      const email = toEmailFromId(id);
+      if (!email) { alert('IDは英数・記号 . _ - のみで入力してください。'); return; }
+      if (!pass || pass.length < 6) { alert('Passwordは6文字以上で入力してください。'); return; }
+
+      try {
+        setSyncBadge('接続中', 'wait');
+        await firebase.auth().signInWithEmailAndPassword(email, pass);
+        localStorage.setItem(LAST_ID_KEY, id);
+        closeLoginModal();
+      } catch (e) {
+        console.error(e);
+        setSyncBadge('未接続', 'idle');
+        alert(friendlyAuthError(e, 'ログイン'));
+      }
+    }
+
+    async function logout() {
+      try {
+        await firebase.auth().signOut();
+        closeLoginModal();
+      } catch (e) { console.error(e); }
+    }
+
+    function toggleMode() {
+      // ログインしていないと切替できない
+      if (!authUser) {
+        canEdit = false;
+        setModeBadge();
+        applyEditLockToDOM();
+        alert('モード切替はログイン後にできます。');
+        return;
+      }
+      canEdit = !canEdit;
       setModeBadge();
       applyEditLockToDOM();
     }
 
-    // Expose some functions to global scope
-    window.openLoginModal = openLoginModal;
-    window.closeLoginModal = closeLoginModal;
-    window.loginExisting = loginExisting;
-    window.createNewAccount = createNewAccount;
-    window.toggleEditMode = toggleEditMode;
-    window.switchTab = switchTab;
-    window.importCSV = importCSV;
-    window.updateField = updateField;
-    window.generateYearlyCalendar = generateYearlyCalendar;
-    window.saveSchoolName = saveSchoolName;
-    window.setMonthFromSelect = setMonthFromSelect;
+    // ID/Password変更（同じuidなのでデータはそのまま）
+    async function changeIdOrPassword() {
+      if (!authUser) { alert('先にログインしてください。'); return; }
 
-    // Long-press / hidden option: change id/pass & logout
-    // (PCで：ログインボタンを右クリック/長押し想定…が面倒なのでダブルクリックで出す)
-    document.addEventListener('DOMContentLoaded', () => {
-      const btn = document.getElementById('loginBtn');
-      btn.addEventListener('dblclick', () => {
-        if (!loggedIn) return;
-        const act = prompt('操作を選択：\n1 = ID/Password変更\n2 = ログアウト\n（キャンセルで閉じる）');
-        if (act === '1') openChangeModal();
-        if (act === '2') logout();
-      });
-    });
+      const newId = document.getElementById('newIdInput').value.trim();
+      const newPass = document.getElementById('newPassInput').value;
 
-    window.openChangeModal = openChangeModal;
-    window.closeChangeModal = closeChangeModal;
-    window.applyChangeIdPass = applyChangeIdPass;
-    window.logout = logout;
+      const user = firebase.auth().currentUser;
+      if (!user) { alert('ログイン状態を確認できません。'); return; }
 
+      try {
+        // ID変更（メール変更）
+        if (newId) {
+          const newEmail = toEmailFromId(newId);
+          if (!newEmail) { alert('新しいIDは英数・記号 . _ - のみで入力してください。'); return; }
+          await user.updateEmail(newEmail);
+          localStorage.setItem(LAST_ID_KEY, newId);
+          document.getElementById('idInput').value = newId;
+          document.getElementById('newIdInput').value = '';
+        }
+
+        // Password変更
+        if (newPass) {
+          if (newPass.length < 6) { alert('新しいPasswordは6文字以上にしてください。'); return; }
+          await user.updatePassword(newPass);
+          document.getElementById('newPassInput').value = '';
+        }
+
+        alert('ID/Passwordを変更しました（データは引き継がれています）。');
+      } catch (e) {
+        console.error(e);
+        alert(friendlyAuthError(e, 'ID/Password変更'));
+      }
+    }
+
+    // ========= 起動 =========
     window.onload = init;
   </script>
 </body>
