@@ -44,6 +44,12 @@
       outline: none !important;
     }
     .readonly:hover { outline: none !important; background-color: transparent !important; }
+
+    /* ★FIX: iOS/Teams内でモーダル内スクロールが効きにくい対策 */
+    .modal-scroll {
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
   </style>
 </head>
 
@@ -75,7 +81,7 @@
       </div>
 
       <!-- 右：操作群（UI維持：ログイン＋CSV＋検索） -->
-      <!-- ★ここだけ「スマホ見やすい版」に差し替え済み -->
+      <!-- ★ここは前回の「スマホ見やすい版」そのまま（絶対に変更しない） -->
       <div class="w-full md:w-auto flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
         <!-- ログイン -->
         <button id="loginBtn" onclick="openLoginModal()"
@@ -182,89 +188,97 @@
   <!-- ★ログイン モーダル -->
   <div id="loginModal" class="hidden fixed inset-0 z-50">
     <div class="absolute inset-0 bg-black/40" onclick="closeLoginModal()"></div>
-    <div class="absolute inset-0 flex items-center justify-center p-4">
+
+    <!-- ★FIX: ここをスクロール可能に（スマホで下のボタンまで届く） -->
+    <div class="absolute inset-0 flex items-start justify-center p-4 overflow-y-auto modal-scroll">
       <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-        <div class="p-4 border-b border-slate-100">
-          <div class="text-lg font-bold">ID / Password ログイン</div>
-          <div class="text-sm text-slate-500 mt-1">
-            ・同じID/Passwordでログインした人は同じ予定表を共同編集できます。<br>
-            ・「新規作成」は、未使用のIDで最初の1回だけ作れます。<br>
-            ・編集は「閲覧⇄編集」の切替で行います（誰でも切替可能）。
-          </div>
-        </div>
+        <!-- ★FIX: カード自体を高さ制限＋内部スクロール（iOSでも安定） -->
+        <div class="max-h-[90vh] overflow-y-auto modal-scroll">
 
-        <div class="p-4 space-y-4">
-          <div>
-            <label class="text-sm font-medium text-slate-700">ID（英数・記号 . _ -）</label>
-            <input id="idInput" type="text" placeholder="例：otaki-office"
-              class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          </div>
-
-          <div>
-            <label class="text-sm font-medium text-slate-700">Password（6文字以上）</label>
-            <input id="passInput" type="password" placeholder=""
-              class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            <div class="text-xs text-slate-500 mt-1">
-              ※セキュリティ目的の“本格ログイン”ではなく「校内共有の合言葉」用途想定です。
+          <div class="p-4 border-b border-slate-100">
+            <div class="text-lg font-bold">ID / Password ログイン</div>
+            <div class="text-sm text-slate-500 mt-1">
+              ・同じID/Passwordでログインした人は同じ予定表を共同編集できます。<br>
+              ・「新規作成」は、未使用のIDで最初の1回だけ作れます。<br>
+              ・編集は「閲覧⇄編集」の切替で行います（誰でも切替可能）。
             </div>
           </div>
 
-          <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3">
+          <div class="p-4 space-y-4">
             <div>
-              <div class="text-sm font-medium text-slate-700">モード</div>
-              <div class="text-xs text-slate-500">ログイン後に切り替えできます</div>
+              <label class="text-sm font-medium text-slate-700">ID（英数・記号 . _ -）</label>
+              <input id="idInput" type="text" placeholder="例：otaki-office"
+                class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
-            <button onclick="toggleMode()"
-              class="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm">
-              <span id="modeBtnText">閲覧 ⇄ 編集</span>
+
+            <div>
+              <label class="text-sm font-medium text-slate-700">Password（6文字以上）</label>
+              <input id="passInput" type="password" placeholder=""
+                class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <div class="text-xs text-slate-500 mt-1">
+                ※セキュリティ目的の“本格ログイン”ではなく「校内共有の合言葉」用途想定です。
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3">
+              <div>
+                <div class="text-sm font-medium text-slate-700">モード</div>
+                <div class="text-xs text-slate-500">ログイン後に切り替えできます</div>
+              </div>
+              <button onclick="toggleMode()"
+                class="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm">
+                <span id="modeBtnText">閲覧 ⇄ 編集</span>
+              </button>
+            </div>
+
+            <div class="border-t border-slate-100 pt-4">
+              <div class="text-sm font-bold text-slate-700">ID/Password変更（データ引き継ぎ）</div>
+              <div class="text-xs text-slate-500 mt-1">
+                同じ予定表のまま、IDやPasswordを変更できます（移行ボタンはありません）。
+              </div>
+
+              <div class="mt-3 grid grid-cols-1 gap-3">
+                <div>
+                  <label class="text-xs font-medium text-slate-600">新しいID（任意）</label>
+                  <input id="newIdInput" type="text" placeholder="（変更しないなら空欄）"
+                    class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <div>
+                  <label class="text-xs font-medium text-slate-600">新しいPassword（任意 / 6文字以上）</label>
+                  <input id="newPassInput" type="password" placeholder="（変更しないなら空欄）"
+                    class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <button onclick="changeIdOrPassword()"
+                  class="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
+                  ID/Passwordを変更
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-4 border-t border-slate-100 flex flex-wrap justify-end gap-2">
+            <button onclick="closeLoginModal()"
+              class="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
+              キャンセル
+            </button>
+            <button onclick="createNewAccount()"
+              class="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
+              新規作成
+            </button>
+            <button onclick="loginWithIdPass()"
+              class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
+              ログイン
+            </button>
+            <button onclick="logout()"
+              class="px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
+              ログアウト
             </button>
           </div>
 
-          <div class="border-t border-slate-100 pt-4">
-            <div class="text-sm font-bold text-slate-700">ID/Password変更（データ引き継ぎ）</div>
-            <div class="text-xs text-slate-500 mt-1">
-              同じ予定表のまま、IDやPasswordを変更できます（移行ボタンはありません）。
-            </div>
-
-            <div class="mt-3 grid grid-cols-1 gap-3">
-              <div>
-                <label class="text-xs font-medium text-slate-600">新しいID（任意）</label>
-                <input id="newIdInput" type="text" placeholder="（変更しないなら空欄）"
-                  class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
-              <div>
-                <label class="text-xs font-medium text-slate-600">新しいPassword（任意 / 6文字以上）</label>
-                <input id="newPassInput" type="password" placeholder="（変更しないなら空欄）"
-                  class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
-              <button onclick="changeIdOrPassword()"
-                class="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
-                ID/Passwordを変更
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="p-4 border-t border-slate-100 flex flex-wrap justify-end gap-2">
-          <button onclick="closeLoginModal()"
-            class="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
-            キャンセル
-          </button>
-          <button onclick="createNewAccount()"
-            class="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
-            新規作成
-          </button>
-          <button onclick="loginWithIdPass()"
-            class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
-            ログイン
-          </button>
-          <button onclick="logout()"
-            class="px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
-            ログアウト
-          </button>
         </div>
       </div>
     </div>
+    <!-- ★FIXここまで -->
   </div>
 
   <script>
@@ -352,7 +366,6 @@
     function toEmailFromId(id) {
       const s = String(id || '').trim();
       if (!/^[A-Za-z0-9._-]+$/.test(s)) return null;
-      // 実メールではないが、Authのためメール形式にする
       return `${s}@schedule.local`;
     }
 
@@ -450,13 +463,11 @@
         setSyncBadge('同期失敗', 'ng');
       });
 
-      // 学校名も共有（meta）
       unsubscribeMeta = roomDocRef().onSnapshot((snap) => {
         if (!snap.exists) return;
         const data = snap.data() || {};
         if (typeof data.schoolName === 'string' && data.schoolName.trim()) {
           const el = document.getElementById('schoolName');
-          // 編集中の上書きを避ける
           if (document.activeElement !== el) el.innerText = data.schoolName;
         }
       });
@@ -524,7 +535,6 @@
       const name = document.getElementById('schoolName').innerText;
       localStorage.setItem(SCHOOL_NAME_KEY, name);
 
-      // ログイン中はクラウドにも保存（共有）
       if (authUser) {
         try {
           await roomDocRef().set({ schoolName: String(name || '') }, { merge: true });
@@ -546,17 +556,14 @@
 
       await ensureFirebase();
 
-      // 前回のIDを復元（入力補助）
       const lastId = localStorage.getItem(LAST_ID_KEY) || '';
       document.getElementById('idInput').value = lastId;
 
-      // 認証状態監視
       firebase.auth().onAuthStateChanged(async (u) => {
         authUser = u || null;
         if (authUser) {
           setLoginBadge('ログイン済み', 'on');
           setSyncBadge('接続OK', 'ok');
-          // デフォは閲覧（必要なら自分で切替）
           canEdit = false;
           setModeBadge();
           await startCloudSyncForYear();
@@ -609,7 +616,6 @@
       renderSchedule();
       applyEditLockToDOM();
 
-      // ログイン中なら年切替で同期も切替
       if (authUser) startCloudSyncForYear();
     }
 
@@ -740,7 +746,6 @@
     }
 
     async function updateField(id, field, value) {
-      // ★編集は「ログイン＋編集モード」の時だけ
       if (!(authUser && canEdit)) return;
       const item = scheduleData.find(d => d.id === id);
       if (!item) return;
@@ -909,7 +914,6 @@
     }
 
     function toggleMode() {
-      // ログインしていないと切替できない
       if (!authUser) {
         canEdit = false;
         setModeBadge();
@@ -922,7 +926,6 @@
       applyEditLockToDOM();
     }
 
-    // ID/Password変更（同じuidなのでデータはそのまま）
     async function changeIdOrPassword() {
       if (!authUser) { alert('先にログインしてください。'); return; }
 
@@ -933,7 +936,6 @@
       if (!user) { alert('ログイン状態を確認できません。'); return; }
 
       try {
-        // ID変更（メール変更）
         if (newId) {
           const newEmail = toEmailFromId(newId);
           if (!newEmail) { alert('新しいIDは英数・記号 . _ - のみで入力してください。'); return; }
@@ -943,7 +945,6 @@
           document.getElementById('newIdInput').value = '';
         }
 
-        // Password変更
         if (newPass) {
           if (newPass.length < 6) { alert('新しいPasswordは6文字以上にしてください。'); return; }
           await user.updatePassword(newPass);
@@ -957,7 +958,6 @@
       }
     }
 
-    // ========= 起動 =========
     window.onload = init;
   </script>
 </body>
