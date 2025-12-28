@@ -75,8 +75,9 @@
       </div>
 
       <!-- 右：操作群（※見た目は変えない：ログイン＋CSV＋検索） -->
-      <div class="flex items-center space-x-3 w-full md:w-auto">
-        <!-- ログイン -->
+      <!-- ★修正①：スマホだけ「1段目=ログイン」「2段目=CSV+検索(横並び)」になるように配置（要素の見た目は同じ） -->
+      <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-3 w-full md:w-auto">
+        <!-- ログイン（1段目） -->
         <button id="loginBtn" onclick="openLoginModal()"
           class="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 flex items-center gap-2 w-full md:w-auto justify-between md:justify-start">
           <span class="text-slate-500">ログイン</span>
@@ -87,7 +88,7 @@
           <span id="modeBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs select-none">閲覧</span>
         </button>
 
-        <!-- スマホ：CSVと検索は横並び（自動調整） -->
+        <!-- 2段目：CSVと検索は横並び（スクショ通り） -->
         <div class="flex items-center gap-2 w-full md:w-auto">
           <div class="flex-1 md:flex-none flex items-center space-x-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl">
             <label id="csvLabel"
@@ -175,7 +176,7 @@
   <div id="loginModal" class="hidden fixed inset-0 z-50">
     <div class="absolute inset-0 bg-black/40" onclick="closeLoginModal()"></div>
 
-    <!-- ★スマホで下までスクロールできるように（見た目は変えず、スクロールだけ確保） -->
+    <!-- ★スクロールは確保（見た目は変えず） -->
     <div class="absolute inset-0 overflow-y-auto p-4 flex items-start justify-center"
          style="-webkit-overflow-scrolling: touch; overscroll-behavior: contain;">
       <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden"
@@ -338,7 +339,6 @@
     function applyEditLockToDOM() {
       const editable = !!(authUser && canEdit);
 
-      // 学校名もログイン＋編集時だけ編集可（見た目はそのまま）
       const schoolEl = document.getElementById('schoolName');
       schoolEl.setAttribute('contenteditable', editable ? 'true' : 'false');
       if (editable) schoolEl.classList.remove('readonly');
@@ -375,6 +375,14 @@
       try {
         firebase.initializeApp(firebaseConfig);
         db = firebase.firestore();
+
+        // ★同期安定化：オフラインキャッシュ（可能なら有効）
+        try {
+          await db.enablePersistence({ synchronizeTabs: true });
+        } catch (e) {
+          // 使えない環境（iOS WebView等）では失敗してもOK
+        }
+
         firebaseReady = true;
         setSyncBadge('準備OK', 'ok');
         return true;
@@ -480,7 +488,7 @@
 
       stopCloudSync();
 
-      // まず一回、クラウドから全件反映（ログアウト→ログインで出ない問題の対策）
+      // まず一回、クラウドから全件反映
       await loadCloudForYearOnce();
 
       const startYear = getStartYear();
@@ -564,9 +572,7 @@
 
     // ========= 学校名（クラウドのみ） =========
     async function saveSchoolName() {
-      // ★ログイン＋編集モード以外は保存しない
       if (!(authUser && canEdit)) return;
-
       const name = document.getElementById('schoolName').innerText;
       try {
         await roomDocRef().set({ schoolName: String(name || '') }, { merge: true });
@@ -574,60 +580,47 @@
     }
 
     // =========================================================
-    // ①〜③：自動保存（見た目は変えない）＋ 取りこぼし防止
+    // ★修正②：iPhone/Teamsでblurが発火しない対策
+    // 入力中(oninput)にデバウンス保存＋離脱(onblur)は即保存
     // =========================================================
-    const _saveTimers = new Map();     // key -> timerId
-    const _pendingValues = new Map();  // key -> latestValue
-    function _key(id, field) { return `${id}__${field}`; }
+    const _saveTimers = new Map(); // key => timer
+    function _k(id, field) { return `${id}__${field}`; }
 
-    function queueUpdateField(id, field, value) {
+    function queueSave(id, field, value) {
       if (!(authUser && canEdit)) return;
+      const key = _k(id, field);
 
-      const k = _key(id, field);
-      _pendingValues.set(k, (value ?? '').trim());
+      // 文字列だけ保持（innerText）
+      const v = (value || '').trim();
 
-      if (_saveTimers.has(k)) clearTimeout(_saveTimers.get(k));
+      // scheduleDataへ即反映（見た目は変わらない）
+      const item = scheduleData.find(d => d.id === id);
+      if (!item) return;
+      item[field] = v;
 
-      const t = setTimeout(async () => {
-        await flushUpdateField(id, field, _pendingValues.get(k));
-      }, 700);
-
-      _saveTimers.set(k, t);
+      // 既存タイマーを更新
+      if (_saveTimers.has(key)) clearTimeout(_saveTimers.get(key));
+      _saveTimers.set(key, setTimeout(async () => {
+        try { await saveDayToCloud(item); } catch (e) { console.error(e); }
+        _saveTimers.delete(key);
+      }, 600));
     }
 
-    async function flushUpdateField(id, field, value) {
+    async function flushSave(id, field, value) {
       if (!(authUser && canEdit)) return;
+      const key = _k(id, field);
 
-      const k = _key(id, field);
-      if (_saveTimers.has(k)) {
-        clearTimeout(_saveTimers.get(k));
-        _saveTimers.delete(k);
+      if (_saveTimers.has(key)) {
+        clearTimeout(_saveTimers.get(key));
+        _saveTimers.delete(key);
       }
 
       const item = scheduleData.find(d => d.id === id);
       if (!item) return;
-
-      const v = (value ?? '').trim();
-      item[field] = v;
-      _pendingValues.delete(k);
+      item[field] = (value || '').trim();
 
       try { await saveDayToCloud(item); } catch (e) { console.error(e); }
     }
-
-    async function flushAllPendingEdits() {
-      if (!(authUser && canEdit)) return;
-      const tasks = [];
-      for (const [k, v] of _pendingValues.entries()) {
-        const [id, field] = k.split('__');
-        tasks.push(flushUpdateField(id, field, v));
-      }
-      try { await Promise.all(tasks); } catch (e) { console.error(e); }
-    }
-
-    window.addEventListener('pagehide', () => { flushAllPendingEdits(); });
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') flushAllPendingEdits();
-    });
 
     // ========= 初期化 =========
     async function init() {
@@ -635,20 +628,19 @@
       renderMonthSelect();
       setupSearch();
 
-      // ログインしてないと見えない（最初はロック表示）
       showLockedUI(true);
 
       generateYearlyCalendar();
 
       await ensureFirebase();
 
-      // 前回のIDを復元（入力補助）
       const lastId = localStorage.getItem(LAST_ID_KEY) || '';
       document.getElementById('idInput').value = lastId;
 
       // ★ヘッダーのモードバッジクリックで閲覧⇄編集（見た目変更なし）
       document.getElementById('modeBadge').addEventListener('click', (e) => {
-        e.stopPropagation();
+        e.preventDefault();
+        e.stopPropagation(); // loginBtnのopenLoginModalを止める
         toggleMode();
       });
 
@@ -660,18 +652,14 @@
           setLoginBadge('ログイン済み', 'on');
           setSyncBadge('接続中', 'wait');
 
-          // ログイン後は表示（ロック解除）
           showLockedUI(false);
 
-          // デフォは閲覧（必要なら自分で切替）
           canEdit = false;
           setModeBadge();
 
-          // 年度データ（空の枠）を生成 → クラウド反映 → リアルタイム監視
           generateYearlyCalendar();
           await startCloudSyncForYear();
         } else {
-          // ログアウト：予定は表示しない（中身も消す）
           setLoginBadge('未ログイン', 'off');
           setSyncBadge('未接続', 'idle');
           canEdit = false;
@@ -733,7 +721,6 @@
       renderSchedule();
       applyEditLockToDOM();
 
-      // ログイン中なら年切替で同期も切替
       if (authUser) startCloudSyncForYear();
     }
 
@@ -784,7 +771,6 @@
       const container = document.getElementById('scheduleContainer');
       const emptyState = document.getElementById('emptyState');
 
-      // ログアウト中は表示しない
       if (!authUser) {
         container.innerHTML = '';
         emptyState.classList.add('hidden');
@@ -796,7 +782,6 @@
       const filteredData = scheduleData.filter(item => {
         if (item.month !== currentMonth) return false;
         if (searchQuery) {
-          // ★検索対象は予定データのみ（UI文言は絶対に出ない）
           const text = (item.events + '\n' + item.business + '\n' + item.submission + '\n' + item.duty + '\n' + item.vacation).toLowerCase();
           return text.includes(searchQuery.toLowerCase());
         }
@@ -826,8 +811,8 @@
             </div>
             <div class="text-[10px] bg-white px-1 py-0.5 rounded border border-slate-200 font-medium md:mt-2 editable no-print whitespace-nowrap overflow-hidden text-center flex items-center justify-center"
               contenteditable="true"
-              oninput="queueUpdateField('${item.id}', 'duty', this.innerText)"
-              onblur="flushUpdateField('${item.id}', 'duty', this.innerText)">
+              oninput="queueSave('${item.id}', 'duty', this.innerText)"
+              onblur="flushSave('${item.id}', 'duty', this.innerText)">
               ${item.duty || ''}
             </div>
           </div>
@@ -839,25 +824,28 @@
             <div class="flex-1 grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-100">
               <div class="p-2 md:col-span-5">
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">予定</div>
-                <div class="text-sm whitespace-pre-wrap leading-relaxed editable" contenteditable="true"
-                  oninput="queueUpdateField('${item.id}', 'events', this.innerText)"
-                  onblur="flushUpdateField('${item.id}', 'events', this.innerText)">${item.events || ''}</div>
+                <div class="text-sm whitespace-pre-wrap leading-relaxed editable"
+                  contenteditable="true"
+                  oninput="queueSave('${item.id}', 'events', this.innerText)"
+                  onblur="flushSave('${item.id}', 'events', this.innerText)">${item.events || ''}</div>
               </div>
               <div class="p-2 md:col-span-5">
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">出張・提出物</div>
-                <div class="text-sm whitespace-pre-wrap leading-relaxed editable mb-1" contenteditable="true"
-                  oninput="queueUpdateField('${item.id}', 'business', this.innerText)"
-                  onblur="flushUpdateField('${item.id}', 'business', this.innerText)">${item.business || ''}</div>
-                <div class="text-sm text-amber-700 font-medium whitespace-pre-wrap editable" contenteditable="true"
-                  oninput="queueUpdateField('${item.id}', 'submission', this.innerText)"
-                  onblur="flushUpdateField('${item.id}', 'submission', this.innerText)">${item.submission || ''}</div>
+                <div class="text-sm whitespace-pre-wrap leading-relaxed editable mb-1"
+                  contenteditable="true"
+                  oninput="queueSave('${item.id}', 'business', this.innerText)"
+                  onblur="flushSave('${item.id}', 'business', this.innerText)">${item.business || ''}</div>
+                <div class="text-sm text-amber-700 font-medium whitespace-pre-wrap editable"
+                  contenteditable="true"
+                  oninput="queueSave('${item.id}', 'submission', this.innerText)"
+                  onblur="flushSave('${item.id}', 'submission', this.innerText)">${item.submission || ''}</div>
               </div>
               <div class="p-2 md:col-span-2 bg-slate-50/30">
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">休暇</div>
                 <div class="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed editable"
                   contenteditable="true"
-                  oninput="queueUpdateField('${item.id}', 'vacation', this.innerText)"
-                  onblur="flushUpdateField('${item.id}', 'vacation', this.innerText)">${item.vacation || ''}</div>
+                  oninput="queueSave('${item.id}', 'vacation', this.innerText)"
+                  onblur="flushSave('${item.id}', 'vacation', this.innerText)">${item.vacation || ''}</div>
               </div>
             </div>
           `;
@@ -866,9 +854,10 @@
           const field = fields[currentTab];
           contentHtml = `
             <div class="flex-1 p-3">
-              <div class="text-base whitespace-pre-wrap leading-relaxed editable h-full" contenteditable="true"
-                oninput="queueUpdateField('${item.id}', '${field}', this.innerText)"
-                onblur="flushUpdateField('${item.id}', '${field}', this.innerText)">${item[field] || ''}</div>
+              <div class="text-base whitespace-pre-wrap leading-relaxed editable h-full"
+                contenteditable="true"
+                oninput="queueSave('${item.id}', '${field}', this.innerText)"
+                onblur="flushSave('${item.id}', '${field}', this.innerText)">${item[field] || ''}</div>
             </div>
           `;
         }
@@ -880,13 +869,9 @@
       applyEditLockToDOM();
     }
 
-    // （残してOK：古い呼び出しがあっても壊れない）
+    // 既存API互換（残しておく：呼ばれなくてもOK）
     async function updateField(id, field, value) {
-      if (!(authUser && canEdit)) return;
-      const item = scheduleData.find(d => d.id === id);
-      if (!item) return;
-      item[field] = (value || '').trim();
-      try { await saveDayToCloud(item); } catch (e) { console.error(e); }
+      await flushSave(id, field, value);
     }
 
     // ========= タブ =========
@@ -1040,15 +1025,12 @@
 
     async function logout() {
       try {
-        // ★ログアウト前に取りこぼしを確実に保存（UIは変えない）
-        await flushAllPendingEdits();
         await firebase.auth().signOut();
         closeLoginModal();
       } catch (e) { console.error(e); }
     }
 
     function toggleMode() {
-      // ログインしていないと切替できない
       if (!authUser) {
         canEdit = false;
         setModeBadge();
