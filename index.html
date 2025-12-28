@@ -74,21 +74,19 @@
         </div>
       </div>
 
-      <!-- 右：操作群（※見た目は変えない：ログイン＋CSV＋検索） -->
-      <!-- ★修正①：スマホだけ「1段目=ログイン」「2段目=CSV+検索(横並び)」になるように配置（要素の見た目は同じ） -->
+      <!-- 右：操作群（見た目は変えない） -->
       <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-3 w-full md:w-auto">
-        <!-- ログイン（1段目） -->
+        <!-- ログイン -->
         <button id="loginBtn" onclick="openLoginModal()"
           class="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 flex items-center gap-2 w-full md:w-auto justify-between md:justify-start">
           <span class="text-slate-500">ログイン</span>
           <span id="loginBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs">未ログイン</span>
           <span id="syncBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs">未接続</span>
           <span class="text-slate-400">モード</span>
-          <!-- ★ここをクリックで閲覧⇄編集（見た目は同じ / 機能のみ） -->
           <span id="modeBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs select-none">閲覧</span>
         </button>
 
-        <!-- 2段目：CSVと検索は横並び（スクショ通り） -->
+        <!-- CSVと検索（横並び） -->
         <div class="flex items-center gap-2 w-full md:w-auto">
           <div class="flex-1 md:flex-none flex items-center space-x-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl">
             <label id="csvLabel"
@@ -148,7 +146,6 @@
   </header>
 
   <main class="max-w-7xl mx-auto px-4 mt-6">
-    <!-- ★ログアウト中は予定を表示しない（機能のみ） -->
     <div id="lockedState"
       class="hidden py-16 text-center bg-white rounded-xl border border-dashed border-slate-300">
       <div class="text-slate-700 font-bold">ログインしてください</div>
@@ -167,7 +164,6 @@
     </div>
   </main>
 
-  <!-- ★右下クレジット（欄外） -->
   <div class="no-print fixed bottom-2 right-3 text-[11px] text-slate-400 select-none">
     @予定表アプリ Takayuki WAYAMA
   </div>
@@ -176,7 +172,6 @@
   <div id="loginModal" class="hidden fixed inset-0 z-50">
     <div class="absolute inset-0 bg-black/40" onclick="closeLoginModal()"></div>
 
-    <!-- ★スクロールは確保（見た目は変えず） -->
     <div class="absolute inset-0 overflow-y-auto p-4 flex items-start justify-center"
          style="-webkit-overflow-scrolling: touch; overscroll-behavior: contain;">
       <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden"
@@ -286,7 +281,16 @@
     // モード：閲覧/編集（ログイン後に誰でも切替）
     let canEdit = false;
 
-    // ★あなたのFirebaseプロジェクトの設定（あなたの値）
+    // ★強制同期ポーリング（onSnapshotが不安定でも必ず追いつく）
+    const POLL_MS = 5000;
+    let pollTimer = null;
+
+    // ★保存デバウンス（スマホでblurが起きない問題対策）
+    const _saveTimers = new Map(); // key => timer
+    const _pendingItemIds = new Set(); // item.id
+    function _k(id, field) { return `${id}__${field}`; }
+
+    // ★あなたのFirebaseプロジェクトの設定
     const firebaseConfig = {
       apiKey: "AIzaSyA-FkCxNyT8C-HicXa4PbHcjNkwIvQWWw0",
       authDomain: "schedule-collab-38ed7.firebaseapp.com",
@@ -324,7 +328,6 @@
       el.textContent = canEdit ? '編集' : '閲覧';
       el.className = `px-2 py-0.5 rounded-full text-xs ${canEdit ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`;
 
-      // CSVインポートは編集モードのみ
       const label = document.getElementById('csvLabel');
       if (!label) return;
       if (authUser && canEdit) {
@@ -375,14 +378,6 @@
       try {
         firebase.initializeApp(firebaseConfig);
         db = firebase.firestore();
-
-        // ★同期安定化：オフラインキャッシュ（可能なら有効）
-        try {
-          await db.enablePersistence({ synchronizeTabs: true });
-        } catch (e) {
-          // 使えない環境（iOS WebView等）では失敗してもOK
-        }
-
         firebaseReady = true;
         setSyncBadge('準備OK', 'ok');
         return true;
@@ -418,6 +413,11 @@
       if (typeof unsubscribeMeta === 'function') unsubscribeMeta();
       unsubscribeSnap = null;
       unsubscribeMeta = null;
+
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
     }
 
     function findDayByYMD(y, m, d) {
@@ -477,6 +477,39 @@
       }
     }
 
+    // ★追加：サーバー取り直し（onSnapshotが効かない環境の救済）
+    async function pollCloudFromServer() {
+      if (!authUser) return;
+      const ok = await ensureFirebase();
+      if (!ok) return;
+
+      const startYear = getStartYear();
+      const ref = cloudDaysRef(startYear);
+
+      try {
+        // compatでも多くの環境で通る（通らなければ通常getにフォールバック）
+        let snap;
+        try {
+          snap = await ref.get({ source: 'server' });
+        } catch (_) {
+          snap = await ref.get();
+        }
+
+        let changed = false;
+        snap.forEach(doc => {
+          const did = applyCloudDocToLocal(doc.data());
+          if (did) changed = true;
+        });
+
+        if (changed) renderSchedule();
+        setSyncBadge('同期OK', 'ok');
+      } catch (e) {
+        console.error(e);
+        // 失敗は一時的のことがあるのでバッジだけ
+        setSyncBadge('同期中', 'wait');
+      }
+    }
+
     async function startCloudSyncForYear() {
       if (!authUser) {
         setSyncBadge('未接続', 'idle');
@@ -494,6 +527,7 @@
       const startYear = getStartYear();
       const ref = cloudDaysRef(startYear);
 
+      // リアルタイム監視
       unsubscribeSnap = ref.onSnapshot((snap) => {
         let changed = false;
         snap.docChanges().forEach(ch => {
@@ -518,6 +552,11 @@
           if (document.activeElement !== el) el.innerText = data.schoolName;
         }
       });
+
+      // ★強制ポーリング（これが「端末間で反映されない」を潰す）
+      pollTimer = setInterval(() => {
+        pollCloudFromServer();
+      }, POLL_MS);
     }
 
     async function saveDayToCloud(item) {
@@ -570,6 +609,67 @@
       await batch.commit();
     }
 
+    // ========= 保存デバウンス（入力中にクラウドへ確実に反映） =========
+    function queueSave(id, field, value) {
+      if (!(authUser && canEdit)) return;
+
+      const item = scheduleData.find(d => d.id === id);
+      if (!item) return;
+
+      item[field] = (value || '').trim();
+      _pendingItemIds.add(item.id);
+
+      const key = _k(id, field);
+      if (_saveTimers.has(key)) clearTimeout(_saveTimers.get(key));
+      _saveTimers.set(key, setTimeout(async () => {
+        try { await saveDayToCloud(item); } catch (e) { console.error(e); }
+        _saveTimers.delete(key);
+      }, 500));
+    }
+
+    async function flushSave(id, field, value) {
+      if (!(authUser && canEdit)) return;
+
+      const key = _k(id, field);
+      if (_saveTimers.has(key)) {
+        clearTimeout(_saveTimers.get(key));
+        _saveTimers.delete(key);
+      }
+
+      const item = scheduleData.find(d => d.id === id);
+      if (!item) return;
+
+      item[field] = (value || '').trim();
+      _pendingItemIds.add(item.id);
+
+      try { await saveDayToCloud(item); } catch (e) { console.error(e); }
+    }
+
+    // ★追加：ログアウト/画面離脱前に必ず保存確定（これで「スマホだけ消える」を潰す）
+    async function flushAllPendingSaves() {
+      if (!(authUser && canEdit)) {
+        // 編集不可でもタイマーは消す（不要に残さない）
+        _saveTimers.forEach(t => clearTimeout(t));
+        _saveTimers.clear();
+        _pendingItemIds.clear();
+        return;
+      }
+
+      _saveTimers.forEach(t => clearTimeout(t));
+      _saveTimers.clear();
+
+      const items = [];
+      _pendingItemIds.forEach(itemId => {
+        const it = scheduleData.find(d => d.id === itemId);
+        if (it) items.push(it);
+      });
+      _pendingItemIds.clear();
+
+      if (items.length > 0) {
+        try { await batchSaveToCloud(items); } catch (e) { console.error(e); }
+      }
+    }
+
     // ========= 学校名（クラウドのみ） =========
     async function saveSchoolName() {
       if (!(authUser && canEdit)) return;
@@ -579,49 +679,6 @@
       } catch (e) { console.error(e); }
     }
 
-    // =========================================================
-    // ★修正②：iPhone/Teamsでblurが発火しない対策
-    // 入力中(oninput)にデバウンス保存＋離脱(onblur)は即保存
-    // =========================================================
-    const _saveTimers = new Map(); // key => timer
-    function _k(id, field) { return `${id}__${field}`; }
-
-    function queueSave(id, field, value) {
-      if (!(authUser && canEdit)) return;
-      const key = _k(id, field);
-
-      // 文字列だけ保持（innerText）
-      const v = (value || '').trim();
-
-      // scheduleDataへ即反映（見た目は変わらない）
-      const item = scheduleData.find(d => d.id === id);
-      if (!item) return;
-      item[field] = v;
-
-      // 既存タイマーを更新
-      if (_saveTimers.has(key)) clearTimeout(_saveTimers.get(key));
-      _saveTimers.set(key, setTimeout(async () => {
-        try { await saveDayToCloud(item); } catch (e) { console.error(e); }
-        _saveTimers.delete(key);
-      }, 600));
-    }
-
-    async function flushSave(id, field, value) {
-      if (!(authUser && canEdit)) return;
-      const key = _k(id, field);
-
-      if (_saveTimers.has(key)) {
-        clearTimeout(_saveTimers.get(key));
-        _saveTimers.delete(key);
-      }
-
-      const item = scheduleData.find(d => d.id === id);
-      if (!item) return;
-      item[field] = (value || '').trim();
-
-      try { await saveDayToCloud(item); } catch (e) { console.error(e); }
-    }
-
     // ========= 初期化 =========
     async function init() {
       renderMonthNav();
@@ -629,7 +686,6 @@
       setupSearch();
 
       showLockedUI(true);
-
       generateYearlyCalendar();
 
       await ensureFirebase();
@@ -637,14 +693,21 @@
       const lastId = localStorage.getItem(LAST_ID_KEY) || '';
       document.getElementById('idInput').value = lastId;
 
-      // ★ヘッダーのモードバッジクリックで閲覧⇄編集（見た目変更なし）
+      // モードバッジで切替（見た目変更なし）
       document.getElementById('modeBadge').addEventListener('click', (e) => {
         e.preventDefault();
-        e.stopPropagation(); // loginBtnのopenLoginModalを止める
+        e.stopPropagation();
         toggleMode();
       });
 
-      // 認証状態監視
+      // ★画面が裏に回る/閉じる前に保存確定
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) flushAllPendingSaves();
+      });
+      window.addEventListener('pagehide', () => {
+        flushAllPendingSaves();
+      });
+
       firebase.auth().onAuthStateChanged(async (u) => {
         authUser = u || null;
 
@@ -654,6 +717,7 @@
 
           showLockedUI(false);
 
+          // デフォは閲覧
           canEdit = false;
           setModeBadge();
 
@@ -663,6 +727,7 @@
           setLoginBadge('未ログイン', 'off');
           setSyncBadge('未接続', 'idle');
           canEdit = false;
+
           stopCloudSync();
 
           scheduleData = [];
@@ -690,7 +755,7 @@
       }
     }
 
-    // ========= 年度生成（枠だけ作る：ローカル保存しない） =========
+    // ========= 年度生成 =========
     function generateYearlyCalendar() {
       const startYear = parseInt(document.getElementById('yearInput').value, 10);
       const newScheduleData = [];
@@ -824,19 +889,16 @@
             <div class="flex-1 grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-100">
               <div class="p-2 md:col-span-5">
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">予定</div>
-                <div class="text-sm whitespace-pre-wrap leading-relaxed editable"
-                  contenteditable="true"
+                <div class="text-sm whitespace-pre-wrap leading-relaxed editable" contenteditable="true"
                   oninput="queueSave('${item.id}', 'events', this.innerText)"
                   onblur="flushSave('${item.id}', 'events', this.innerText)">${item.events || ''}</div>
               </div>
               <div class="p-2 md:col-span-5">
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">出張・提出物</div>
-                <div class="text-sm whitespace-pre-wrap leading-relaxed editable mb-1"
-                  contenteditable="true"
+                <div class="text-sm whitespace-pre-wrap leading-relaxed editable mb-1" contenteditable="true"
                   oninput="queueSave('${item.id}', 'business', this.innerText)"
                   onblur="flushSave('${item.id}', 'business', this.innerText)">${item.business || ''}</div>
-                <div class="text-sm text-amber-700 font-medium whitespace-pre-wrap editable"
-                  contenteditable="true"
+                <div class="text-sm text-amber-700 font-medium whitespace-pre-wrap editable" contenteditable="true"
                   oninput="queueSave('${item.id}', 'submission', this.innerText)"
                   onblur="flushSave('${item.id}', 'submission', this.innerText)">${item.submission || ''}</div>
               </div>
@@ -854,8 +916,7 @@
           const field = fields[currentTab];
           contentHtml = `
             <div class="flex-1 p-3">
-              <div class="text-base whitespace-pre-wrap leading-relaxed editable h-full"
-                contenteditable="true"
+              <div class="text-base whitespace-pre-wrap leading-relaxed editable h-full" contenteditable="true"
                 oninput="queueSave('${item.id}', '${field}', this.innerText)"
                 onblur="flushSave('${item.id}', '${field}', this.innerText)">${item[field] || ''}</div>
             </div>
@@ -867,11 +928,6 @@
       });
 
       applyEditLockToDOM();
-    }
-
-    // 既存API互換（残しておく：呼ばれなくてもOK）
-    async function updateField(id, field, value) {
-      await flushSave(id, field, value);
     }
 
     // ========= タブ =========
@@ -1025,6 +1081,8 @@
 
     async function logout() {
       try {
+        // ★ログアウト直前に必ず保存確定（スマホで「消える」対策）
+        await flushAllPendingSaves();
         await firebase.auth().signOut();
         closeLoginModal();
       } catch (e) { console.error(e); }
@@ -1043,7 +1101,6 @@
       applyEditLockToDOM();
     }
 
-    // ID/Password変更（同じuidなのでデータはそのまま）
     async function changeIdOrPassword() {
       if (!authUser) { alert('先にログインしてください。'); return; }
 
