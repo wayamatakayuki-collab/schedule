@@ -47,75 +47,91 @@
   </style>
 </head>
 
-<body class="bg-slate-100 text-slate-800 min-h-screen pb-14">
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-10">
 
   <header class="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm no-print">
-    <div class="max-w-7xl mx-auto px-4 py-3">
-      <!-- ★スマホは縦積み、PCは横並び -->
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex items-center space-x-3">
-          <div class="bg-indigo-600 p-2 rounded-lg text-white shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
-
-          <div class="min-w-0">
-            <div class="flex items-center space-x-2 flex-wrap">
-              <span class="text-sm sm:text-base">西暦</span>
-              <input type="number" id="yearInput" value="2025"
-                class="w-20 font-bold text-lg border-b-2 border-indigo-600 focus:outline-none"
-                onchange="generateYearlyCalendar()" />
-              <span class="text-lg sm:text-xl font-bold">年度 予定表</span>
-            </div>
-            <div id="schoolName" class="text-xs text-slate-500 editable truncate"
-                 contenteditable="true" onblur="saveSchoolName()">
-              ここに学校名等を入力してください
-            </div>
-          </div>
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="bg-indigo-600 p-2 rounded-lg text-white shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
         </div>
 
-        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <!-- ★Password/PIN（共同編集の入口） -->
-          <button id="roomBtn" onclick="openPasswordModal()"
-            class="w-full sm:w-auto px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 flex items-center justify-between sm:justify-start gap-2">
-            <span class="text-slate-500">Password</span>
-            <span class="flex items-center gap-2">
-              <span id="passwordBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs">未設定</span>
-              <span id="syncBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs">未接続</span>
-              <span id="editBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs">閲覧</span>
-            </span>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="text-sm">西暦</span>
+            <input type="number" id="yearInput" value="2025"
+              class="w-20 font-bold text-lg border-b-2 border-indigo-600 focus:outline-none bg-transparent"
+              onchange="generateYearlyCalendar()" />
+            <span class="text-xl font-bold">年度 予定表</span>
+          </div>
+          <div id="schoolName" class="text-xs text-slate-500 editable" contenteditable="true" onblur="saveSchoolName()">
+            ここに学校名等を入力してください
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 flex-wrap justify-end">
+        <!-- ★Password/PIN（共同編集の入口） -->
+        <button id="roomBtn" onclick="openPasswordModal()"
+          class="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 flex items-center gap-2">
+          <span class="text-slate-500">Password</span>
+          <span id="passwordBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs">未設定</span>
+          <span id="syncBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs">未接続</span>
+          <span id="editBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs">閲覧</span>
+        </button>
+
+        <div class="flex items-center space-x-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl">
+          <label id="csvLabel"
+            class="cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center shadow-sm active:scale-95">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
+              stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            CSVインポート
+            <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="importCSV(this)">
+          </label>
+        </div>
+
+        <!-- ★検索：×で一括クリア -->
+        <div class="relative w-56 sm:w-64">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 pointer-events-none">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+              stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </span>
+
+          <input type="text" id="searchInput" placeholder="検索"
+            class="block w-full pl-10 pr-10 py-2 border border-slate-200 rounded-lg bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+
+          <button id="clearSearchBtn" type="button" onclick="clearSearch()"
+            class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+              stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
-
-          <div class="flex items-center space-x-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl">
-            <label id="csvLabel"
-              class="w-full sm:w-auto cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center shadow-sm active:scale-95">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
-              CSVインポート
-              <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="importCSV(this)">
-            </label>
-          </div>
-
-          <div class="relative w-full sm:w-56">
-            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </span>
-            <input type="text" id="searchInput" placeholder="検索"
-              class="block w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
-          </div>
         </div>
       </div>
     </div>
 
-    <div class="max-w-7xl mx-auto px-4 overflow-x-auto scrollbar-hide border-t border-slate-100">
-      <div class="flex space-x-1 py-2" id="monthNav"></div>
+    <!-- ★月ナビ：スマホはドロップダウン / それ以外はボタン -->
+    <div class="max-w-7xl mx-auto px-4 border-t border-slate-100">
+      <div class="py-2 sm:hidden">
+        <select id="monthSelect"
+          class="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          onchange="onMonthSelectChange(this.value)">
+        </select>
+      </div>
+
+      <div class="hidden sm:block overflow-x-auto scrollbar-hide">
+        <div class="flex space-x-1 py-2" id="monthNav"></div>
+      </div>
     </div>
 
     <div class="max-w-7xl mx-auto px-4 overflow-x-auto scrollbar-hide">
@@ -169,10 +185,10 @@
 
           <div>
             <label class="text-sm font-medium text-slate-700">編集用PIN（4桁）</label>
-            <input id="pinInput" type="password" inputmode="numeric" maxlength="4" placeholder="（編集する人だけ入力）"
+            <input id="pinInput" type="password" inputmode="numeric" maxlength="4" placeholder="（編集する人は入力）"
               class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             <div class="text-xs text-slate-500 mt-1">
-              ※PINが一致しない場合は「閲覧のみ」になります。
+              ※PINが未設定の部屋なら「初回登録」されます。設定済みなら一致した人だけ編集可になります。
             </div>
           </div>
 
@@ -182,9 +198,13 @@
         </div>
 
         <div class="p-4 border-t border-slate-100 flex flex-wrap justify-end gap-2">
+          <button onclick="openCopyModal()"
+            class="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
+            旧部屋 → 新部屋へコピー
+          </button>
           <button onclick="openPinChangeModal()"
             class="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
-            編集用PINを設定/変更
+            編集用PINを変更
           </button>
           <button onclick="clearPassword()"
             class="px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
@@ -203,16 +223,14 @@
     </div>
   </div>
 
-  <!-- ★PIN 設定/変更モーダル -->
+  <!-- ★PIN 変更モーダル -->
   <div id="pinChangeModal" class="hidden fixed inset-0 z-50">
     <div class="absolute inset-0 bg-black/40" onclick="closePinChangeModal()"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4">
       <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
         <div class="p-4 border-b border-slate-100">
-          <div class="text-lg font-bold">編集用PIN（4桁）を設定/変更</div>
-          <div id="pinChangeHint" class="text-sm text-slate-500 mt-1">
-            ※この操作は「編集可」の人のみ実行できます。
-          </div>
+          <div class="text-lg font-bold">編集用PIN（4桁）を変更</div>
+          <div class="text-sm text-slate-500 mt-1">※この操作は「編集可」の人のみ実行できます。</div>
         </div>
 
         <div class="p-4 space-y-3">
@@ -231,7 +249,69 @@
           </button>
           <button onclick="setOrChangePin()"
             class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
-            PINを設定/変更
+            PINを変更
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ★旧部屋→新部屋コピー モーダル -->
+  <div id="copyModal" class="hidden fixed inset-0 z-50">
+    <div class="absolute inset-0 bg-black/40" onclick="closeCopyModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+        <div class="p-4 border-b border-slate-100">
+          <div class="text-lg font-bold">旧部屋 → 新部屋へコピー</div>
+          <div class="text-sm text-slate-500 mt-1">
+            現在の年度（<span id="copyYearLabel"></span>年度）データを、新しいPasswordの部屋へコピーします。<br>
+            ※実行できるのは「編集可」の人だけです。
+          </div>
+        </div>
+
+        <div class="p-4 space-y-4">
+          <div>
+            <label class="text-sm font-medium text-slate-700">新しいPassword</label>
+            <input id="copyNewPassword" type="text" placeholder=""
+              class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div class="text-sm font-medium text-slate-700">PINの扱い</div>
+
+            <label class="mt-2 flex items-center gap-2 text-sm text-slate-700">
+              <input id="copyKeepPin" type="radio" name="copyPinMode" checked />
+              旧部屋のPINを引き継ぐ（おすすめ）
+            </label>
+
+            <label class="mt-2 flex items-center gap-2 text-sm text-slate-700">
+              <input id="copySetNewPinRadio" type="radio" name="copyPinMode" />
+              新しいPINを設定する
+            </label>
+
+            <div class="mt-2">
+              <input id="copyNewPin" type="password" inputmode="numeric" maxlength="4" placeholder="新しいPIN（4桁）"
+                class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                oninput="document.getElementById('copySetNewPinRadio').checked = true;" />
+              <div class="text-xs text-slate-500 mt-1">
+                ※新PINを設定する場合のみ入力してください（4桁）。
+              </div>
+            </div>
+          </div>
+
+          <div class="text-xs text-slate-500">
+            ※コピー後、自動で「新しいPasswordの部屋」に切り替えます。
+          </div>
+        </div>
+
+        <div class="p-4 border-t border-slate-100 flex justify-end gap-2">
+          <button onclick="closeCopyModal()"
+            class="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
+            キャンセル
+          </button>
+          <button onclick="doCopyRoom()"
+            class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
+            コピー実行
           </button>
         </div>
       </div>
@@ -266,7 +346,7 @@
     // 編集可否（PIN一致したら true）
     let canEdit = false;
 
-    // ★あなたのFirebaseプロジェクト設定（反映済み）
+    // ★あなたのFirebaseプロジェクト設定（ユーザー提供の値）
     const firebaseConfig = {
       apiKey: "AIzaSyA-FkCxNyT8C-HicXa4PbHcjNkwIvQWWw0",
       authDomain: "schedule-collab-38ed7.firebaseapp.com",
@@ -324,9 +404,7 @@
     async function ensureFirebase() {
       if (firebaseReady) return true;
       try {
-        if (!firebase.apps || !firebase.apps.length) {
-          firebase.initializeApp(firebaseConfig);
-        }
+        firebase.initializeApp(firebaseConfig);
         db = firebase.firestore();
 
         setSyncBadge('接続中', 'wait');
@@ -339,12 +417,7 @@
       } catch (e) {
         console.error(e);
         setSyncBadge('接続失敗', 'ng');
-        const msg = (e && (e.code || e.message)) ? String(e.code || e.message) : '';
-        alert(
-          '共同編集の接続に失敗しました。\n' +
-          'firebaseConfig / Auth設定（匿名）/ 承認済みドメイン を確認してください。\n\n' +
-          (msg ? `詳細：${msg}` : '')
-        );
+        alert('共同編集の接続に失敗しました。Firebaseの「Authentication(匿名)」と「Firestore」および「承認済みドメイン」を確認してください。');
         return false;
       }
     }
@@ -364,14 +437,20 @@
       return parseInt(document.getElementById('yearInput').value, 10);
     }
 
+    function roomDocRefBy(roomIdValue) {
+      return db.collection('rooms').doc(roomIdValue);
+    }
     function roomDocRef() {
-      return db.collection('rooms').doc(roomId);
+      return roomDocRefBy(roomId);
     }
 
-    function cloudDaysRef(startYear) {
-      return roomDocRef()
+    function cloudDaysRefFor(roomIdValue, startYear) {
+      return roomDocRefBy(roomIdValue)
         .collection('years').doc(String(startYear))
         .collection('days');
+    }
+    function cloudDaysRef(startYear) {
+      return cloudDaysRefFor(roomId, startYear);
     }
 
     async function startCloudSyncForYear() {
@@ -415,7 +494,7 @@
       });
     }
 
-    // ========= PIN（Firestoreにハッシュで保存） =========
+    // ========= PIN =========
     async function getPinHashFromCloud() {
       const ok = await ensureFirebase();
       if (!ok) return null;
@@ -437,7 +516,7 @@
 
     async function verifyEditPin(pinPlain) {
       const cloudHash = await getPinHashFromCloud();
-      if (!cloudHash) return false; // PIN未設定なら編集不可（安全側）
+      if (!cloudHash) return false; // 未設定なら編集不可（安全側）
       const inputHash = await sha256Hex(String(pinPlain || '').trim());
       return inputHash === cloudHash;
     }
@@ -454,7 +533,7 @@
     }
 
     async function saveDayToCloud(item) {
-      if (!password || !canEdit) return; // ★編集者だけ保存
+      if (!password || !canEdit) return;
       const ok = await ensureFirebase();
       if (!ok) return;
 
@@ -484,23 +563,28 @@
       const startYear = getStartYear();
       const ref = cloudDaysRef(startYear);
 
-      const batch = db.batch();
-      items.forEach(item => {
-        const docId = `${item.year}-${item.month}-${item.day}`;
-        batch.set(ref.doc(docId), {
-          year: item.year,
-          month: item.month,
-          day: item.day,
-          duty: item.duty || '',
-          events: item.events || '',
-          business: item.business || '',
-          submission: item.submission || '',
-          vacation: item.vacation || '',
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          updatedBy: authUser ? authUser.uid : null
-        }, { merge: true });
-      });
-      await batch.commit();
+      // 500制限を避ける（安全のため450で刻む）
+      const chunkSize = 450;
+      for (let i = 0; i < items.length; i += chunkSize) {
+        const chunk = items.slice(i, i + chunkSize);
+        const batch = db.batch();
+        chunk.forEach(item => {
+          const docId = `${item.year}-${item.month}-${item.day}`;
+          batch.set(ref.doc(docId), {
+            year: item.year,
+            month: item.month,
+            day: item.day,
+            duty: item.duty || '',
+            events: item.events || '',
+            business: item.business || '',
+            submission: item.submission || '',
+            vacation: item.vacation || '',
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: authUser ? authUser.uid : null
+          }, { merge: true });
+        });
+        await batch.commit();
+      }
     }
 
     // ========= ローカル保存 =========
@@ -523,15 +607,14 @@
     // ========= 初期化 =========
     async function init() {
       loadSchoolName();
-      renderMonthNav();
       setupSearch();
+      renderMonthNav();
+      renderMonthSelect();
       generateYearlyCalendar();
 
-      // まず閲覧モード
       canEdit = false;
       setEditBadge();
 
-      // Password復元
       const savedPassword = localStorage.getItem(PASSWORD_KEY) || '';
       if (savedPassword) {
         await setPassword(savedPassword);
@@ -555,7 +638,7 @@
 
     // ========= 年度生成 =========
     function generateYearlyCalendar() {
-      const startYear = parseInt(document.getElementById('yearInput').value, 10);
+      const startYear = getStartYear();
       const savedData = localStorage.getItem(getStorageKey());
       const parsedSavedData = savedData ? JSON.parse(savedData) : null;
 
@@ -588,29 +671,59 @@
       }
 
       scheduleData = newScheduleData;
+      renderMonthNav();
+      renderMonthSelect();
       renderSchedule();
       applyEditLockToDOM();
 
       if (password) startCloudSyncForYear();
     }
 
-    // ========= 月ナビ =========
+    // ========= 月ナビ（ボタン） =========
+    function fiscalMonths() {
+      return [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3];
+    }
+
     function renderMonthNav() {
       const nav = document.getElementById('monthNav');
+      if (!nav) return;
       nav.innerHTML = '';
-      const fiscalMonths = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3];
-      fiscalMonths.forEach(m => {
+      fiscalMonths().forEach(m => {
         const btn = document.createElement('button');
         btn.className = `px-5 py-2 rounded-full text-sm font-medium transition-all ${currentMonth === m ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-200'}`;
         btn.innerText = `${m}月`;
         btn.onclick = () => {
           currentMonth = m;
           renderMonthNav();
+          renderMonthSelect();
           renderSchedule();
           applyEditLockToDOM();
         };
         nav.appendChild(btn);
       });
+    }
+
+    // ========= 月ナビ（スマホ：select） =========
+    function renderMonthSelect() {
+      const sel = document.getElementById('monthSelect');
+      if (!sel) return;
+      sel.innerHTML = '';
+      fiscalMonths().forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = String(m);
+        opt.textContent = `${m}月`;
+        if (m === currentMonth) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    function onMonthSelectChange(value) {
+      const m = parseInt(value, 10);
+      if (!Number.isFinite(m)) return;
+      currentMonth = m;
+      renderMonthNav();
+      renderSchedule();
+      applyEditLockToDOM();
     }
 
     // ========= 描画 =========
@@ -619,13 +732,17 @@
       const emptyState = document.getElementById('emptyState');
       container.innerHTML = '';
 
+      const isSearching = !!(searchQuery && searchQuery.trim());
+      const q = (searchQuery || '').toLowerCase();
+
+      // ★検索中は 4月〜3月の全期間を対象（＝月フィルタを外す）
       const filteredData = scheduleData.filter(item => {
-        if (item.month !== currentMonth) return false;
-        if (searchQuery) {
-          const text = (item.events + item.business + item.submission + item.duty + item.vacation).toLowerCase();
-          return text.includes(searchQuery.toLowerCase());
+        if (!isSearching) {
+          if (item.month !== currentMonth) return false;
+          return true;
         }
-        return true;
+        const text = (item.events + item.business + item.submission + item.duty + item.vacation).toLowerCase();
+        return text.includes(q);
       });
 
       if (filteredData.length === 0) {
@@ -643,11 +760,18 @@
         const isSat = item.dow === '土';
         const dateBg = isSun ? 'bg-red-50 text-red-600' : (isSat ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-700');
 
+        const monthBadge = isSearching
+          ? `<div class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white border border-slate-200">${item.month}月</div>`
+          : '';
+
         const dateSection = `
-          <div class="md:w-24 ${dateBg} p-2 flex md:flex-col items-center justify-between md:justify-center md:border-r border-slate-200">
-            <div class="flex items-baseline md:flex-col md:items-center">
-              <span class="text-xl font-bold">${item.day}</span>
-              <span class="text-xs font-bold md:mt-0.5 ml-1 md:ml-0">(${item.dow})</span>
+          <div class="md:w-28 ${dateBg} p-2 flex md:flex-col items-center justify-between md:justify-center md:border-r border-slate-200 gap-2">
+            <div class="flex items-center gap-2 md:flex-col md:gap-1 md:items-center">
+              ${monthBadge}
+              <div class="flex items-baseline md:flex-col md:items-center">
+                <span class="text-xl font-bold">${item.day}</span>
+                <span class="text-xs font-bold md:mt-0.5 ml-1 md:ml-0">(${item.dow})</span>
+              </div>
             </div>
             <div class="text-[10px] bg-white px-1 py-0.5 rounded border border-slate-200 font-medium md:mt-2 editable no-print whitespace-nowrap overflow-hidden text-center flex items-center justify-center"
               contenteditable="true" onblur="updateField('${item.id}', 'duty', this.innerText)">
@@ -674,6 +798,7 @@
               </div>
               <div class="p-2 md:col-span-2 bg-slate-50/30">
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">休暇</div>
+                <!-- ★休暇欄：基本1行→改行で下に増える -->
                 <div class="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed editable"
                   contenteditable="true" onblur="updateField('${item.id}', 'vacation', this.innerText)">${item.vacation || ''}</div>
               </div>
@@ -698,7 +823,7 @@
     }
 
     async function updateField(id, field, value) {
-      if (!canEdit) return; // ★編集はPIN一致者のみ
+      if (!canEdit) return;
       const item = scheduleData.find(d => d.id === id);
       if (!item) return;
 
@@ -720,10 +845,28 @@
 
     // ========= 検索 =========
     function setupSearch() {
-      document.getElementById('searchInput').oninput = (e) => {
+      const input = document.getElementById('searchInput');
+      input.oninput = (e) => {
         searchQuery = e.target.value;
+        toggleClearSearchBtn();
         renderSchedule();
       };
+      toggleClearSearchBtn();
+    }
+
+    function toggleClearSearchBtn() {
+      const btn = document.getElementById('clearSearchBtn');
+      const val = (document.getElementById('searchInput').value || '').trim();
+      if (val) btn.classList.remove('hidden');
+      else btn.classList.add('hidden');
+    }
+
+    function clearSearch() {
+      const input = document.getElementById('searchInput');
+      input.value = '';
+      searchQuery = '';
+      toggleClearSearchBtn();
+      renderSchedule();
     }
 
     // ========= CSV =========
@@ -750,6 +893,14 @@
         return;
       }
 
+      // ★年度確認ダイアログ
+      const startYear = getStartYear();
+      const okYear = confirm(`${startYear}年度に予定をインポートしてもよろしいですか？`);
+      if (!okYear) {
+        input.value = '';
+        return;
+      }
+
       const file = input.files[0];
       if (!file) return;
 
@@ -769,7 +920,6 @@
 
         const dataRows = rows.slice(1);
         let count = 0, skipped = 0;
-        const startYear = getStartYear();
         const touched = [];
 
         dataRows.forEach(rowText => {
@@ -818,30 +968,73 @@
       document.getElementById('passwordModal').classList.add('hidden');
     }
 
+    // ★接続：PIN未設定なら「初回登録」、設定済みなら照合（1回で完結）
     async function applyPasswordAndMaybePin() {
       const p = document.getElementById('passwordInput').value.trim();
       const pin = document.getElementById('pinInput').value.trim();
 
       if (!p) { alert('Passwordを入力してください。'); return; }
+      if (pin && !/^\d{4}$/.test(pin)) {
+        alert('編集用PINは4桁の数字で入力してください。');
+        return;
+      }
 
       closePasswordModal();
 
-      // 閲覧：Passwordで接続
+      // Passwordが変わるなら、この端末のPINキャッシュは一旦無効
+      if (password && p !== password) {
+        localStorage.removeItem(PIN_CACHE_KEY);
+        canEdit = false;
+      }
+
+      // ① 閲覧：Passwordで部屋に接続
       await setPassword(p);
 
-      // 編集：PINが入っていれば照合
-      if (pin) {
+      // ② Firebase接続（Authまで）
+      const okFb = await ensureFirebase();
+      if (!okFb) {
+        canEdit = false;
+        renderSchedule();
+        applyEditLockToDOM();
+        setEditBadge();
+        return;
+      }
+
+      // ③ PIN未入力 → 閲覧
+      if (!pin) {
+        canEdit = false;
+        localStorage.removeItem(PIN_CACHE_KEY);
+        renderSchedule();
+        applyEditLockToDOM();
+        setEditBadge();
+        return;
+      }
+
+      // ④ PIN入力あり → 初回なら登録 / 既存なら照合
+      const cloudHash = await getPinHashFromCloud(); // null なら未設定
+
+      if (!cloudHash) {
+        const hash = await sha256Hex(pin);
+        const ok = await setPinHashToCloud(hash);
+        if (!ok) {
+          canEdit = false;
+          localStorage.removeItem(PIN_CACHE_KEY);
+          alert('PINの初回登録に失敗しました。Firestoreの権限（rules）を確認してください。');
+        } else {
+          canEdit = true;
+          localStorage.setItem(PIN_CACHE_KEY, pin);
+          alert('編集用PINを初回登録しました。以後、このPasswordでは「PIN一致者のみ編集可」になります。');
+        }
+      } else {
         const ok = await verifyEditPin(pin);
         canEdit = !!ok;
+
         if (canEdit) {
           localStorage.setItem(PIN_CACHE_KEY, pin);
         } else {
           localStorage.removeItem(PIN_CACHE_KEY);
           alert('編集用PINが一致しませんでした。閲覧モードで接続します。');
         }
-      } else {
-        canEdit = false;
-        localStorage.removeItem(PIN_CACHE_KEY);
       }
 
       renderSchedule();
@@ -869,27 +1062,15 @@
       alert('Passwordを解除しました（共同編集を停止しました）。');
     }
 
-    // ★PIN設定/変更モーダルを開く（表示文言だけ調整）
-    async function openPinChangeModal() {
+    function openPinChangeModal() {
+      if (!canEdit) {
+        alert('PINの変更は「編集可」の人のみ実行できます。');
+        return;
+      }
       if (!password) {
         alert('先にPasswordで接続してください。');
         return;
       }
-      const cloudHash = await getPinHashFromCloud();
-
-      const hint = document.getElementById('pinChangeHint');
-      if (!cloudHash) {
-        // ★初回：PIN未設定なら許可（Passwordを知っている人が最初に設定）
-        hint.textContent = '初回設定：この部屋はPIN未設定です。Passwordを知っている人が最初にPINを設定できます。';
-      } else {
-        // ★2回目以降：編集可の人のみ
-        hint.textContent = '※この操作は「編集可」の人のみ実行できます。';
-        if (!canEdit) {
-          alert('この部屋はすでにPINが設定されています。PINの変更は「編集可」の人のみ可能です。');
-          return;
-        }
-      }
-
       document.getElementById('newPinInput').value = '';
       document.getElementById('pinChangeModal').classList.remove('hidden');
       setTimeout(() => document.getElementById('newPinInput').focus(), 0);
@@ -899,7 +1080,6 @@
       document.getElementById('pinChangeModal').classList.add('hidden');
     }
 
-    // ★ここが肝：PIN未設定なら初回設定を許可。設定済みなら編集可のみ変更許可。
     async function setOrChangePin() {
       const newPin = document.getElementById('newPinInput').value.trim();
       if (!/^\d{4}$/.test(newPin)) {
@@ -910,28 +1090,138 @@
         alert('先にPasswordで接続してください。');
         return;
       }
-
-      const cloudHash = await getPinHashFromCloud();
-
-      if (cloudHash && !canEdit) {
-        alert('PINの変更は「編集可」の人のみ実行できます。');
+      if (!canEdit) {
+        alert('PINの変更は編集権限が必要です。');
         return;
       }
 
-      // 初回 or 変更OK
       const hash = await sha256Hex(newPin);
       const ok = await setPinHashToCloud(hash);
       if (!ok) return;
 
-      // この端末は新PINで編集可にする
       localStorage.setItem(PIN_CACHE_KEY, newPin);
-      canEdit = true;
-
       closePinChangeModal();
-      renderSchedule();
-      applyEditLockToDOM();
-      setEditBadge();
-      alert(cloudHash ? '編集用PINを変更しました。' : '編集用PINを初回設定しました。');
+      alert('編集用PINを変更しました。');
+    }
+
+    // ========= 旧部屋 → 新部屋コピー =========
+    function openCopyModal() {
+      if (!password) {
+        alert('先にPasswordで接続してください。');
+        return;
+      }
+      if (!canEdit) {
+        alert('コピーは「編集可」の人のみ実行できます。');
+        return;
+      }
+      document.getElementById('copyYearLabel').textContent = String(getStartYear());
+      document.getElementById('copyNewPassword').value = '';
+      document.getElementById('copyNewPin').value = '';
+      document.getElementById('copyKeepPin').checked = true;
+      document.getElementById('copyModal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('copyNewPassword').focus(), 0);
+    }
+    function closeCopyModal() {
+      document.getElementById('copyModal').classList.add('hidden');
+    }
+
+    async function doCopyRoom() {
+      const newPw = document.getElementById('copyNewPassword').value.trim();
+      const newPin = document.getElementById('copyNewPin').value.trim();
+
+      if (!newPw) {
+        alert('新しいPasswordを入力してください。');
+        return;
+      }
+      if (newPin && !/^\d{4}$/.test(newPin)) {
+        alert('新しいPINは4桁の数字で入力してください。');
+        return;
+      }
+      if (!canEdit) {
+        alert('コピーは「編集可」の人のみ実行できます。');
+        return;
+      }
+
+      const ok = confirm('現在の年度データを新しい部屋へコピーします。よろしいですか？');
+      if (!ok) return;
+
+      try {
+        const okFb = await ensureFirebase();
+        if (!okFb) return;
+
+        const startYear = getStartYear();
+        const oldRoomId = roomId;
+        const oldRef = cloudDaysRefFor(oldRoomId, startYear);
+
+        // 旧部屋のデータ取得
+        setSyncBadge('コピー中', 'wait');
+        const snap = await oldRef.get();
+        const docs = snap.docs;
+
+        // 新部屋ID
+        const newRoomId = await sha256Hex(newPw);
+        const newRef = cloudDaysRefFor(newRoomId, startYear);
+
+        // PINの引継ぎ or 新PIN設定
+        const oldRoomSnap = await roomDocRefBy(oldRoomId).get();
+        const oldRoomData = oldRoomSnap.exists ? (oldRoomSnap.data() || {}) : {};
+        const oldPinHash = oldRoomData.pinHash ? String(oldRoomData.pinHash) : null;
+
+        let pinHashToWrite = oldPinHash;
+        if (newPin) {
+          pinHashToWrite = await sha256Hex(newPin);
+        }
+
+        // rooms/{newRoomId} に pinHash を反映（merge）
+        await roomDocRefBy(newRoomId).set({
+          pinHash: pinHashToWrite || null,
+          pinUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          pinUpdatedBy: authUser ? authUser.uid : null,
+          copiedFrom: oldRoomId,
+          copiedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+
+        // days コピー（450ずつ）
+        const chunkSize = 450;
+        const toWrite = docs.map(d => ({ id: d.id, data: d.data() || {} }));
+
+        for (let i = 0; i < toWrite.length; i += chunkSize) {
+          const chunk = toWrite.slice(i, i + chunkSize);
+          const batch = db.batch();
+          chunk.forEach(x => {
+            batch.set(newRef.doc(x.id), {
+              ...x.data,
+              copiedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              copiedBy: authUser ? authUser.uid : null
+            }, { merge: true });
+          });
+          await batch.commit();
+        }
+
+        // コピー後：新Passwordへ切替
+        closeCopyModal();
+        await setPassword(newPw);
+
+        // 編集可：新PINを設定したならそれで編集可、引継ぎなら今の編集PINキャッシュをそのまま使う
+        if (newPin) {
+          localStorage.setItem(PIN_CACHE_KEY, newPin);
+          canEdit = true;
+        } else {
+          // 旧PIN引継ぎの場合：この端末は既に編集可なのでそのまま
+          canEdit = true;
+        }
+
+        renderSchedule();
+        applyEditLockToDOM();
+        setEditBadge();
+        setSyncBadge('同期OK', 'ok');
+
+        alert(`コピーが完了しました。\n新しい部屋に切り替えました：${startYear}年度`);
+      } catch (e) {
+        console.error(e);
+        setSyncBadge('コピー失敗', 'ng');
+        alert('コピーに失敗しました。Firebase設定 / Firestoreルール を確認してください。');
+      }
     }
 
     window.onload = init;
