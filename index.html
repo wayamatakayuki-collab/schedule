@@ -75,9 +75,8 @@
       </div>
 
       <!-- 右：操作群（※見た目は変えない：ログイン＋CSV＋検索） -->
-      <!-- ★ここだけUI修正：スマホは2段（1段目ログイン、2段目CSV+検索） / PCは横並び -->
-      <div class="flex flex-col gap-2 w-full md:w-auto md:flex-row md:items-center md:gap-3">
-        <!-- ログイン（スマホは1段目で横一列） -->
+      <div class="flex items-center space-x-3 w-full md:w-auto">
+        <!-- ログイン -->
         <button id="loginBtn" onclick="openLoginModal()"
           class="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 flex items-center gap-2 w-full md:w-auto justify-between md:justify-start">
           <span class="text-slate-500">ログイン</span>
@@ -88,7 +87,7 @@
           <span id="modeBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs select-none">閲覧</span>
         </button>
 
-        <!-- 2段目（スマホ）：CSVと検索は横並び -->
+        <!-- スマホ：CSVと検索は横並び（自動調整） -->
         <div class="flex items-center gap-2 w-full md:w-auto">
           <div class="flex-1 md:flex-none flex items-center space-x-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl">
             <label id="csvLabel"
@@ -116,7 +115,6 @@
           </div>
         </div>
       </div>
-      <!-- ★ここまでUI修正 -->
     </div>
 
     <!-- 月：PCはボタン／スマホはドロップダウン -->
@@ -575,6 +573,62 @@
       } catch (e) { console.error(e); }
     }
 
+    // =========================================================
+    // ①〜③：自動保存（見た目は変えない）＋ 取りこぼし防止
+    // =========================================================
+    const _saveTimers = new Map();     // key -> timerId
+    const _pendingValues = new Map();  // key -> latestValue
+    function _key(id, field) { return `${id}__${field}`; }
+
+    function queueUpdateField(id, field, value) {
+      if (!(authUser && canEdit)) return;
+
+      const k = _key(id, field);
+      _pendingValues.set(k, (value ?? '').trim());
+
+      if (_saveTimers.has(k)) clearTimeout(_saveTimers.get(k));
+
+      const t = setTimeout(async () => {
+        await flushUpdateField(id, field, _pendingValues.get(k));
+      }, 700);
+
+      _saveTimers.set(k, t);
+    }
+
+    async function flushUpdateField(id, field, value) {
+      if (!(authUser && canEdit)) return;
+
+      const k = _key(id, field);
+      if (_saveTimers.has(k)) {
+        clearTimeout(_saveTimers.get(k));
+        _saveTimers.delete(k);
+      }
+
+      const item = scheduleData.find(d => d.id === id);
+      if (!item) return;
+
+      const v = (value ?? '').trim();
+      item[field] = v;
+      _pendingValues.delete(k);
+
+      try { await saveDayToCloud(item); } catch (e) { console.error(e); }
+    }
+
+    async function flushAllPendingEdits() {
+      if (!(authUser && canEdit)) return;
+      const tasks = [];
+      for (const [k, v] of _pendingValues.entries()) {
+        const [id, field] = k.split('__');
+        tasks.push(flushUpdateField(id, field, v));
+      }
+      try { await Promise.all(tasks); } catch (e) { console.error(e); }
+    }
+
+    window.addEventListener('pagehide', () => { flushAllPendingEdits(); });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flushAllPendingEdits();
+    });
+
     // ========= 初期化 =========
     async function init() {
       renderMonthNav();
@@ -771,7 +825,9 @@
               <span class="text-xs font-bold md:mt-0.5 ml-1 md:ml-0">(${item.dow})</span>
             </div>
             <div class="text-[10px] bg-white px-1 py-0.5 rounded border border-slate-200 font-medium md:mt-2 editable no-print whitespace-nowrap overflow-hidden text-center flex items-center justify-center"
-              contenteditable="true" onblur="updateField('${item.id}', 'duty', this.innerText)">
+              contenteditable="true"
+              oninput="queueUpdateField('${item.id}', 'duty', this.innerText)"
+              onblur="flushUpdateField('${item.id}', 'duty', this.innerText)">
               ${item.duty || ''}
             </div>
           </div>
@@ -784,19 +840,24 @@
               <div class="p-2 md:col-span-5">
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">予定</div>
                 <div class="text-sm whitespace-pre-wrap leading-relaxed editable" contenteditable="true"
-                  onblur="updateField('${item.id}', 'events', this.innerText)">${item.events || ''}</div>
+                  oninput="queueUpdateField('${item.id}', 'events', this.innerText)"
+                  onblur="flushUpdateField('${item.id}', 'events', this.innerText)">${item.events || ''}</div>
               </div>
               <div class="p-2 md:col-span-5">
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">出張・提出物</div>
                 <div class="text-sm whitespace-pre-wrap leading-relaxed editable mb-1" contenteditable="true"
-                  onblur="updateField('${item.id}', 'business', this.innerText)">${item.business || ''}</div>
+                  oninput="queueUpdateField('${item.id}', 'business', this.innerText)"
+                  onblur="flushUpdateField('${item.id}', 'business', this.innerText)">${item.business || ''}</div>
                 <div class="text-sm text-amber-700 font-medium whitespace-pre-wrap editable" contenteditable="true"
-                  onblur="updateField('${item.id}', 'submission', this.innerText)">${item.submission || ''}</div>
+                  oninput="queueUpdateField('${item.id}', 'submission', this.innerText)"
+                  onblur="flushUpdateField('${item.id}', 'submission', this.innerText)">${item.submission || ''}</div>
               </div>
               <div class="p-2 md:col-span-2 bg-slate-50/30">
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">休暇</div>
                 <div class="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed editable"
-                  contenteditable="true" onblur="updateField('${item.id}', 'vacation', this.innerText)">${item.vacation || ''}</div>
+                  contenteditable="true"
+                  oninput="queueUpdateField('${item.id}', 'vacation', this.innerText)"
+                  onblur="flushUpdateField('${item.id}', 'vacation', this.innerText)">${item.vacation || ''}</div>
               </div>
             </div>
           `;
@@ -806,7 +867,8 @@
           contentHtml = `
             <div class="flex-1 p-3">
               <div class="text-base whitespace-pre-wrap leading-relaxed editable h-full" contenteditable="true"
-                onblur="updateField('${item.id}', '${field}', this.innerText)">${item[field] || ''}</div>
+                oninput="queueUpdateField('${item.id}', '${field}', this.innerText)"
+                onblur="flushUpdateField('${item.id}', '${field}', this.innerText)">${item[field] || ''}</div>
             </div>
           `;
         }
@@ -818,15 +880,12 @@
       applyEditLockToDOM();
     }
 
+    // （残してOK：古い呼び出しがあっても壊れない）
     async function updateField(id, field, value) {
-      // ★編集は「ログイン＋編集モード」の時だけ
       if (!(authUser && canEdit)) return;
-
       const item = scheduleData.find(d => d.id === id);
       if (!item) return;
-
       item[field] = (value || '').trim();
-
       try { await saveDayToCloud(item); } catch (e) { console.error(e); }
     }
 
@@ -981,6 +1040,8 @@
 
     async function logout() {
       try {
+        // ★ログアウト前に取りこぼしを確実に保存（UIは変えない）
+        await flushAllPendingEdits();
         await firebase.auth().signOut();
         closeLoginModal();
       } catch (e) { console.error(e); }
