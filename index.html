@@ -44,16 +44,6 @@
       outline: none !important;
     }
     .readonly:hover { outline: none !important; background-color: transparent !important; }
-
-    /* ✅（見た目は変えず）iOS/Teams内ブラウザでもモーダルが下までスクロールできるようにする */
-    #loginModal .modal-card {
-      max-height: calc(100vh - 2rem);
-    }
-    #loginModal .modal-scroll {
-      max-height: calc(100vh - 2rem);
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-    }
   </style>
 </head>
 
@@ -84,17 +74,17 @@
         </div>
       </div>
 
-      <!-- 右：操作群（UI維持：ログイン＋CSV＋検索） -->
+      <!-- 右：操作群（※見た目は変えない：ログイン＋CSV＋検索） -->
       <div class="flex items-center space-x-3 w-full md:w-auto">
         <!-- ログイン -->
-        <!-- ✅見た目そのまま：クリック位置で「ログインモーダル」or「モード切替」 -->
-        <button id="loginBtn" onclick="handleLoginBtnClick(event)"
+        <button id="loginBtn" onclick="openLoginModal()"
           class="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 flex items-center gap-2 w-full md:w-auto justify-between md:justify-start">
           <span class="text-slate-500">ログイン</span>
           <span id="loginBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs">未ログイン</span>
           <span id="syncBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs">未接続</span>
-          <span id="modeLabel" class="text-slate-400">モード</span>
-          <span id="modeBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs">閲覧</span>
+          <span class="text-slate-400">モード</span>
+          <!-- ★ここをクリックで閲覧⇄編集（見た目は同じ / 機能のみ） -->
+          <span id="modeBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs select-none">閲覧</span>
         </button>
 
         <!-- スマホ：CSVと検索は横並び（自動調整） -->
@@ -157,7 +147,19 @@
   </header>
 
   <main class="max-w-7xl mx-auto px-4 mt-6">
+    <!-- ★ログアウト中は予定を表示しない（機能のみ） -->
+    <div id="lockedState"
+      class="hidden py-16 text-center bg-white rounded-xl border border-dashed border-slate-300">
+      <div class="text-slate-700 font-bold">ログインしてください</div>
+      <div class="text-slate-500 text-sm mt-2">ログイン後、クラウドの予定が表示・同期されます。</div>
+      <button onclick="openLoginModal()"
+        class="mt-5 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
+        ログインへ
+      </button>
+    </div>
+
     <div id="scheduleContainer" class="space-y-2"></div>
+
     <div id="emptyState"
       class="hidden py-20 text-center text-slate-400 bg-white rounded-xl border border-dashed border-slate-300">
       表示できる予定がありません。
@@ -173,95 +175,99 @@
   <div id="loginModal" class="hidden fixed inset-0 z-50">
     <div class="absolute inset-0 bg-black/40" onclick="closeLoginModal()"></div>
 
-    <!-- ✅モーダル全体：見た目そのまま、スクロールできる器だけ追加 -->
-    <div class="absolute inset-0 flex items-center justify-center p-4">
-      <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden modal-card">
-        <div class="modal-scroll">
-          <div class="p-4 border-b border-slate-100">
-            <div class="text-lg font-bold">ID / Password ログイン</div>
-            <div class="text-sm text-slate-500 mt-1">
-              ・同じID/Passwordでログインした人は同じ予定表を共同編集できます。<br>
-              ・「新規作成」は、未使用のIDで最初の1回だけ作れます。<br>
-              ・編集は「閲覧⇄編集」の切替で行います（誰でも切替可能）。
+    <!-- ★スマホで下までスクロールできるように（見た目は変えず、スクロールだけ確保） -->
+    <div class="absolute inset-0 overflow-y-auto p-4 flex items-start justify-center"
+         style="-webkit-overflow-scrolling: touch; overscroll-behavior: contain;">
+      <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden"
+           style="max-height: calc(100vh - 2rem); overflow-y: auto; -webkit-overflow-scrolling: touch;">
+        <div class="p-4 border-b border-slate-100">
+          <div class="text-lg font-bold">ID / Password ログイン</div>
+          <div class="text-sm text-slate-500 mt-1">
+            ・同じID/Passwordでログインした人は同じ予定表を共同編集できます。<br>
+            ・「新規作成」は、未使用のIDで最初の1回だけ作れます。<br>
+            ・編集は「閲覧⇄編集」の切替で行います（誰でも切替可能）。
+          </div>
+        </div>
+
+        <div class="p-4 space-y-4">
+          <div>
+            <label class="text-sm font-medium text-slate-700">ID（英数・記号 . _ -）</label>
+            <input id="idInput" type="text" placeholder="例：otaki-office"
+              class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+
+          <div>
+            <label class="text-sm font-medium text-slate-700">Password（6文字以上）</label>
+            <input id="passInput" type="password" placeholder=""
+              class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <div class="text-xs text-slate-500 mt-1">
+              ※セキュリティ目的の“本格ログイン”ではなく「校内共有の合言葉」用途想定です。
             </div>
           </div>
 
-          <div class="p-4 space-y-4">
+          <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3">
             <div>
-              <label class="text-sm font-medium text-slate-700">ID（英数・記号 . _ -）</label>
-              <input id="idInput" type="text" placeholder="例：otaki-office"
-                class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <div class="text-sm font-medium text-slate-700">モード</div>
+              <div class="text-xs text-slate-500">ログイン後に切り替えできます</div>
+            </div>
+            <button onclick="toggleMode()"
+              class="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm">
+              <span id="modeBtnText">閲覧 ⇄ 編集</span>
+            </button>
+          </div>
+
+          <div class="border-t border-slate-100 pt-4">
+            <div class="text-sm font-bold text-slate-700">ID/Password変更（データ引き継ぎ）</div>
+            <div class="text-xs text-slate-500 mt-1">
+              同じ予定表のまま、IDやPasswordを変更できます（移行ボタンはありません）。
             </div>
 
-            <div>
-              <label class="text-sm font-medium text-slate-700">Password（6文字以上）</label>
-              <input id="passInput" type="password" placeholder=""
-                class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              <div class="text-xs text-slate-500 mt-1">
-                ※セキュリティ目的の“本格ログイン”ではなく「校内共有の合言葉」用途想定です。
-              </div>
-            </div>
-
-            <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3">
+            <div class="mt-3 grid grid-cols-1 gap-3">
               <div>
-                <div class="text-sm font-medium text-slate-700">モード</div>
-                <div class="text-xs text-slate-500">ログイン後に切り替えできます</div>
+                <label class="text-xs font-medium text-slate-600">新しいID（任意）</label>
+                <input id="newIdInput" type="text" placeholder="（変更しないなら空欄）"
+                  class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
-              <button onclick="toggleMode()"
-                class="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm">
-                <span id="modeBtnText">閲覧 ⇄ 編集</span>
+              <div>
+                <label class="text-xs font-medium text-slate-600">新しいPassword（任意 / 6文字以上）</label>
+                <input id="newPassInput" type="password" placeholder="（変更しないなら空欄）"
+                  class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <button onclick="changeIdOrPassword()"
+                class="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
+                ID/Passwordを変更
               </button>
             </div>
-
-            <div class="border-t border-slate-100 pt-4">
-              <div class="text-sm font-bold text-slate-700">ID/Password変更（データ引き継ぎ）</div>
-              <div class="text-xs text-slate-500 mt-1">
-                同じ予定表のまま、IDやPasswordを変更できます（移行ボタンはありません）。
-              </div>
-
-              <div class="mt-3 grid grid-cols-1 gap-3">
-                <div>
-                  <label class="text-xs font-medium text-slate-600">新しいID（任意）</label>
-                  <input id="newIdInput" type="text" placeholder="（変更しないなら空欄）"
-                    class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                </div>
-                <div>
-                  <label class="text-xs font-medium text-slate-600">新しいPassword（任意 / 6文字以上）</label>
-                  <input id="newPassInput" type="password" placeholder="（変更しないなら空欄）"
-                    class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                </div>
-                <button onclick="changeIdOrPassword()"
-                  class="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
-                  ID/Passwordを変更
-                </button>
-              </div>
-            </div>
           </div>
+        </div>
 
-          <div class="p-4 border-t border-slate-100 flex flex-wrap justify-end gap-2">
-            <button onclick="closeLoginModal()"
-              class="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
-              キャンセル
-            </button>
-            <button onclick="createNewAccount()"
-              class="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
-              新規作成
-            </button>
-            <button onclick="loginWithIdPass()"
-              class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
-              ログイン
-            </button>
-            <button onclick="logout()"
-              class="px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
-              ログアウト
-            </button>
-          </div>
+        <div class="p-4 border-t border-slate-100 flex flex-wrap justify-end gap-2">
+          <button onclick="closeLoginModal()"
+            class="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
+            キャンセル
+          </button>
+          <button onclick="createNewAccount()"
+            class="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
+            新規作成
+          </button>
+          <button onclick="loginWithIdPass()"
+            class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
+            ログイン
+          </button>
+          <button onclick="logout()"
+            class="px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
+            ログアウト
+          </button>
         </div>
       </div>
     </div>
   </div>
 
   <script>
+    // =========================================================
+    // 重要：ローカル保存は使わない（全てクラウド）
+    // =========================================================
+
     // ========= 状態 =========
     let scheduleData = [];
     let currentMonth = 4;
@@ -273,10 +279,13 @@
     let db = null;
     let authUser = null;
 
+    // ログインID表示用（IDだけ保存。Passwordは保存しない）
+    const LAST_ID_KEY = 'schedule_last_id_v1';
+
     // モード：閲覧/編集（ログイン後に誰でも切替）
     let canEdit = false;
 
-    // ★あなたのFirebaseプロジェクトの設定（あなたの値を反映済み）
+    // ★あなたのFirebaseプロジェクトの設定（あなたの値）
     const firebaseConfig = {
       apiKey: "AIzaSyA-FkCxNyT8C-HicXa4PbHcjNkwIvQWWw0",
       authDomain: "schedule-collab-38ed7.firebaseapp.com",
@@ -328,7 +337,15 @@
 
     function applyEditLockToDOM() {
       const editable = !!(authUser && canEdit);
+
+      // 学校名もログイン＋編集時だけ編集可（見た目はそのまま）
+      const schoolEl = document.getElementById('schoolName');
+      schoolEl.setAttribute('contenteditable', editable ? 'true' : 'false');
+      if (editable) schoolEl.classList.remove('readonly');
+      else schoolEl.classList.add('readonly');
+
       document.querySelectorAll('[contenteditable]').forEach(el => {
+        if (el.id === 'schoolName') return;
         el.setAttribute('contenteditable', editable ? 'true' : 'false');
         if (editable) el.classList.remove('readonly');
         else el.classList.add('readonly');
@@ -339,7 +356,6 @@
     function toEmailFromId(id) {
       const s = String(id || '').trim();
       if (!/^[A-Za-z0-9._-]+$/.test(s)) return null;
-      // 実メールではないが、Authのためメール形式にする
       return `${s}@schedule.local`;
     }
 
@@ -396,6 +412,63 @@
       unsubscribeMeta = null;
     }
 
+    function findDayByYMD(y, m, d) {
+      return scheduleData.find(it => it.year === y && it.month === m && it.day === d) || null;
+    }
+
+    function applyCloudDocToLocal(docData) {
+      const data = docData || {};
+      const y = data.year, m = data.month, d = data.day;
+      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return false;
+
+      const target = findDayByYMD(y, m, d);
+      if (!target) return false;
+
+      target.duty = data.duty || '';
+      target.events = data.events || '';
+      target.business = data.business || '';
+      target.submission = data.submission || '';
+      target.vacation = data.vacation || '';
+      return true;
+    }
+
+    async function loadCloudForYearOnce() {
+      if (!authUser) return;
+      const ok = await ensureFirebase();
+      if (!ok) return;
+
+      const startYear = getStartYear();
+      const ref = cloudDaysRef(startYear);
+
+      setSyncBadge('同期中', 'wait');
+
+      try {
+        const snap = await ref.get();
+        let changed = false;
+        snap.forEach(doc => {
+          const did = applyCloudDocToLocal(doc.data());
+          if (did) changed = true;
+        });
+
+        // 学校名（meta）
+        try {
+          const meta = await roomDocRef().get();
+          if (meta.exists) {
+            const md = meta.data() || {};
+            if (typeof md.schoolName === 'string' && md.schoolName.trim()) {
+              document.getElementById('schoolName').innerText = md.schoolName;
+            }
+          }
+        } catch (e) { console.error(e); }
+
+        if (changed) renderSchedule();
+        setSyncBadge('同期OK', 'ok');
+      } catch (e) {
+        console.error(e);
+        setSyncBadge('同期失敗', 'ng');
+      }
+    }
+
     async function startCloudSyncForYear() {
       if (!authUser) {
         setSyncBadge('未接続', 'idle');
@@ -407,40 +480,18 @@
 
       stopCloudSync();
 
+      // まず一回、クラウドから全件反映（ログアウト→ログインで出ない問題の対策）
+      await loadCloudForYearOnce();
+
       const startYear = getStartYear();
       const ref = cloudDaysRef(startYear);
 
-      setSyncBadge('同期中', 'wait');
-
-      // ✅クラウド→画面：リアルタイム反映（追加/更新/削除すべて対応）
       unsubscribeSnap = ref.onSnapshot((snap) => {
         let changed = false;
-
         snap.docChanges().forEach(ch => {
-          const data = ch.doc.data() || {};
-          const y = data.year, m = data.month, d = data.day;
-
-          if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return;
-
-          const target = scheduleData.find(it => it.year === y && it.month === m && it.day === d);
-          if (!target) return;
-
-          if (ch.type === 'removed') {
-            target.duty = '';
-            target.events = '';
-            target.business = '';
-            target.submission = '';
-            target.vacation = '';
-            changed = true;
-            return;
-          }
-
-          target.duty = data.duty || '';
-          target.events = data.events || '';
-          target.business = data.business || '';
-          target.submission = data.submission || '';
-          target.vacation = data.vacation || '';
-          changed = true;
+          if (ch.type === 'removed') return;
+          const did = applyCloudDocToLocal(ch.doc.data());
+          if (did) changed = true;
         });
 
         if (changed) renderSchedule();
@@ -454,11 +505,9 @@
       unsubscribeMeta = roomDocRef().onSnapshot((snap) => {
         if (!snap.exists) return;
         const data = snap.data() || {};
-        if (typeof data.schoolName === 'string') {
+        if (typeof data.schoolName === 'string' && data.schoolName.trim()) {
           const el = document.getElementById('schoolName');
-          if (document.activeElement !== el) {
-            el.innerText = data.schoolName.trim() ? data.schoolName : 'ここに学校名等を入力してください';
-          }
+          if (document.activeElement !== el) el.innerText = data.schoolName;
         }
       });
     }
@@ -515,8 +564,10 @@
 
     // ========= 学校名（クラウドのみ） =========
     async function saveSchoolName() {
+      // ★ログイン＋編集モード以外は保存しない
+      if (!(authUser && canEdit)) return;
+
       const name = document.getElementById('schoolName').innerText;
-      if (!authUser) return; // ✅ログインしていない時は保存しない（ログアウトで見えない仕様のため）
       try {
         await roomDocRef().set({ schoolName: String(name || '') }, { merge: true });
       } catch (e) { console.error(e); }
@@ -528,12 +579,22 @@
       renderMonthSelect();
       setupSearch();
 
-      // ✅ログアウト時は中身を表示しない（初期は空）
-      scheduleData = [];
-      renderSchedule();
-      applyEditLockToDOM();
+      // ログインしてないと見えない（最初はロック表示）
+      showLockedUI(true);
+
+      generateYearlyCalendar();
 
       await ensureFirebase();
+
+      // 前回のIDを復元（入力補助）
+      const lastId = localStorage.getItem(LAST_ID_KEY) || '';
+      document.getElementById('idInput').value = lastId;
+
+      // ★ヘッダーのモードバッジクリックで閲覧⇄編集（見た目変更なし）
+      document.getElementById('modeBadge').addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleMode();
+      });
 
       // 認証状態監視
       firebase.auth().onAuthStateChanged(async (u) => {
@@ -541,42 +602,53 @@
 
         if (authUser) {
           setLoginBadge('ログイン済み', 'on');
-          setSyncBadge('接続OK', 'ok');
+          setSyncBadge('接続中', 'wait');
+
+          // ログイン後は表示（ロック解除）
+          showLockedUI(false);
+
           // デフォは閲覧（必要なら自分で切替）
           canEdit = false;
           setModeBadge();
 
-          // ✅ログイン後にクラウド基準で「枠」を生成→onSnapshotで値が入る
+          // 年度データ（空の枠）を生成 → クラウド反映 → リアルタイム監視
           generateYearlyCalendar();
           await startCloudSyncForYear();
         } else {
+          // ログアウト：予定は表示しない（中身も消す）
           setLoginBadge('未ログイン', 'off');
           setSyncBadge('未接続', 'idle');
           canEdit = false;
           stopCloudSync();
 
-          // ✅ログアウトしたら「予定を見えなくする」
           scheduleData = [];
-          document.getElementById('schoolName').innerText = 'ここに学校名等を入力してください';
+          renderSchedule();
+          showLockedUI(true);
+
+          setModeBadge();
         }
 
-        renderSchedule();
         applyEditLockToDOM();
       });
     }
 
-    // ========= 年度生成（クラウド同期用の“枠”だけ作る：ローカル保存なし） =========
-    function generateYearlyCalendar() {
-      // ✅未ログインなら表示しない（枠も作らない）
-      if (!authUser) {
-        scheduleData = [];
-        renderSchedule();
-        applyEditLockToDOM();
-        return;
+    function showLockedUI(locked) {
+      const lockedEl = document.getElementById('lockedState');
+      const cont = document.getElementById('scheduleContainer');
+      const empty = document.getElementById('emptyState');
+
+      if (locked) {
+        lockedEl.classList.remove('hidden');
+        cont.innerHTML = '';
+        empty.classList.add('hidden');
+      } else {
+        lockedEl.classList.add('hidden');
       }
+    }
 
+    // ========= 年度生成（枠だけ作る：ローカル保存しない） =========
+    function generateYearlyCalendar() {
       const startYear = parseInt(document.getElementById('yearInput').value, 10);
-
       const newScheduleData = [];
       const dows = ['日', '月', '火', '水', '木', '金', '土'];
 
@@ -655,18 +727,21 @@
     function renderSchedule() {
       const container = document.getElementById('scheduleContainer');
       const emptyState = document.getElementById('emptyState');
-      container.innerHTML = '';
 
-      // ✅ログアウト時は何も見せない（空表示）
+      // ログアウト中は表示しない
       if (!authUser) {
-        emptyState.classList.remove('hidden');
+        container.innerHTML = '';
+        emptyState.classList.add('hidden');
         return;
       }
+
+      container.innerHTML = '';
 
       const filteredData = scheduleData.filter(item => {
         if (item.month !== currentMonth) return false;
         if (searchQuery) {
-          const text = (item.events + item.business + item.submission + item.duty + item.vacation).toLowerCase();
+          // ★検索対象は予定データのみ（UI文言は絶対に出ない）
+          const text = (item.events + '\n' + item.business + '\n' + item.submission + '\n' + item.duty + '\n' + item.vacation).toLowerCase();
           return text.includes(searchQuery.toLowerCase());
         }
         return true;
@@ -742,8 +817,9 @@
     }
 
     async function updateField(id, field, value) {
-      // ✅編集は「ログイン＋編集モード」の時だけ
+      // ★編集は「ログイン＋編集モード」の時だけ
       if (!(authUser && canEdit)) return;
+
       const item = scheduleData.find(d => d.id === id);
       if (!item) return;
 
@@ -764,26 +840,10 @@
 
     // ========= 検索 =========
     function setupSearch() {
-      const el = document.getElementById('searchInput');
-
-      // ✅検索するとログインUIが出てくる問題対策：
-      //  - 検索操作ではログインモーダルを絶対に開かない/残さない
-      el.addEventListener('focus', () => {
-        // 検索に集中したいので、開いていたら閉じる（見た目は変わらない）
-        closeLoginModal();
-      });
-
-      el.addEventListener('input', (e) => {
-        // ✅ログインしていない時の検索は無効（表示も出さない）
-        if (!authUser) {
-          searchQuery = '';
-          e.target.value = '';
-          renderSchedule();
-          return;
-        }
+      document.getElementById('searchInput').oninput = (e) => {
         searchQuery = e.target.value || '';
         renderSchedule();
-      });
+      };
     }
 
     // ========= CSV =========
@@ -868,22 +928,13 @@
 
     // ========= ログインUI =========
     function openLoginModal() {
+      const lastId = localStorage.getItem(LAST_ID_KEY) || '';
+      if (!document.getElementById('idInput').value.trim()) document.getElementById('idInput').value = lastId;
       document.getElementById('loginModal').classList.remove('hidden');
       setTimeout(() => document.getElementById('idInput').focus(), 0);
     }
     function closeLoginModal() {
       document.getElementById('loginModal').classList.add('hidden');
-    }
-
-    // ✅見た目そのまま：クリック場所で挙動を変える（モード＝即切替、それ以外＝ログイン画面）
-    function handleLoginBtnClick(ev) {
-      const hitMode = ev && (ev.target.closest('#modeBadge') || ev.target.closest('#modeLabel'));
-      if (hitMode) {
-        // ①ログイン後の閲覧⇄編集 切替（ここで出来るようにする）
-        toggleMode();
-        return;
-      }
-      openLoginModal();
     }
 
     async function createNewAccount() {
@@ -897,6 +948,7 @@
       try {
         setSyncBadge('作成中', 'wait');
         await firebase.auth().createUserWithEmailAndPassword(email, pass);
+        localStorage.setItem(LAST_ID_KEY, id);
         closeLoginModal();
       } catch (e) {
         console.error(e);
@@ -916,6 +968,7 @@
       try {
         setSyncBadge('接続中', 'wait');
         await firebase.auth().signInWithEmailAndPassword(email, pass);
+        localStorage.setItem(LAST_ID_KEY, id);
         closeLoginModal();
       } catch (e) {
         console.error(e);
@@ -926,13 +979,6 @@
 
     async function logout() {
       try {
-        // ③ログアウトしたら予定が出てこない：即クリア（onAuthStateChangedでも二重に保証）
-        scheduleData = [];
-        searchQuery = '';
-        const s = document.getElementById('searchInput');
-        if (s) s.value = '';
-        renderSchedule();
-
         await firebase.auth().signOut();
         closeLoginModal();
       } catch (e) { console.error(e); }
@@ -963,16 +1009,15 @@
       if (!user) { alert('ログイン状態を確認できません。'); return; }
 
       try {
-        // ID変更（メール変更）
         if (newId) {
           const newEmail = toEmailFromId(newId);
           if (!newEmail) { alert('新しいIDは英数・記号 . _ - のみで入力してください。'); return; }
           await user.updateEmail(newEmail);
+          localStorage.setItem(LAST_ID_KEY, newId);
           document.getElementById('idInput').value = newId;
           document.getElementById('newIdInput').value = '';
         }
 
-        // Password変更
         if (newPass) {
           if (newPass.length < 6) { alert('新しいPasswordは6文字以上にしてください。'); return; }
           await user.updatePassword(newPass);
