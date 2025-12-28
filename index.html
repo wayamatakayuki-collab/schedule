@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
 
-  <!-- Firebase（Compat） -->
+  <!-- ★Firebase（Compat） -->
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
@@ -36,7 +36,7 @@
     .editable:hover { background-color: #f8fafc; outline: 1px dashed #cbd5e1; }
     .editable:focus { background-color: white; outline: 2px solid #3b82f6; }
 
-    /* 閲覧モードの見た目 */
+    /* ★閲覧モードの見た目 */
     .readonly {
       pointer-events: none !important;
       user-select: text;
@@ -65,16 +65,16 @@
             <span>西暦</span>
             <input type="number" id="yearInput" value="2025"
               class="w-20 font-bold text-lg border-b-2 border-indigo-600 focus:outline-none"
-              onchange="generateYearlyCalendar()" />
+              onchange="onYearChange()" />
             <span class="text-xl font-bold">年度 予定表</span>
           </div>
-          <div id="schoolName" class="text-xs text-slate-500 editable" contenteditable="true" onblur="saveSchoolName()">
+          <div id="schoolName" class="text-xs text-slate-500 editable" contenteditable="false" onblur="saveSchoolName()">
             ここに学校名等を入力してください
           </div>
         </div>
       </div>
 
-      <!-- 右：操作群 -->
+      <!-- 右：操作群（UI維持：ログイン＋CSV＋検索） -->
       <div class="flex items-center space-x-3 w-full md:w-auto">
         <!-- ログイン -->
         <button id="loginBtn" onclick="openLoginModal()"
@@ -83,20 +83,21 @@
           <span id="loginBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs">未ログイン</span>
           <span id="syncBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs">未接続</span>
           <span class="text-slate-400">モード</span>
-          <span id="modeBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs">閲覧</span>
-        </button>
 
-        <!-- ★ヘッダーでモード切替（UI維持） -->
-        <button id="modeToggleTopBtn" onclick="toggleMode()"
-          class="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm w-full md:w-auto">
-          閲覧⇄編集
+          <!-- ★ここはUI見た目は同じまま、クリックで閲覧⇄編集切替できるようにする -->
+          <span id="modeBadge"
+            class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs cursor-pointer select-none"
+            onclick="toggleModeFromHeader(event)"
+            title="タップで 閲覧⇄編集 を切り替え（ログイン後）"
+          >閲覧</span>
         </button>
 
         <!-- スマホ：CSVと検索は横並び（自動調整） -->
         <div class="flex items-center gap-2 w-full md:w-auto">
           <div class="flex-1 md:flex-none flex items-center space-x-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl">
             <label id="csvLabel"
-              class="w-full md:w-auto cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center shadow-sm active:scale-95">
+              class="w-full md:w-auto cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center shadow-sm active:scale-95 opacity-50 pointer-events-none"
+              title="編集モードでログインしている時だけCSVインポートできます">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
                 stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -159,17 +160,16 @@
     </div>
   </main>
 
-  <!-- 右下クレジット -->
+  <!-- ★右下クレジット（欄外） -->
   <div class="no-print fixed bottom-2 right-3 text-[11px] text-slate-400 select-none">
     @予定表アプリ Takayuki WAYAMA
   </div>
 
-  <!-- ログイン モーダル -->
+  <!-- ★ログイン モーダル -->
   <div id="loginModal" class="hidden fixed inset-0 z-50">
     <div class="absolute inset-0 bg-black/40" onclick="closeLoginModal()"></div>
-
-    <!-- ★スマホでスクロールできるように max-h と overflow を付与 -->
     <div class="absolute inset-0 flex items-center justify-center p-4">
+      <!-- ★モバイルで押せない問題対策：カード自体をスクロール可能にする（見た目は維持） -->
       <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden max-h-[85vh] overflow-y-auto">
         <div class="p-4 border-b border-slate-100">
           <div class="text-lg font-bold">ID / Password ログイン</div>
@@ -196,28 +196,15 @@
             </div>
           </div>
 
-          <div class="border-t border-slate-100 pt-4">
-            <div class="text-sm font-bold text-slate-700">ID/Password変更（データ引き継ぎ）</div>
-            <div class="text-xs text-slate-500 mt-1">
-              同じ予定表のまま、IDやPasswordを変更できます（移行ボタンはありません）。
+          <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3">
+            <div>
+              <div class="text-sm font-medium text-slate-700">モード</div>
+              <div class="text-xs text-slate-500">ログイン後に切り替えできます</div>
             </div>
-
-            <div class="mt-3 grid grid-cols-1 gap-3">
-              <div>
-                <label class="text-xs font-medium text-slate-600">新しいID（任意）</label>
-                <input id="newIdInput" type="text" placeholder="（変更しないなら空欄）"
-                  class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
-              <div>
-                <label class="text-xs font-medium text-slate-600">新しいPassword（任意 / 6文字以上）</label>
-                <input id="newPassInput" type="password" placeholder="（変更しないなら空欄）"
-                  class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
-              <button onclick="changeIdOrPassword()"
-                class="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
-                ID/Passwordを変更
-              </button>
-            </div>
+            <button onclick="toggleMode()"
+              class="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm">
+              <span id="modeBtnText">閲覧 ⇄ 編集</span>
+            </button>
           </div>
         </div>
 
@@ -244,10 +231,6 @@
   </div>
 
   <script>
-    // ========= ローカル保存キー =========
-    const STORAGE_KEY_PREFIX = 'school_schedule_data_v2_';
-    const SCHOOL_NAME_KEY = 'school_name_storage';
-
     // ========= 状態 =========
     let scheduleData = [];
     let currentMonth = 4;
@@ -265,7 +248,10 @@
     // モード：閲覧/編集（ログイン後に誰でも切替）
     let canEdit = false;
 
-    // ★Firebase設定（あなたの値）
+    // 初回同期が終わったか（ログイン後、ここがtrueになるまで予定は表示しない）
+    let cloudLoaded = false;
+
+    // ★あなたのFirebaseプロジェクトの設定（あなたの値を反映済み）
     const firebaseConfig = {
       apiKey: "AIzaSyA-FkCxNyT8C-HicXa4PbHcjNkwIvQWWw0",
       authDomain: "schedule-collab-38ed7.firebaseapp.com",
@@ -301,7 +287,7 @@
     function setModeBadge() {
       const el = document.getElementById('modeBadge');
       el.textContent = canEdit ? '編集' : '閲覧';
-      el.className = `px-2 py-0.5 rounded-full text-xs ${canEdit ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`;
+      el.className = `px-2 py-0.5 rounded-full text-xs cursor-pointer select-none ${canEdit ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`;
 
       // CSVインポートは編集モードのみ
       const label = document.getElementById('csvLabel');
@@ -313,11 +299,19 @@
         label.classList.add('opacity-50', 'pointer-events-none');
         label.title = '編集モードでログインしている時だけCSVインポートできます';
       }
+
+      // 学校名の編集可否もここで制御
+      const sn = document.getElementById('schoolName');
+      sn.setAttribute('contenteditable', (authUser && canEdit) ? 'true' : 'false');
+      if (authUser && canEdit) sn.classList.remove('readonly');
+      else sn.classList.add('readonly');
     }
 
     function applyEditLockToDOM() {
       const editable = !!(authUser && canEdit);
       document.querySelectorAll('[contenteditable]').forEach(el => {
+        // schoolName は setModeBadge() 側で統一制御するので二重に触らない
+        if (el.id === 'schoolName') return;
         el.setAttribute('contenteditable', editable ? 'true' : 'false');
         if (editable) el.classList.remove('readonly');
         else el.classList.add('readonly');
@@ -328,6 +322,7 @@
     function toEmailFromId(id) {
       const s = String(id || '').trim();
       if (!/^[A-Za-z0-9._-]+$/.test(s)) return null;
+      // 実メールではないが、Authのためメール形式にする
       return `${s}@schedule.local`;
     }
 
@@ -384,20 +379,17 @@
       unsubscribeMeta = null;
     }
 
-    function applyCloudDocToSchedule(docData) {
-      const data = docData || {};
+    function applyCloudDocToSchedule(data) {
       const y = data.year, m = data.month, d = data.day;
-      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return false;
-
+      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return;
       const target = scheduleData.find(it => it.year === y && it.month === m && it.day === d);
-      if (!target) return false;
+      if (!target) return;
 
       target.duty = data.duty || '';
       target.events = data.events || '';
       target.business = data.business || '';
       target.submission = data.submission || '';
       target.vacation = data.vacation || '';
-      return true;
     }
 
     async function startCloudSyncForYear() {
@@ -415,25 +407,38 @@
       const ref = cloudDaysRef(startYear);
 
       setSyncBadge('同期中', 'wait');
+      cloudLoaded = false;
 
-      // ★まず全件GETして反映（初期同期の取りこぼし防止）
+      // ★残骸防止：クラウドを正として、まず全日を空にする（ローカル保存なしでも必須）
+      scheduleData.forEach(it => {
+        it.duty = '';
+        it.events = '';
+        it.business = '';
+        it.submission = '';
+        it.vacation = '';
+      });
+      renderSchedule();
+
+      // ★初回GETで確定表示（ここで cloudLoaded=true）
       try {
         const initial = await ref.get();
-        let changed = false;
-        initial.forEach(doc => {
-          changed = applyCloudDocToSchedule(doc.data()) || changed;
-        });
-        if (changed) renderSchedule();
+        initial.forEach(doc => applyCloudDocToSchedule(doc.data() || {}));
+        cloudLoaded = true;
+        renderSchedule();
+        setSyncBadge('同期OK', 'ok');
       } catch (e) {
         console.error(e);
         setSyncBadge('同期失敗', 'ng');
+        cloudLoaded = true; // 表示は許可する（空でも編集できるように）
+        renderSchedule();
       }
 
-      // ★その後リアルタイム監視
+      // ★以降はリアルタイム反映
       unsubscribeSnap = ref.onSnapshot((snap) => {
         let changed = false;
         snap.docChanges().forEach(ch => {
-          changed = applyCloudDocToSchedule(ch.doc.data()) || changed;
+          applyCloudDocToSchedule(ch.doc.data() || {});
+          changed = true;
         });
         if (changed) renderSchedule();
         setSyncBadge('同期OK', 'ok');
@@ -442,13 +447,14 @@
         setSyncBadge('同期失敗', 'ng');
       });
 
-      // 学校名（meta）
+      // 学校名も共有（meta）
       unsubscribeMeta = roomDocRef().onSnapshot((snap) => {
         if (!snap.exists) return;
         const data = snap.data() || {};
-        if (typeof data.schoolName === 'string' && data.schoolName.trim()) {
-          const el = document.getElementById('schoolName');
-          if (document.activeElement !== el) el.innerText = data.schoolName;
+        const el = document.getElementById('schoolName');
+        if (typeof data.schoolName === 'string') {
+          // 編集中の上書きを避ける
+          if (document.activeElement !== el) el.innerText = data.schoolName || 'ここに学校名等を入力してください';
         }
       });
     }
@@ -503,73 +509,70 @@
       await batch.commit();
     }
 
-    // ========= ローカル保存 =========
-    function getStorageKey() {
-      const year = document.getElementById('yearInput').value;
-      return STORAGE_KEY_PREFIX + year;
-    }
-    function saveToStorage() {
-      localStorage.setItem(getStorageKey(), JSON.stringify(scheduleData));
-    }
+    // ========= 学校名（ローカル保存なし：ログイン中のみクラウド保存） =========
     async function saveSchoolName() {
-      // ★ログアウト中は画面に見せないが、保存自体はOK
       const name = document.getElementById('schoolName').innerText;
-      localStorage.setItem(SCHOOL_NAME_KEY, name);
-
-      if (authUser) {
-        try {
-          await roomDocRef().set({ schoolName: String(name || '') }, { merge: true });
-        } catch (e) { console.error(e); }
-      }
-    }
-    function loadSchoolName() {
-      const savedName = localStorage.getItem(SCHOOL_NAME_KEY);
-      if (savedName) document.getElementById('schoolName').innerText = savedName;
+      if (!authUser) return;
+      try {
+        await roomDocRef().set({ schoolName: String(name || '') }, { merge: true });
+      } catch (e) { console.error(e); }
     }
 
     // ========= 初期化 =========
     async function init() {
-      loadSchoolName();
       renderMonthNav();
       renderMonthSelect();
       setupSearch();
-      generateYearlyCalendar();
+      showNeedLogin(); // ログイン前は何も見せない
 
       await ensureFirebase();
 
+      // 前回のIDを復元（入力補助）
       const lastId = localStorage.getItem(LAST_ID_KEY) || '';
       document.getElementById('idInput').value = lastId;
 
+      // 認証状態監視
       firebase.auth().onAuthStateChanged(async (u) => {
         authUser = u || null;
 
         if (authUser) {
           setLoginBadge('ログイン済み', 'on');
           setSyncBadge('接続OK', 'ok');
-          canEdit = false; // デフォは閲覧
+
+          // デフォは閲覧
+          canEdit = false;
+          cloudLoaded = false;
+
+          // ログインしたら「年度の枠」を生成（ローカル保存なし）
+          generateYearlyCalendar();
+
+          // 学校名も編集可/不可を反映
           setModeBadge();
+
+          // クラウド同期開始
           await startCloudSyncForYear();
+
+          closeLoginModal();
         } else {
           setLoginBadge('未ログイン', 'off');
           setSyncBadge('未接続', 'idle');
+
           canEdit = false;
+          cloudLoaded = false;
           stopCloudSync();
+
+          // 予定は非表示（ログアウトの意味を担保）
+          scheduleData = [];
+          showNeedLogin();
         }
 
-        renderSchedule();       // ★ログアウト中は表示しないように render 内で制御
         applyEditLockToDOM();
       });
     }
 
-    // ========= 年度生成 =========
+    // ========= 年度生成（ローカル保存なし：空の枠を作るだけ） =========
     function generateYearlyCalendar() {
-      const startYear = parseInt(document.getElementById('yearInput').value, 10);
-
-      // 端末内保存は「ログイン中の補助キャッシュ」扱い
-      // ※ログアウト中は表示しないので、読み込みはしてもOK（見えない）
-      const savedData = localStorage.getItem(getStorageKey());
-      const parsedSavedData = savedData ? JSON.parse(savedData) : null;
-
+      const startYear = getStartYear();
       const newScheduleData = [];
       const dows = ['日', '月', '火', '水', '木', '金', '土'];
 
@@ -582,18 +585,14 @@
           const date = new Date(year, month - 1, day);
           const dow = dows[date.getDay()];
 
-          const existing = parsedSavedData
-            ? parsedSavedData.find(d => d.month === month && d.day === day && d.year === year)
-            : null;
-
           newScheduleData.push({
             id: `${year}-${month}-${day}`,
             year, month, day, dow,
-            duty: existing ? existing.duty : '',
-            events: existing ? existing.events : '',
-            business: existing ? existing.business : '',
-            submission: existing ? existing.submission : '',
-            vacation: existing ? existing.vacation : ''
+            duty: '',
+            events: '',
+            business: '',
+            submission: '',
+            vacation: ''
           });
         }
       }
@@ -601,8 +600,18 @@
       scheduleData = newScheduleData;
       renderSchedule();
       applyEditLockToDOM();
+    }
 
-      if (authUser) startCloudSyncForYear();
+    function onYearChange() {
+      // ログインしていないなら何もしない（見せない）
+      if (!authUser) {
+        showNeedLogin();
+        return;
+      }
+      // ログイン中なら枠を作り直して、クラウド再同期
+      cloudLoaded = false;
+      generateYearlyCalendar();
+      startCloudSyncForYear();
     }
 
     // ========= 月ナビ =========
@@ -647,20 +656,38 @@
       applyEditLockToDOM();
     }
 
+    // ========= 非ログイン表示 =========
+    function showNeedLogin() {
+      const container = document.getElementById('scheduleContainer');
+      const emptyState = document.getElementById('emptyState');
+      container.innerHTML = '';
+      emptyState.classList.remove('hidden');
+      emptyState.innerHTML = 'ログインしてください（ログイン後に予定が表示・編集できます）。';
+
+      // 学校名も編集不可
+      const sn = document.getElementById('schoolName');
+      sn.setAttribute('contenteditable', 'false');
+      sn.classList.add('readonly');
+    }
+
     // ========= 描画 =========
     function renderSchedule() {
       const container = document.getElementById('scheduleContainer');
       const emptyState = document.getElementById('emptyState');
       container.innerHTML = '';
 
-      // ★ログアウト中は予定を表示しない（ここが要件）
+      // ★ログアウト時は絶対に見せない
       if (!authUser) {
-        emptyState.classList.remove('hidden');
-        emptyState.innerHTML = 'ログインすると予定が表示されます。';
+        showNeedLogin();
         return;
       }
 
-      emptyState.innerHTML = '表示できる予定がありません。';
+      // ★ログイン済みでも初回同期が終わるまでは見せない（残骸防止）
+      if (!cloudLoaded) {
+        emptyState.classList.remove('hidden');
+        emptyState.innerHTML = '読み込み中…（同期が完了すると表示されます）';
+        return;
+      }
 
       const filteredData = scheduleData.filter(item => {
         if (item.month !== currentMonth) return false;
@@ -673,6 +700,7 @@
 
       if (filteredData.length === 0) {
         emptyState.classList.remove('hidden');
+        emptyState.innerHTML = '表示できる予定がありません。';
         return;
       } else {
         emptyState.classList.add('hidden');
@@ -693,8 +721,7 @@
               <span class="text-xs font-bold md:mt-0.5 ml-1 md:ml-0">(${item.dow})</span>
             </div>
             <div class="text-[10px] bg-white px-1 py-0.5 rounded border border-slate-200 font-medium md:mt-2 editable no-print whitespace-nowrap overflow-hidden text-center flex items-center justify-center"
-              contenteditable="true"
-              data-itemid="${item.id}" data-field="duty">
+              contenteditable="true" onblur="updateField('${item.id}', 'duty', this.innerText)">
               ${item.duty || ''}
             </div>
           </div>
@@ -706,20 +733,20 @@
             <div class="flex-1 grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-100">
               <div class="p-2 md:col-span-5">
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">予定</div>
-                <div class="text-sm whitespace-pre-wrap leading-relaxed editable"
-                  contenteditable="true" data-itemid="${item.id}" data-field="events">${item.events || ''}</div>
+                <div class="text-sm whitespace-pre-wrap leading-relaxed editable" contenteditable="true"
+                  onblur="updateField('${item.id}', 'events', this.innerText)">${item.events || ''}</div>
               </div>
               <div class="p-2 md:col-span-5">
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">出張・提出物</div>
-                <div class="text-sm whitespace-pre-wrap leading-relaxed editable mb-1"
-                  contenteditable="true" data-itemid="${item.id}" data-field="business">${item.business || ''}</div>
-                <div class="text-sm text-amber-700 font-medium whitespace-pre-wrap editable"
-                  contenteditable="true" data-itemid="${item.id}" data-field="submission">${item.submission || ''}</div>
+                <div class="text-sm whitespace-pre-wrap leading-relaxed editable mb-1" contenteditable="true"
+                  onblur="updateField('${item.id}', 'business', this.innerText)">${item.business || ''}</div>
+                <div class="text-sm text-amber-700 font-medium whitespace-pre-wrap editable" contenteditable="true"
+                  onblur="updateField('${item.id}', 'submission', this.innerText)">${item.submission || ''}</div>
               </div>
               <div class="p-2 md:col-span-2 bg-slate-50/30">
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">休暇</div>
                 <div class="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed editable"
-                  contenteditable="true" data-itemid="${item.id}" data-field="vacation">${item.vacation || ''}</div>
+                  contenteditable="true" onblur="updateField('${item.id}', 'vacation', this.innerText)">${item.vacation || ''}</div>
               </div>
             </div>
           `;
@@ -728,8 +755,8 @@
           const field = fields[currentTab];
           contentHtml = `
             <div class="flex-1 p-3">
-              <div class="text-base whitespace-pre-wrap leading-relaxed editable h-full"
-                contenteditable="true" data-itemid="${item.id}" data-field="${field}">${item[field] || ''}</div>
+              <div class="text-base whitespace-pre-wrap leading-relaxed editable h-full" contenteditable="true"
+                onblur="updateField('${item.id}', '${field}', this.innerText)">${item[field] || ''}</div>
             </div>
           `;
         }
@@ -738,46 +765,16 @@
         container.appendChild(card);
       });
 
-      // ★スマホ同期対策：blurだけでなく input でも保存（デバウンス）
-      bindEditableAutosave();
-
       applyEditLockToDOM();
     }
 
-    // ===== autosave（blur + input）=====
-    const _debounceMap = new Map();
-    function debounceByKey(key, fn, wait=400) {
-      if (_debounceMap.has(key)) clearTimeout(_debounceMap.get(key));
-      const t = setTimeout(fn, wait);
-      _debounceMap.set(key, t);
-    }
-
-    function bindEditableAutosave() {
-      document.querySelectorAll('.editable[contenteditable="true"]').forEach(el => {
-        if (el.dataset.bound === '1') return;
-        el.dataset.bound = '1';
-
-        const id = el.dataset.itemid;
-        const field = el.dataset.field;
-
-        el.addEventListener('blur', () => {
-          updateField(id, field, el.innerText);
-        });
-
-        el.addEventListener('input', () => {
-          const key = `${id}:${field}`;
-          debounceByKey(key, () => updateField(id, field, el.innerText), 500);
-        });
-      });
-    }
-
     async function updateField(id, field, value) {
+      // ★編集は「ログイン＋編集モード」の時だけ
       if (!(authUser && canEdit)) return;
       const item = scheduleData.find(d => d.id === id);
       if (!item) return;
 
       item[field] = (value || '').trim();
-      saveToStorage();
 
       try { await saveDayToCloud(item); } catch (e) { console.error(e); }
     }
@@ -867,7 +864,6 @@
         });
 
         if (count > 0) {
-          saveToStorage();
           renderSchedule();
           try { await batchSaveToCloud(touched); } catch (err) { console.error(err); }
           alert(`${count}件の予定を更新しました。${skipped ? `（スキップ ${skipped}行）` : ''}`);
@@ -936,13 +932,11 @@
       try {
         await firebase.auth().signOut();
         closeLoginModal();
-        // ★ログアウト後に確実に非表示へ
-        renderSchedule();
-        applyEditLockToDOM();
       } catch (e) { console.error(e); }
     }
 
     function toggleMode() {
+      // ログインしていないと切替できない
       if (!authUser) {
         canEdit = false;
         setModeBadge();
@@ -955,36 +949,19 @@
       applyEditLockToDOM();
     }
 
-    async function changeIdOrPassword() {
-      if (!authUser) { alert('先にログインしてください。'); return; }
+    // ヘッダーのモードバッジから切替（UIは変えずに機能だけ追加）
+    function toggleModeFromHeader(ev) {
+      ev.preventDefault();
+      ev.stopPropagation(); // loginBtn の openLoginModal() を阻止
+      toggleMode();
+    }
 
-      const newId = document.getElementById('newIdInput').value.trim();
-      const newPass = document.getElementById('newPassInput').value;
-
-      const user = firebase.auth().currentUser;
-      if (!user) { alert('ログイン状態を確認できません。'); return; }
-
-      try {
-        if (newId) {
-          const newEmail = toEmailFromId(newId);
-          if (!newEmail) { alert('新しいIDは英数・記号 . _ - のみで入力してください。'); return; }
-          await user.updateEmail(newEmail);
-          localStorage.setItem(LAST_ID_KEY, newId);
-          document.getElementById('idInput').value = newId;
-          document.getElementById('newIdInput').value = '';
-        }
-
-        if (newPass) {
-          if (newPass.length < 6) { alert('新しいPasswordは6文字以上にしてください。'); return; }
-          await user.updatePassword(newPass);
-          document.getElementById('newPassInput').value = '';
-        }
-
-        alert('ID/Passwordを変更しました（データは引き継がれています）。');
-      } catch (e) {
-        console.error(e);
-        alert(friendlyAuthError(e, 'ID/Password変更'));
-      }
+    // ========= 年度変更時の再同期 =========
+    function switchYearAndResync() {
+      if (!authUser) return;
+      cloudLoaded = false;
+      generateYearlyCalendar();
+      startCloudSyncForYear();
     }
 
     // ========= 起動 =========
