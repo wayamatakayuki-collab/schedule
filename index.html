@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
 
-  <!-- ★共同編集（Firebase / Compat） -->
+  <!-- Firebase (Compat) -->
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
@@ -28,15 +28,11 @@
 
     .scrollbar-hide::-webkit-scrollbar { display: none; }
 
-    .editable {
-      min-height: 1.5em;
-      width: 100%;
-      transition: all 0.2s;
-    }
+    .editable { min-height: 1.5em; width: 100%; transition: all 0.2s; }
     .editable:hover { background-color: #f8fafc; outline: 1px dashed #cbd5e1; }
     .editable:focus { background-color: white; outline: 2px solid #3b82f6; }
 
-    /* ★閲覧モードの見た目 */
+    /* 閲覧モード（見た目） */
     .readonly {
       pointer-events: none !important;
       user-select: text;
@@ -49,46 +45,53 @@
 
 <body class="bg-slate-100 text-slate-800 min-h-screen pb-10">
 
+  <!-- ===== Header ===== -->
   <header class="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm no-print">
     <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-      <!-- 左：タイトル -->
-      <div class="flex items-center gap-3">
+      <!-- Left -->
+      <div class="flex items-center space-x-3 min-w-[260px]">
         <div class="bg-indigo-600 p-2 rounded-lg text-white shrink-0">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
         </div>
-
-        <div>
-          <div class="flex items-center gap-2 flex-wrap">
-            <span>西暦</span>
+        <div class="min-w-0">
+          <div class="flex items-center space-x-2">
+            <span class="shrink-0">西暦</span>
             <input type="number" id="yearInput" value="2025"
-              class="w-20 font-bold text-lg border-b-2 border-indigo-600 focus:outline-none bg-transparent"
+              class="w-20 font-bold text-lg border-b-2 border-indigo-600 focus:outline-none"
               onchange="generateYearlyCalendar()" />
-            <span class="text-xl font-bold">年度 予定表</span>
+            <span class="text-xl font-bold whitespace-nowrap">年度 予定表</span>
           </div>
-          <div id="schoolName" class="text-xs text-slate-500 editable" contenteditable="true" onblur="saveSchoolName()">
+          <div id="schoolName" class="text-xs text-slate-500 editable truncate"
+               contenteditable="true" onblur="saveSchoolName()">
             ここに学校名等を入力してください
           </div>
         </div>
       </div>
 
-      <!-- 右：操作群 -->
-      <div class="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-        <!-- Password/PIN -->
-        <button id="roomBtn" onclick="openPasswordModal()"
-          class="w-full sm:w-auto px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 flex items-center justify-center sm:justify-start gap-2">
-          <span class="text-slate-500">Password</span>
-          <span id="passwordBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs">未設定</span>
+      <!-- Right -->
+      <div class="flex items-center gap-2 flex-1 justify-end min-w-[260px]">
+        <!-- Login / Status -->
+        <button id="loginBtn" onclick="openLoginModal()"
+          class="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 flex items-center gap-2">
+          <span class="text-slate-500">ログイン</span>
+          <span id="idBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs">未ログイン</span>
           <span id="syncBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs">未接続</span>
-          <span id="editBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs">閲覧</span>
         </button>
 
-        <!-- ★スマホでも「CSVインポート」と「検索」を横並び（自動調整） -->
-        <div class="flex items-center gap-2 w-full sm:w-auto">
+        <!-- View/Edit Toggle -->
+        <button id="modeBtn" onclick="toggleEditMode()"
+          class="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 flex items-center gap-2">
+          <span class="text-slate-500">モード</span>
+          <span id="modeBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs">閲覧</span>
+        </button>
+
+        <!-- CSV + Search (スマホは横並び自動調整) -->
+        <div class="flex gap-2 w-full sm:w-auto sm:min-w-[420px] max-w-[680px]">
           <label id="csvLabel"
-            class="flex-none cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center shadow-sm active:scale-95 whitespace-nowrap">
+            class="flex-1 sm:flex-none cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center shadow-sm active:scale-95">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
               stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -98,7 +101,7 @@
             <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="importCSV(this)">
           </label>
 
-          <div class="relative flex-1 min-w-0">
+          <div class="relative flex-1">
             <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
                 stroke="currentColor">
@@ -113,16 +116,17 @@
       </div>
     </div>
 
-    <!-- 月ナビ：PC=ボタン / スマホ=ドロップダウン -->
+    <!-- Month Nav: PC=ボタン / Mobile=ドロップダウン -->
     <div class="max-w-7xl mx-auto px-4 border-t border-slate-100">
-      <div class="py-2">
-        <div class="sm:hidden">
-          <select id="monthSelect"
-            class="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-            onchange="setMonthFromUI(this.value)">
-          </select>
-        </div>
-        <div class="hidden sm:flex space-x-1 overflow-x-auto scrollbar-hide" id="monthNav"></div>
+      <!-- mobile -->
+      <div class="md:hidden py-2">
+        <select id="monthSelect" class="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50"
+                onchange="onMonthSelectChange(this.value)">
+        </select>
+      </div>
+      <!-- desktop -->
+      <div class="hidden md:block overflow-x-auto scrollbar-hide">
+        <div class="flex space-x-1 py-2" id="monthNav"></div>
       </div>
     </div>
 
@@ -142,6 +146,7 @@
     </div>
   </header>
 
+  <!-- ===== Main ===== -->
   <main class="max-w-7xl mx-auto px-4 mt-6">
     <div id="scheduleContainer" class="space-y-2"></div>
     <div id="emptyState"
@@ -150,159 +155,115 @@
     </div>
   </main>
 
-  <!-- ★右下クレジット（欄外） -->
+  <!-- Credit -->
   <div class="no-print fixed bottom-2 right-3 text-[11px] text-slate-400 select-none">
     @予定表アプリ Takayuki WAYAMA
   </div>
 
-  <!-- ★Password / 編集PIN モーダル -->
-  <div id="passwordModal" class="hidden fixed inset-0 z-50">
-    <div class="absolute inset-0 bg-black/40" onclick="closePasswordModal()"></div>
+  <!-- ===== Login Modal ===== -->
+  <div id="loginModal" class="hidden fixed inset-0 z-50">
+    <div class="absolute inset-0 bg-black/40" onclick="closeLoginModal()"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4">
       <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
         <div class="p-4 border-b border-slate-100">
-          <div class="text-lg font-bold">共同編集（Password / 編集用PIN）</div>
+          <div class="text-lg font-bold">ID / Password ログイン</div>
           <div class="text-sm text-slate-500 mt-1">
-            閲覧：Passwordのみ<br>
-            編集：Password＋編集用PIN（4桁）<br>
-            <span class="text-xs">
-              ※PINが未設定の部屋では、最初に「PINも入力して接続」した人が初回PINを登録できます。
-            </span>
+            ・同じID/Passwordでログインした人は同じ予定表を共同編集できます。<br>
+            ・「新規作成」は、まだ使われていないIDで最初の1回だけ実行します。
           </div>
         </div>
 
         <div class="p-4 space-y-4">
           <div>
-            <label class="text-sm font-medium text-slate-700">Password</label>
-            <input id="passwordInput" type="text" placeholder=""
-              class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          </div>
-
-          <div>
-            <label class="text-sm font-medium text-slate-700">編集用PIN（4桁）</label>
-            <input id="pinInput" type="password" inputmode="numeric" maxlength="4" placeholder="（編集する人だけ入力）"
+            <label class="text-sm font-medium text-slate-700">ID（英数字・記号 . _ - ）</label>
+            <input id="loginIdInput" type="text" placeholder=""
               class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             <div class="text-xs text-slate-500 mt-1">
-              ※PINが一致しない場合は「閲覧のみ」になります。
+              例：otaki / schedule2025 など（メール不要）
             </div>
           </div>
 
+          <div>
+            <label class="text-sm font-medium text-slate-700">Password（6文字以上）</label>
+            <input id="loginPassInput" type="password" placeholder=""
+              class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+
           <div class="text-xs text-slate-500">
-            ※Password/PINは「校内運用の合言葉」用途です。
+            ※セキュリティ目的の“本格ログイン”ではなく「校内共有の合言葉」用途想定です。
           </div>
         </div>
 
         <div class="p-4 border-t border-slate-100 flex flex-wrap justify-end gap-2">
-          <button onclick="openCopyModal()"
+          <button onclick="closeLoginModal()"
             class="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
-            旧部屋 → 新部屋へコピー
+            キャンセル
           </button>
-
-          <button onclick="openPinChangeModal()"
+          <button onclick="registerIdPass()"
             class="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
-            編集用PINを設定/変更
+            新規作成
           </button>
-
-          <button onclick="clearPassword()"
-            class="px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
-            Password解除
-          </button>
-
-          <button onclick="closePasswordModal()"
-            class="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
-            キャンセル
-          </button>
-
-          <button onclick="applyPasswordAndMaybePin()"
+          <button onclick="loginIdPass()"
             class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
-            接続
+            ログイン
+          </button>
+        </div>
+
+        <div class="p-4 border-t border-slate-100 flex flex-wrap justify-between gap-2">
+          <button id="openCredBtn" onclick="openCredModal()"
+            class="hidden px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
+            ID/Password変更
+          </button>
+          <button id="logoutBtn" onclick="logout()"
+            class="hidden px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
+            ログアウト
           </button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ★PIN 設定/変更モーダル -->
-  <div id="pinChangeModal" class="hidden fixed inset-0 z-50">
-    <div class="absolute inset-0 bg-black/40" onclick="closePinChangeModal()"></div>
+  <!-- ===== Credential Change Modal ===== -->
+  <div id="credModal" class="hidden fixed inset-0 z-50">
+    <div class="absolute inset-0 bg-black/40" onclick="closeCredModal()"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4">
       <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
         <div class="p-4 border-b border-slate-100">
-          <div class="text-lg font-bold">編集用PIN（4桁）を設定/変更</div>
+          <div class="text-lg font-bold">ID / Password 変更</div>
           <div class="text-sm text-slate-500 mt-1">
-            ※この操作は「編集可」の人のみ実行できます。
-          </div>
-        </div>
-
-        <div class="p-4 space-y-3">
-          <label class="text-sm font-medium text-slate-700">新しいPIN（4桁）</label>
-          <input id="newPinInput" type="password" inputmode="numeric" maxlength="4" placeholder="0000〜9999"
-            class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          <div class="text-xs text-slate-500">
-            PINを変更すると、他の編集者は新しいPINの再入力が必要です。
-          </div>
-        </div>
-
-        <div class="p-4 border-t border-slate-100 flex justify-end gap-2">
-          <button onclick="closePinChangeModal()"
-            class="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
-            キャンセル
-          </button>
-          <button onclick="setOrChangePin()"
-            class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
-            PINを設定/変更
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ★旧部屋 → 新部屋コピー モーダル（コピー先年度も選択） -->
-  <div id="copyModal" class="hidden fixed inset-0 z-50">
-    <div class="absolute inset-0 bg-black/40" onclick="closeCopyModal()"></div>
-    <div class="absolute inset-0 flex items-center justify-center p-4">
-      <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-        <div class="p-4 border-b border-slate-100">
-          <div class="text-lg font-bold">旧部屋 → 新部屋へコピー</div>
-          <div class="text-sm text-slate-500 mt-1">
-            コピー元：現在接続中の部屋（この画面のPassword）<br>
-            コピーする年度：<span id="copySourceYearLabel" class="font-bold"></span>年度
+            ・変更しても予定表データは引き継がれます（同じUIDで保存）。<br>
+            ・IDが既に使われている場合は変更できません。
           </div>
         </div>
 
         <div class="p-4 space-y-4">
           <div>
-            <label class="text-sm font-medium text-slate-700">新しいPassword（コピー先）</label>
-            <input id="copyNewPassword" type="text" placeholder=""
+            <label class="text-sm font-medium text-slate-700">現在のPassword（確認）</label>
+            <input id="currentPassInput" type="password"
               class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            <div class="text-xs text-slate-500 mt-1">
-              ※ここに入力したPasswordの「部屋」にコピーします。
-            </div>
           </div>
 
           <div>
-            <label class="text-sm font-medium text-slate-700">コピー先の年度（西暦）</label>
-            <input id="copyTargetYear" type="number"
+            <label class="text-sm font-medium text-slate-700">新しいID（空欄なら変更なし）</label>
+            <input id="newIdInput" type="text"
               class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            <div class="text-xs text-slate-500 mt-1">
-              例：2026（新しい部屋の「2026年度」に貼り付け）
-            </div>
           </div>
 
-          <div class="text-xs text-slate-500">
-            ※コピーは編集操作のため「編集可（PIN一致）」が必要です。<br>
-            ※コピー先に同じ日付データがある場合は上書き（merge）されます。
+          <div>
+            <label class="text-sm font-medium text-slate-700">新しいPassword（空欄なら変更なし）</label>
+            <input id="newPassInput" type="password"
+              class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
         </div>
 
         <div class="p-4 border-t border-slate-100 flex justify-end gap-2">
-          <button onclick="closeCopyModal()"
+          <button onclick="closeCredModal()"
             class="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
             キャンセル
           </button>
-          <button onclick="doCopyRoom()"
+          <button onclick="applyCredChange()"
             class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
-            コピー実行
+            変更する
           </button>
         </div>
       </div>
@@ -310,44 +271,44 @@
   </div>
 
   <script>
-    // ========= ローカル保存キー =========
-    const STORAGE_KEY_PREFIX = 'school_schedule_data_v2_';
-    const SCHOOL_NAME_KEY = 'school_name_storage';
-
-    // 共同編集用（この端末に「最後に使ったPassword / PIN」を保存）
-    const PASSWORD_KEY = 'schedule_password_v1';
-    const PIN_CACHE_KEY = 'schedule_pin_cache_v1';
-
-    // ========= 状態 =========
-    let scheduleData = [];
-    let currentMonth = 4;
-    let currentTab = 'all';
-    let searchQuery = '';
-
-    // ========= Firebase =========
-    let firebaseReady = false;
-    let db = null;
-    let authUser = null;
-
-    // Password（部屋の合言葉）
-    let password = '';
-    let roomId = '';
-    let unsubscribeSnap = null;
-
-    // 編集可否（PIN一致したら true）
-    let canEdit = false;
-
-    // ★Firebase設定（あなたのプロジェクト）
+    // ===============================
+    // Firebase Config（あなたの値）
+    // ===============================
     const firebaseConfig = {
       apiKey: "AIzaSyA-FkCxNyT8C-HicXa4PbHcjNkwIvQWWw0",
       authDomain: "schedule-collab-38ed7.firebaseapp.com",
       projectId: "schedule-collab-38ed7",
       storageBucket: "schedule-collab-38ed7.firebasestorage.app",
       messagingSenderId: "962845386626",
-      appId: "1:962845386626:web:b3a9b029753c25862cd19b",
-      measurementId: "G-JRY3LPRJ3H"
+      appId: "1:962845386626:web:b3a9b029753c25862cd19b"
     };
 
+    // ===============================
+    // Local keys
+    // ===============================
+    const STORAGE_KEY_PREFIX = 'school_schedule_data_v3_'; // v3
+    const LAST_ID_KEY = 'schedule_last_id_v1';
+    const VIEWMODE_KEY = 'schedule_view_mode_v1';
+
+    // ===============================
+    // App state
+    // ===============================
+    let scheduleData = [];
+    let currentMonth = 4;
+    let currentTab = 'all';
+    let searchQuery = '';
+
+    // Auth / Firestore
+    let firebaseReady = false;
+    let db = null;
+    let user = null;
+    let roomId = null; // = user.uid
+    let unsubscribeDays = null;
+    let canEdit = false; // “編集モード”切替で true/false（誰でも切替可）
+
+    // ===============================
+    // UI helpers
+    // ===============================
     function setSyncBadge(text, kind = 'idle') {
       const el = document.getElementById('syncBadge');
       el.textContent = text;
@@ -360,20 +321,24 @@
       el.className = `px-2 py-0.5 rounded-full text-xs ${cls}`;
     }
 
-    function setPasswordBadge(isSet) {
-      const el = document.getElementById('passwordBadge');
-      el.textContent = isSet ? '設定済み' : '未設定';
-      el.className = `px-2 py-0.5 rounded-full text-xs ${isSet ? 'bg-slate-100 text-slate-600' : 'bg-slate-50 text-slate-500'}`;
+    function setIdBadge(text, kind='idle') {
+      const el = document.getElementById('idBadge');
+      el.textContent = text;
+      const cls = {
+        idle: 'bg-slate-100 text-slate-600',
+        ok: 'bg-emerald-50 text-emerald-700',
+        ng: 'bg-rose-50 text-rose-700',
+      }[kind] || 'bg-slate-100 text-slate-600';
+      el.className = `px-2 py-0.5 rounded-full text-xs ${cls}`;
     }
 
-    function setEditBadge() {
-      const el = document.getElementById('editBadge');
-      el.textContent = canEdit ? '編集可' : '閲覧';
-      el.className = `px-2 py-0.5 rounded-full text-xs ${canEdit ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`;
+    function setModeBadge() {
+      const el = document.getElementById('modeBadge');
+      el.textContent = canEdit ? '編集' : '閲覧';
+      el.className = `px-2 py-0.5 rounded-full text-xs ${canEdit ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`;
 
-      // CSVインポートは編集者のみ
+      // CSVは編集モードのみ
       const label = document.getElementById('csvLabel');
-      if (!label) return;
       if (canEdit) {
         label.classList.remove('opacity-50', 'pointer-events-none');
         label.title = '';
@@ -384,87 +349,252 @@
     }
 
     function applyEditLockToDOM() {
-      // 画面上の contenteditable を一括で切替
       document.querySelectorAll('[contenteditable]').forEach(el => {
         el.setAttribute('contenteditable', canEdit ? 'true' : 'false');
         if (canEdit) el.classList.remove('readonly');
         else el.classList.add('readonly');
       });
-      setEditBadge();
+      setModeBadge();
     }
 
-    async function ensureFirebase() {
-      if (firebaseReady) return true;
-      try {
-        // ★二重初期化防止
-        if (!firebase.apps || firebase.apps.length === 0) {
-          firebase.initializeApp(firebaseConfig);
+    // ===============================
+    // Firebase init
+    // ===============================
+    function ensureFirebaseInit() {
+      if (firebaseReady) return;
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.firestore();
+      firebaseReady = true;
+
+      firebase.auth().onAuthStateChanged(async (u) => {
+        user = u || null;
+        roomId = user ? user.uid : null;
+
+        if (user) {
+          setSyncBadge('接続中', 'wait');
+          setIdBadge(getCurrentIdLabel(), 'ok');
+          document.getElementById('openCredBtn').classList.remove('hidden');
+          document.getElementById('logoutBtn').classList.remove('hidden');
+
+          // roomのschoolNameを読み込み
+          await loadSchoolNameFromCloud();
+
+          // 同期開始
+          await startCloudSyncForYear();
+          setSyncBadge('同期OK', 'ok');
+        } else {
+          stopCloudSync();
+          setIdBadge('未ログイン', 'idle');
+          setSyncBadge('未接続', 'idle');
+          document.getElementById('openCredBtn').classList.add('hidden');
+          document.getElementById('logoutBtn').classList.add('hidden');
         }
-        db = firebase.firestore();
 
-        setSyncBadge('接続中', 'wait');
-        const res = await firebase.auth().signInAnonymously();
-        authUser = res.user;
+        renderSchedule();
+        applyEditLockToDOM();
+      });
+    }
 
-        firebaseReady = true;
-        setSyncBadge('接続OK', 'ok');
-        return true;
+    // ===============================
+    // “ID”を擬似メールに変換
+    // ===============================
+    function normalizeId(raw) {
+      const s = String(raw || '').trim().toLowerCase();
+      // 許可: a-z 0-9 . _ -
+      if (!s) return null;
+      if (s.length < 3 || s.length > 30) return null;
+      if (!/^[a-z0-9._-]+$/.test(s)) return null;
+      return s;
+    }
+    function idToEmail(id) {
+      return `${id}@schedule.local`;
+    }
+    function getCurrentIdLabel() {
+      // 表示用：ユーザーの email から @schedule.local を外す
+      const em = (user && user.email) ? user.email : '';
+      if (!em) return 'ログイン中';
+      return em.replace(/@schedule\.local$/,'');
+    }
+
+    // ===============================
+    // Login / Register
+    // ===============================
+    function openLoginModal() {
+      const last = localStorage.getItem(LAST_ID_KEY) || '';
+      document.getElementById('loginIdInput').value = last;
+      document.getElementById('loginPassInput').value = '';
+      document.getElementById('loginModal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('loginIdInput').focus(), 0);
+    }
+    function closeLoginModal() {
+      document.getElementById('loginModal').classList.add('hidden');
+    }
+
+    async function loginIdPass() {
+      try {
+        ensureFirebaseInit();
+
+        const id = normalizeId(document.getElementById('loginIdInput').value);
+        const pass = String(document.getElementById('loginPassInput').value || '');
+        if (!id) { alert('IDは3〜30文字、英数字と . _ - のみで入力してください。'); return; }
+        if (pass.length < 6) { alert('Passwordは6文字以上で入力してください。'); return; }
+
+        const email = idToEmail(id);
+        localStorage.setItem(LAST_ID_KEY, id);
+
+        await firebase.auth().signInWithEmailAndPassword(email, pass);
+
+        closeLoginModal();
+        alert('ログインしました。');
       } catch (e) {
         console.error(e);
-        setSyncBadge('接続失敗', 'ng');
-        alert('共同編集の接続に失敗しました。firebaseConfig / Auth設定 / 承認済みドメイン を確認してください。');
-        return false;
+        alert('ログインに失敗しました。ID/Passwordが正しいか確認してください。');
       }
     }
 
-    async function sha256Hex(str) {
-      const data = new TextEncoder().encode(str);
-      const hash = await crypto.subtle.digest('SHA-256', data);
-      return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
+    async function registerIdPass() {
+      try {
+        ensureFirebaseInit();
+
+        const id = normalizeId(document.getElementById('loginIdInput').value);
+        const pass = String(document.getElementById('loginPassInput').value || '');
+        if (!id) { alert('IDは3〜30文字、英数字と . _ - のみで入力してください。'); return; }
+        if (pass.length < 6) { alert('Passwordは6文字以上で入力してください。'); return; }
+
+        const email = idToEmail(id);
+        localStorage.setItem(LAST_ID_KEY, id);
+
+        await firebase.auth().createUserWithEmailAndPassword(email, pass);
+
+        closeLoginModal();
+        alert('新規作成しました。このID/Passwordを共有すれば共同編集できます。');
+      } catch (e) {
+        console.error(e);
+        // 既に使われている
+        if (String(e.code || '').includes('auth/email-already-in-use')) {
+          alert('そのIDは既に使われています。別のIDにしてください。');
+        } else {
+          alert('新規作成に失敗しました。ID/Passwordを確認してください。');
+        }
+      }
     }
 
-    function stopCloudSync() {
-      if (typeof unsubscribeSnap === 'function') unsubscribeSnap();
-      unsubscribeSnap = null;
+    async function logout() {
+      try {
+        await firebase.auth().signOut();
+        canEdit = false;
+        localStorage.setItem(VIEWMODE_KEY, 'view');
+        closeLoginModal();
+        closeCredModal();
+        alert('ログアウトしました。');
+      } catch (e) {
+        console.error(e);
+      }
     }
 
-    function getStartYear() {
-      return parseInt(document.getElementById('yearInput').value, 10);
+    // ===============================
+    // ID/Password change
+    // ===============================
+    function openCredModal() {
+      document.getElementById('currentPassInput').value = '';
+      document.getElementById('newIdInput').value = '';
+      document.getElementById('newPassInput').value = '';
+      document.getElementById('credModal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('currentPassInput').focus(), 0);
+    }
+    function closeCredModal() {
+      document.getElementById('credModal').classList.add('hidden');
     }
 
-    // ====== Firestore参照（roomIdを指定できるように）======
-    function roomDocRefFor(rid) {
-      return db.collection('rooms').doc(rid);
+    async function applyCredChange() {
+      try {
+        if (!user) { alert('先にログインしてください。'); return; }
+
+        const currentPass = String(document.getElementById('currentPassInput').value || '');
+        const newIdRaw = String(document.getElementById('newIdInput').value || '').trim();
+        const newPass = String(document.getElementById('newPassInput').value || '');
+
+        if (currentPass.length < 6) { alert('現在のPasswordを入力してください。'); return; }
+
+        // re-authenticate
+        const currentEmail = user.email;
+        const cred = firebase.auth.EmailAuthProvider.credential(currentEmail, currentPass);
+        await user.reauthenticateWithCredential(cred);
+
+        // change ID (email)
+        if (newIdRaw) {
+          const newId = normalizeId(newIdRaw);
+          if (!newId) { alert('新しいIDが不正です（3〜30文字、英数字と . _ - のみ）。'); return; }
+
+          const newEmail = idToEmail(newId);
+          // 既に使われていないかは updateEmail が判定してくれる
+          await user.updateEmail(newEmail);
+          localStorage.setItem(LAST_ID_KEY, newId);
+        }
+
+        // change password
+        if (newPass) {
+          if (newPass.length < 6) { alert('新しいPasswordは6文字以上で入力してください。'); return; }
+          await user.updatePassword(newPass);
+        }
+
+        closeCredModal();
+        closeLoginModal();
+        setIdBadge(getCurrentIdLabel(), 'ok');
+        alert('ID/Passwordを変更しました（データは引き継がれます）。');
+      } catch (e) {
+        console.error(e);
+        if (String(e.code || '').includes('auth/email-already-in-use')) {
+          alert('そのIDは既に使われています。別のIDにしてください。');
+          return;
+        }
+        alert('変更に失敗しました。現在のPasswordが正しいか、ID/Passwordの条件を確認してください。');
+      }
     }
+
+    // ===============================
+    // View/Edit toggle
+    // ===============================
+    function toggleEditMode() {
+      if (!user) {
+        alert('編集するにはログインが必要です。');
+        openLoginModal();
+        return;
+      }
+      canEdit = !canEdit;
+      localStorage.setItem(VIEWMODE_KEY, canEdit ? 'edit' : 'view');
+      applyEditLockToDOM();
+    }
+
+    // ===============================
+    // Firestore paths
+    // ===============================
     function roomDocRef() {
-      return roomDocRefFor(roomId);
+      return db.collection('rooms').doc(roomId);
     }
-    function cloudDaysRefFor(rid, startYear) {
-      return roomDocRefFor(rid)
+    function cloudDaysRef(startYear) {
+      return roomDocRef()
         .collection('years').doc(String(startYear))
         .collection('days');
     }
-    function cloudDaysRef(startYear) {
-      return cloudDaysRefFor(roomId, startYear);
+
+    function stopCloudSync() {
+      if (typeof unsubscribeDays === 'function') unsubscribeDays();
+      unsubscribeDays = null;
     }
 
     async function startCloudSyncForYear() {
-      if (!password) {
-        setSyncBadge('未接続', 'idle');
-        return;
-      }
-      const ok = await ensureFirebase();
-      if (!ok) return;
+      if (!user || !roomId) return;
 
       stopCloudSync();
-
       const startYear = getStartYear();
       const ref = cloudDaysRef(startYear);
 
       setSyncBadge('同期中', 'wait');
 
-      unsubscribeSnap = ref.onSnapshot((snap) => {
+      unsubscribeDays = ref.onSnapshot((snap) => {
         let changed = false;
+
         snap.docChanges().forEach(ch => {
           const data = ch.doc.data() || {};
           const y = data.year, m = data.month, d = data.day;
@@ -486,72 +616,12 @@
       }, (err) => {
         console.error(err);
         setSyncBadge('同期失敗', 'ng');
+        alert('同期に失敗しました。Firestoreルール/認証設定を確認してください。');
       });
     }
 
-    // ========= PIN（Firestoreにハッシュで保存） =========
-    async function getPinHashFromCloud() {
-      const ok = await ensureFirebase();
-      if (!ok) return null;
-      const snap = await roomDocRef().get();
-      const data = snap.exists ? snap.data() : {};
-      return data && data.pinHash ? String(data.pinHash) : null;
-    }
-
-    async function setPinHashToCloud(pinHash) {
-      const ok = await ensureFirebase();
-      if (!ok) return false;
-      await roomDocRef().set({
-        pinHash: String(pinHash),
-        pinUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        pinUpdatedBy: authUser ? authUser.uid : null
-      }, { merge: true });
-      return true;
-    }
-
-    // ★旧形式PIN（4桁そのまま保存）にも対応し、成功したらSHA256へ自動移行
-    async function verifyEditPin(pinPlain) {
-      const cloudHash = await getPinHashFromCloud();
-      if (!cloudHash) return { ok: false, reason: 'unset' };
-
-      const pin = String(pinPlain || '').trim();
-
-      // 1) 旧形式：pinHashが「4桁」だった場合（昔の保存形式）
-      if (/^\d{4}$/.test(cloudHash)) {
-        const ok = (pin === cloudHash);
-        return { ok, reason: ok ? 'legacy-ok' : 'legacy-ng' };
-      }
-
-      // 2) 新形式：sha256 hex 64桁
-      if (/^[0-9a-f]{64}$/i.test(cloudHash)) {
-        const inputHash = await sha256Hex(pin);
-        const ok = (inputHash.toLowerCase() === cloudHash.toLowerCase());
-        return { ok, reason: ok ? 'sha-ok' : 'sha-ng' };
-      }
-
-      // 3) 想定外（安全側）：両方試す
-      const inputHash = await sha256Hex(pin);
-      if (pin === cloudHash) return { ok: true, reason: 'unknown-plain-ok' };
-      if (inputHash.toLowerCase() === String(cloudHash).toLowerCase()) return { ok: true, reason: 'unknown-sha-ok' };
-      return { ok: false, reason: 'unknown-ng' };
-    }
-
-    async function setPassword(newPassword) {
-      password = (newPassword || '').trim();
-      if (!password) return;
-
-      roomId = await sha256Hex(password);
-      localStorage.setItem(PASSWORD_KEY, password);
-
-      setPasswordBadge(true);
-      await startCloudSyncForYear();
-    }
-
     async function saveDayToCloud(item) {
-      if (!password || !canEdit) return; // ★編集者だけ保存
-      const ok = await ensureFirebase();
-      if (!ok) return;
-
+      if (!user || !roomId) return;
       const startYear = getStartYear();
       const docId = `${item.year}-${item.month}-${item.day}`;
       const ref = cloudDaysRef(startYear).doc(docId);
@@ -565,16 +635,12 @@
         business: item.business || '',
         submission: item.submission || '',
         vacation: item.vacation || '',
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        updatedBy: authUser ? authUser.uid : null
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
     }
 
     async function batchSaveToCloud(items) {
-      if (!password || !canEdit) return;
-      const ok = await ensureFirebase();
-      if (!ok) return;
-
+      if (!user || !roomId) return;
       const startYear = getStartYear();
       const ref = cloudDaysRef(startYear);
 
@@ -590,14 +656,40 @@
           business: item.business || '',
           submission: item.submission || '',
           vacation: item.vacation || '',
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          updatedBy: authUser ? authUser.uid : null
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
       });
       await batch.commit();
     }
 
-    // ========= ローカル保存 =========
+    // schoolName (rooms/{uid}.schoolName)
+    async function loadSchoolNameFromCloud() {
+      if (!user || !roomId) return;
+      try {
+        const snap = await roomDocRef().get();
+        if (snap.exists) {
+          const data = snap.data() || {};
+          if (data.schoolName) document.getElementById('schoolName').innerText = String(data.schoolName);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    async function saveSchoolNameToCloud(name) {
+      if (!user || !roomId) return;
+      try {
+        await roomDocRef().set({ schoolName: String(name || '') }, { merge: true });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // ===============================
+    // Local storage
+    // ===============================
+    function getStartYear() {
+      return parseInt(document.getElementById('yearInput').value, 10);
+    }
     function getStorageKey() {
       const year = document.getElementById('yearInput').value;
       return STORAGE_KEY_PREFIX + year;
@@ -605,62 +697,37 @@
     function saveToStorage() {
       localStorage.setItem(getStorageKey(), JSON.stringify(scheduleData));
     }
-    function saveSchoolName() {
-      const name = document.getElementById('schoolName').innerText;
-      localStorage.setItem(SCHOOL_NAME_KEY, name);
-    }
-    function loadSchoolName() {
-      const savedName = localStorage.getItem(SCHOOL_NAME_KEY);
-      if (savedName) document.getElementById('schoolName').innerText = savedName;
+    function loadFromStorage() {
+      const savedData = localStorage.getItem(getStorageKey());
+      return savedData ? JSON.parse(savedData) : null;
     }
 
-    // ========= 初期化 =========
+    // ===============================
+    // Init
+    // ===============================
     async function init() {
-      loadSchoolName();
+      ensureFirebaseInit();
+
       setupSearch();
-      generateYearlyCalendar();
-
-      // まず閲覧モード
-      canEdit = false;
-      setEditBadge();
-
-      // Password復元
-      const savedPassword = localStorage.getItem(PASSWORD_KEY) || '';
-      if (savedPassword) {
-        await setPassword(savedPassword);
-      } else {
-        setPasswordBadge(false);
-        setSyncBadge('未接続', 'idle');
-      }
-
-      // PIN復元（この端末のみ）→ 旧形式対応 verify
-      const cachedPin = localStorage.getItem(PIN_CACHE_KEY) || '';
-      if (savedPassword && cachedPin) {
-        const res = await verifyEditPin(cachedPin);
-        canEdit = !!res.ok;
-
-        // 旧形式だった場合は自動移行
-        if (canEdit) {
-          const cloudHash = await getPinHashFromCloud();
-          if (/^\d{4}$/.test(String(cloudHash))) {
-            const migrateHash = await sha256Hex(cachedPin);
-            await setPinHashToCloud(migrateHash);
-          }
-        }
-      } else {
-        canEdit = false;
-      }
-
       renderMonthNav();
+      renderMonthSelect();
+
+      // 閲覧/編集モードの復元
+      const mode = localStorage.getItem(VIEWMODE_KEY) || 'view';
+      canEdit = (mode === 'edit');
+      setModeBadge();
+
+      generateYearlyCalendar();
       renderSchedule();
       applyEditLockToDOM();
     }
 
-    // ========= 年度生成 =========
+    // ===============================
+    // Yearly calendar generate
+    // ===============================
     function generateYearlyCalendar() {
-      const startYear = parseInt(document.getElementById('yearInput').value, 10);
-      const savedData = localStorage.getItem(getStorageKey());
-      const parsedSavedData = savedData ? JSON.parse(savedData) : null;
+      const startYear = getStartYear();
+      const parsedSavedData = loadFromStorage();
 
       const newScheduleData = [];
       const dows = ['日', '月', '火', '水', '木', '金', '土'];
@@ -691,53 +758,58 @@
       }
 
       scheduleData = newScheduleData;
-
-      // 年度が変わると、同じPINでも部屋/ルールが違う可能性があるので、編集権限は維持しつつ再描画
-      renderMonthNav();
       renderSchedule();
       applyEditLockToDOM();
 
-      if (password) startCloudSyncForYear();
+      // ログイン中なら同期開始
+      if (user) startCloudSyncForYear();
     }
 
-    // ========= 月UI =========
-    function setMonthFromUI(m) {
-      currentMonth = parseInt(m, 10);
+    // ===============================
+    // Month nav
+    // ===============================
+    const fiscalMonths = [4,5,6,7,8,9,10,11,12,1,2,3];
+
+    function renderMonthNav() {
+      const nav = document.getElementById('monthNav');
+      nav.innerHTML = '';
+      fiscalMonths.forEach(m => {
+        const btn = document.createElement('button');
+        btn.className = `px-5 py-2 rounded-full text-sm font-medium transition-all ${currentMonth === m ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-200'}`;
+        btn.innerText = `${m}月`;
+        btn.onclick = () => {
+          currentMonth = m;
+          renderMonthNav();
+          renderMonthSelect();
+          renderSchedule();
+        };
+        nav.appendChild(btn);
+      });
+    }
+
+    function renderMonthSelect() {
+      const sel = document.getElementById('monthSelect');
+      if (!sel) return;
+      sel.innerHTML = '';
+      fiscalMonths.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = String(m);
+        opt.textContent = `${m}月`;
+        if (m === currentMonth) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+    function onMonthSelectChange(val) {
+      const m = parseInt(val, 10);
+      if (!Number.isFinite(m)) return;
+      currentMonth = m;
       renderMonthNav();
       renderSchedule();
     }
 
-    function renderMonthNav() {
-      const fiscalMonths = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3];
-
-      // PCボタン
-      const nav = document.getElementById('monthNav');
-      if (nav) {
-        nav.innerHTML = '';
-        fiscalMonths.forEach(m => {
-          const btn = document.createElement('button');
-          btn.className = `px-5 py-2 rounded-full text-sm font-medium transition-all ${currentMonth === m ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-200'}`;
-          btn.innerText = `${m}月`;
-          btn.onclick = () => setMonthFromUI(m);
-          nav.appendChild(btn);
-        });
-      }
-
-      // スマホドロップダウン
-      const sel = document.getElementById('monthSelect');
-      if (sel) {
-        sel.innerHTML = '';
-        fiscalMonths.forEach(m => {
-          const opt = document.createElement('option');
-          opt.value = String(m);
-          opt.textContent = `${m}月`;
-          sel.appendChild(opt);
-        });
-        sel.value = String(currentMonth);
-      }
-    }
-
-    // ========= 描画 =========
+    // ===============================
+    // Render schedule
+    // ===============================
     function renderSchedule() {
       const container = document.getElementById('scheduleContainer');
       const emptyState = document.getElementById('emptyState');
@@ -822,7 +894,9 @@
     }
 
     async function updateField(id, field, value) {
-      if (!canEdit) return; // ★編集はPIN一致者のみ
+      if (!canEdit) return;              // ★編集モード時のみ
+      if (!user) { alert('編集するにはログインが必要です。'); return; } // ★ログイン必須
+
       const item = scheduleData.find(d => d.id === id);
       if (!item) return;
 
@@ -832,7 +906,9 @@
       try { await saveDayToCloud(item); } catch (e) { console.error(e); }
     }
 
-    // ========= タブ =========
+    // ===============================
+    // Tabs & Search
+    // ===============================
     function switchTab(tabId) {
       currentTab = tabId;
       document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -842,7 +918,6 @@
       renderSchedule();
     }
 
-    // ========= 検索 =========
     function setupSearch() {
       document.getElementById('searchInput').oninput = (e) => {
         searchQuery = e.target.value;
@@ -850,7 +925,26 @@
       };
     }
 
-    // ========= CSV =========
+    // ===============================
+    // School name save
+    // ===============================
+    async function saveSchoolName() {
+      const name = document.getElementById('schoolName').innerText;
+      // ローカル（キャッシュ）
+      localStorage.setItem('school_name_local_v1', name);
+      // クラウド（ログイン中のみ）
+      if (user) await saveSchoolNameToCloud(name);
+    }
+
+    // 初期はローカルも反映（ログイン前用）
+    function loadSchoolNameLocal() {
+      const saved = localStorage.getItem('school_name_local_v1');
+      if (saved) document.getElementById('schoolName').innerText = saved;
+    }
+
+    // ===============================
+    // CSV import
+    // ===============================
     function parseCSVRow(text) {
       const result = [];
       let current = '';
@@ -868,8 +962,14 @@
     }
 
     async function importCSV(input) {
+      if (!user) {
+        alert('CSVインポートにはログインが必要です。');
+        input.value = '';
+        openLoginModal();
+        return;
+      }
       if (!canEdit) {
-        alert('閲覧モードではCSVインポートできません（編集用PINが必要です）。');
+        alert('閲覧モードではCSVインポートできません。モードを「編集」に切り替えてください。');
         input.value = '';
         return;
       }
@@ -931,264 +1031,13 @@
       reader.readAsText(file, 'Shift-JIS');
     }
 
-    // ========= Password / PIN UI =========
-    function openPasswordModal() {
-      document.getElementById('passwordInput').value = localStorage.getItem(PASSWORD_KEY) || '';
-      document.getElementById('pinInput').value = localStorage.getItem(PIN_CACHE_KEY) || '';
-      document.getElementById('passwordModal').classList.remove('hidden');
-      setTimeout(() => document.getElementById('passwordInput').focus(), 0);
-    }
-    function closePasswordModal() {
-      document.getElementById('passwordModal').classList.add('hidden');
-    }
-
-    async function applyPasswordAndMaybePin() {
-      const p = document.getElementById('passwordInput').value.trim();
-      const pin = document.getElementById('pinInput').value.trim();
-
-      if (!p) { alert('Passwordを入力してください。'); return; }
-      if (pin && !/^\d{4}$/.test(pin)) { alert('編集用PINは4桁の数字で入力してください。'); return; }
-
-      closePasswordModal();
-
-      // Passwordが変わるなら、この端末のPINキャッシュはいったん無効
-      if (password && p !== password) {
-        localStorage.removeItem(PIN_CACHE_KEY);
-        canEdit = false;
-      }
-
-      // ① 閲覧：Passwordで接続
-      await setPassword(p);
-
-      // ② Firebase接続
-      const okFb = await ensureFirebase();
-      if (!okFb) {
-        canEdit = false;
-        renderSchedule(); applyEditLockToDOM(); setEditBadge();
-        return;
-      }
-
-      // ③ PIN未入力 → 閲覧
-      if (!pin) {
-        canEdit = false;
-        localStorage.removeItem(PIN_CACHE_KEY);
-        renderSchedule(); applyEditLockToDOM(); setEditBadge();
-        return;
-      }
-
-      // ④ PIN入力あり → 「未設定なら初回登録 / 設定済みなら照合」
-      let cloudHash = null;
-      try {
-        cloudHash = await getPinHashFromCloud(); // nullなら未設定
-      } catch (e) {
-        console.error(e);
-        canEdit = false;
-        alert('PIN情報の取得に失敗しました。Firestoreルール（roomsのread）を確認してください。');
-        renderSchedule(); applyEditLockToDOM(); setEditBadge();
-        return;
-      }
-
-      // 未設定 → 初回登録（SHA256で保存）
-      if (!cloudHash) {
-        const hash = await sha256Hex(pin);
-        const ok = await setPinHashToCloud(hash);
-        if (!ok) {
-          canEdit = false;
-          localStorage.removeItem(PIN_CACHE_KEY);
-          alert('PINの初回登録に失敗しました。Firestoreの権限（roomsのwrite）を確認してください。');
-        } else {
-          canEdit = true;
-          localStorage.setItem(PIN_CACHE_KEY, pin);
-          alert('編集用PINを初回登録しました。以後、このPasswordではPIN一致者のみ編集できます。');
-        }
-
-        renderSchedule(); applyEditLockToDOM(); setEditBadge();
-        return;
-      }
-
-      // 設定済み → 照合（旧形式にも対応）
-      const result = await verifyEditPin(pin);
-      canEdit = !!result.ok;
-
-      if (canEdit) {
-        localStorage.setItem(PIN_CACHE_KEY, pin);
-
-        // ★旧形式だった場合はここで自動移行（4桁→SHA256）
-        if (/^\d{4}$/.test(String(cloudHash))) {
-          const migrateHash = await sha256Hex(pin);
-          await setPinHashToCloud(migrateHash);
-          alert('PINが旧形式だったので、自動的に安全な形式（SHA256）へ移行しました。');
-        }
-      } else {
-        localStorage.removeItem(PIN_CACHE_KEY);
-        alert('編集用PINが一致しませんでした。閲覧モードで接続します。');
-      }
-
-      renderSchedule();
-      applyEditLockToDOM();
-      setEditBadge();
-    }
-
-    function clearPassword() {
-      localStorage.removeItem(PASSWORD_KEY);
-      localStorage.removeItem(PIN_CACHE_KEY);
-
-      password = '';
-      roomId = '';
-      canEdit = false;
-
-      stopCloudSync();
-      setPasswordBadge(false);
-      setSyncBadge('未接続', 'idle');
-      setEditBadge();
-
-      closePasswordModal();
-      renderSchedule();
-      applyEditLockToDOM();
-
-      alert('Passwordを解除しました（共同編集を停止しました）。');
-    }
-
-    function openPinChangeModal() {
-      if (!canEdit) {
-        alert('PINの設定/変更は「編集可」の人のみ実行できます。');
-        return;
-      }
-      document.getElementById('newPinInput').value = '';
-      document.getElementById('pinChangeModal').classList.remove('hidden');
-      setTimeout(() => document.getElementById('newPinInput').focus(), 0);
-    }
-
-    function closePinChangeModal() {
-      document.getElementById('pinChangeModal').classList.add('hidden');
-    }
-
-    async function setOrChangePin() {
-      const newPin = document.getElementById('newPinInput').value.trim();
-      if (!/^\d{4}$/.test(newPin)) {
-        alert('PINは4桁の数字で入力してください。');
-        return;
-      }
-      if (!password) {
-        alert('先にPasswordで接続してください。');
-        return;
-      }
-      if (!canEdit) {
-        alert('PINの変更は編集権限が必要です。');
-        return;
-      }
-
-      const hash = await sha256Hex(newPin);
-      const ok = await setPinHashToCloud(hash);
-      if (!ok) return;
-
-      localStorage.setItem(PIN_CACHE_KEY, newPin);
-      closePinChangeModal();
-      alert('編集用PINを設定/変更しました。');
-    }
-
-    // ========= 旧部屋→新部屋コピー =========
-    function openCopyModal() {
-      if (!password) {
-        alert('先にPasswordで接続してください。');
-        return;
-      }
-      document.getElementById('copySourceYearLabel').textContent = String(getStartYear());
-      document.getElementById('copyNewPassword').value = '';
-      document.getElementById('copyTargetYear').value = String(getStartYear());
-      document.getElementById('copyModal').classList.remove('hidden');
-      setTimeout(() => document.getElementById('copyNewPassword').focus(), 0);
-    }
-    function closeCopyModal() {
-      document.getElementById('copyModal').classList.add('hidden');
-    }
-
-    async function doCopyRoom() {
-      if (!password) { alert('先にPasswordで接続してください。'); return; }
-      if (!canEdit) { alert('コピーは編集操作です。Password＋PINで「編集可」にしてから実行してください。'); return; }
-
-      const newPw = document.getElementById('copyNewPassword').value.trim();
-      const targetYear = parseInt(document.getElementById('copyTargetYear').value, 10);
-      if (!newPw) { alert('コピー先の新しいPasswordを入力してください。'); return; }
-      if (!Number.isFinite(targetYear)) { alert('コピー先の年度（西暦）を正しく入力してください。'); return; }
-
-      const okFb = await ensureFirebase();
-      if (!okFb) return;
-
-      const sourceYear = getStartYear();
-      if (!confirm(`コピー元：現在の部屋（${sourceYear}年度）\nコピー先：新しい部屋（${targetYear}年度）\n\nコピーを実行します。よろしいですか？`)) {
-        return;
-      }
-
-      setSyncBadge('コピー中', 'wait');
-
-      try {
-        const oldRoomId = await sha256Hex(password);
-        const newRoomId = await sha256Hex(newPw);
-
-        // 1) 旧部屋 days を取得
-        const oldRef = cloudDaysRefFor(oldRoomId, sourceYear);
-        const snap = await oldRef.get();
-
-        // 2) 新部屋 days へ書き込み（年度は targetYear）
-        const newRef = cloudDaysRefFor(newRoomId, targetYear);
-
-        // Firestore batch上限500（1年度=366程度なのでOK）
-        const batch = db.batch();
-        let count = 0;
-
-        snap.forEach(doc => {
-          batch.set(newRef.doc(doc.id), doc.data(), { merge: true });
-          count++;
-        });
-
-        await batch.commit();
-
-        // 3) PIN設定もコピー（pinHashがある場合）
-        const oldRoomDoc = await roomDocRefFor(oldRoomId).get();
-        if (oldRoomDoc.exists) {
-          const d = oldRoomDoc.data() || {};
-          if (d.pinHash) {
-            await roomDocRefFor(newRoomId).set({
-              pinHash: String(d.pinHash),
-              pinCopiedAt: firebase.firestore.FieldValue.serverTimestamp(),
-              pinCopiedFrom: oldRoomId,
-            }, { merge: true });
-          }
-        }
-
-        setSyncBadge('コピーOK', 'ok');
-        closeCopyModal();
-
-        const move = confirm(`コピーが完了しました（${count}件）。\n新しいPasswordの部屋へ切り替えますか？`);
-        if (move) {
-          await setPassword(newPw);
-
-          // 端末にPINが残っていれば、そのPINで編集可判定
-          const cachedPin = localStorage.getItem(PIN_CACHE_KEY) || '';
-          if (cachedPin) {
-            const res = await verifyEditPin(cachedPin);
-            canEdit = !!res.ok;
-          } else {
-            canEdit = false;
-          }
-
-          renderSchedule();
-          applyEditLockToDOM();
-          setEditBadge();
-        } else {
-          alert('コピーだけ完了しました。必要なら新しいPasswordで接続してください。');
-        }
-
-      } catch (e) {
-        console.error(e);
-        setSyncBadge('コピー失敗', 'ng');
-        alert('コピーに失敗しました。Firestoreの権限（read/write）やネットワークを確認してください。');
-      }
-    }
-
-    // ========= 起動 =========
-    window.onload = init;
+    // ===============================
+    // Boot
+    // ===============================
+    window.onload = () => {
+      loadSchoolNameLocal();
+      init();
+    };
   </script>
 </body>
 </html>
