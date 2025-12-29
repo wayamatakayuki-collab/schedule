@@ -290,6 +290,31 @@
     const _pendingItemIds = new Set(); // item.id
     function _k(id, field) { return `${id}__${field}`; }
 
+    // ====== ★追加：編集中のフォーカス落ち防止（見た目は変えない） ======
+    let isEditingCell = false;
+    let pendingRerender = false;
+    let activeEdit = null; // { id, field }
+
+    function onCellFocus(id, field) {
+      isEditingCell = true;
+      activeEdit = { id, field };
+    }
+
+    async function onCellBlur(id, field, value) {
+      // blur時に確実保存
+      await flushSave(id, field, value);
+
+      // 編集終了
+      isEditingCell = false;
+      activeEdit = null;
+
+      // 編集中に保留された再描画があれば、ここで反映
+      if (pendingRerender) {
+        pendingRerender = false;
+        renderSchedule();
+      }
+    }
+
     // ★あなたのFirebaseプロジェクトの設定
     const firebaseConfig = {
       apiKey: "AIzaSyA-FkCxNyT8C-HicXa4PbHcjNkwIvQWWw0",
@@ -340,6 +365,9 @@
     }
 
     function applyEditLockToDOM() {
+      // ★編集中にcontenteditable/readonlyを触ると、フォーカスが外れることがある
+      if (isEditingCell) return;
+
       const editable = !!(authUser && canEdit);
 
       const schoolEl = document.getElementById('schoolName');
@@ -432,11 +460,16 @@
       const target = findDayByYMD(y, m, d);
       if (!target) return false;
 
-      target.duty = data.duty || '';
-      target.events = data.events || '';
-      target.business = data.business || '';
-      target.submission = data.submission || '';
-      target.vacation = data.vacation || '';
+      // ★編集中のセルは、クラウドの値で上書きしない（入力中に奪われるのを防ぐ）
+      const ae = activeEdit && activeEdit.id ? activeEdit : null;
+      const sameItem = ae && (target.id === ae.id);
+
+      if (!(sameItem && ae.field === 'duty')) target.duty = data.duty || '';
+      if (!(sameItem && ae.field === 'events')) target.events = data.events || '';
+      if (!(sameItem && ae.field === 'business')) target.business = data.business || '';
+      if (!(sameItem && ae.field === 'submission')) target.submission = data.submission || '';
+      if (!(sameItem && ae.field === 'vacation')) target.vacation = data.vacation || '';
+
       return true;
     }
 
@@ -469,7 +502,10 @@
           }
         } catch (e) { console.error(e); }
 
-        if (changed) renderSchedule();
+        if (changed) {
+          if (isEditingCell) pendingRerender = true;
+          else renderSchedule();
+        }
         setSyncBadge('同期OK', 'ok');
       } catch (e) {
         console.error(e);
@@ -487,7 +523,6 @@
       const ref = cloudDaysRef(startYear);
 
       try {
-        // compatでも多くの環境で通る（通らなければ通常getにフォールバック）
         let snap;
         try {
           snap = await ref.get({ source: 'server' });
@@ -501,11 +536,13 @@
           if (did) changed = true;
         });
 
-        if (changed) renderSchedule();
+        if (changed) {
+          if (isEditingCell) pendingRerender = true;
+          else renderSchedule();
+        }
         setSyncBadge('同期OK', 'ok');
       } catch (e) {
         console.error(e);
-        // 失敗は一時的のことがあるのでバッジだけ
         setSyncBadge('同期中', 'wait');
       }
     }
@@ -536,7 +573,10 @@
           if (did) changed = true;
         });
 
-        if (changed) renderSchedule();
+        if (changed) {
+          if (isEditingCell) pendingRerender = true;
+          else renderSchedule();
+        }
         setSyncBadge('同期OK', 'ok');
       }, (err) => {
         console.error(err);
@@ -553,7 +593,7 @@
         }
       });
 
-      // ★強制ポーリング（これが「端末間で反映されない」を潰す）
+      // ★強制ポーリング
       pollTimer = setInterval(() => {
         pollCloudFromServer();
       }, POLL_MS);
@@ -645,10 +685,9 @@
       try { await saveDayToCloud(item); } catch (e) { console.error(e); }
     }
 
-    // ★追加：ログアウト/画面離脱前に必ず保存確定（これで「スマホだけ消える」を潰す）
+    // ★追加：ログアウト/画面離脱前に必ず保存確定
     async function flushAllPendingSaves() {
       if (!(authUser && canEdit)) {
-        // 編集不可でもタイマーは消す（不要に残さない）
         _saveTimers.forEach(t => clearTimeout(t));
         _saveTimers.clear();
         _pendingItemIds.clear();
@@ -876,8 +915,9 @@
             </div>
             <div class="text-[10px] bg-white px-1 py-0.5 rounded border border-slate-200 font-medium md:mt-2 editable no-print whitespace-nowrap overflow-hidden text-center flex items-center justify-center"
               contenteditable="true"
+              onfocus="onCellFocus('${item.id}', 'duty')"
               oninput="queueSave('${item.id}', 'duty', this.innerText)"
-              onblur="flushSave('${item.id}', 'duty', this.innerText)">
+              onblur="onCellBlur('${item.id}', 'duty', this.innerText)">
               ${item.duty || ''}
             </div>
           </div>
@@ -890,24 +930,28 @@
               <div class="p-2 md:col-span-5">
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">予定</div>
                 <div class="text-sm whitespace-pre-wrap leading-relaxed editable" contenteditable="true"
+                  onfocus="onCellFocus('${item.id}', 'events')"
                   oninput="queueSave('${item.id}', 'events', this.innerText)"
-                  onblur="flushSave('${item.id}', 'events', this.innerText)">${item.events || ''}</div>
+                  onblur="onCellBlur('${item.id}', 'events', this.innerText)">${item.events || ''}</div>
               </div>
               <div class="p-2 md:col-span-5">
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">出張・提出物</div>
                 <div class="text-sm whitespace-pre-wrap leading-relaxed editable mb-1" contenteditable="true"
+                  onfocus="onCellFocus('${item.id}', 'business')"
                   oninput="queueSave('${item.id}', 'business', this.innerText)"
-                  onblur="flushSave('${item.id}', 'business', this.innerText)">${item.business || ''}</div>
+                  onblur="onCellBlur('${item.id}', 'business', this.innerText)">${item.business || ''}</div>
                 <div class="text-sm text-amber-700 font-medium whitespace-pre-wrap editable" contenteditable="true"
+                  onfocus="onCellFocus('${item.id}', 'submission')"
                   oninput="queueSave('${item.id}', 'submission', this.innerText)"
-                  onblur="flushSave('${item.id}', 'submission', this.innerText)">${item.submission || ''}</div>
+                  onblur="onCellBlur('${item.id}', 'submission', this.innerText)">${item.submission || ''}</div>
               </div>
               <div class="p-2 md:col-span-2 bg-slate-50/30">
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">休暇</div>
                 <div class="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed editable"
                   contenteditable="true"
+                  onfocus="onCellFocus('${item.id}', 'vacation')"
                   oninput="queueSave('${item.id}', 'vacation', this.innerText)"
-                  onblur="flushSave('${item.id}', 'vacation', this.innerText)">${item.vacation || ''}</div>
+                  onblur="onCellBlur('${item.id}', 'vacation', this.innerText)">${item.vacation || ''}</div>
               </div>
             </div>
           `;
@@ -917,8 +961,9 @@
           contentHtml = `
             <div class="flex-1 p-3">
               <div class="text-base whitespace-pre-wrap leading-relaxed editable h-full" contenteditable="true"
+                onfocus="onCellFocus('${item.id}', '${field}')"
                 oninput="queueSave('${item.id}', '${field}', this.innerText)"
-                onblur="flushSave('${item.id}', '${field}', this.innerText)">${item[field] || ''}</div>
+                onblur="onCellBlur('${item.id}', '${field}', this.innerText)">${item[field] || ''}</div>
             </div>
           `;
         }
