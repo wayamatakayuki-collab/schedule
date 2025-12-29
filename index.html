@@ -134,18 +134,8 @@
                   d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </span>
-
-            <!-- ★変更：pr-4 → pr-10（×ボタンの分） -->
             <input type="text" id="searchInput" placeholder="検索"
-              class="block w-full pl-10 pr-10 py-2 border border-slate-200 rounded-lg bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
-
-            <!-- ★追加：検索クリア（×） -->
-            <button type="button" id="clearSearchBtn"
-              class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 hidden"
-              aria-label="検索をクリア"
-              onclick="clearSearch()">
-              ×
-            </button>
+              class="block w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
           </div>
         </div>
       </div>
@@ -815,9 +805,6 @@
       renderMonthSelect();
       setupSearch();
 
-      // ★追加：初期表示でも×の状態を整える
-      updateSearchClearButton();
-
       showLockedUI(true);
       generateYearlyCalendar();
 
@@ -872,9 +859,8 @@
 
         applyEditLockToDOM();
 
-        // ======= ログイン状態更新後に「今のタブの検索語」を検索欄へ反映 =======
+        // ======= ②&③：ログイン状態更新後に「今のタブの検索語」を検索欄へ反映 =======
         syncSearchInputWithTab();
-        updateSearchClearButton();
       });
     }
 
@@ -968,7 +954,7 @@
       applyEditLockToDOM();
     }
 
-    // ======= 検索欄と「現在タブの検索語」を同期 =======
+    // ======= ③：検索欄と「現在タブの検索語」を同期 =======
     function getCurrentTabSearchQuery() {
       return String(searchQueryByTab[currentTab] ?? '');
     }
@@ -982,44 +968,31 @@
       if (el.value !== v) el.value = v;
     }
 
-    // ======= ★追加：×表示切替（検索文字があるときだけ出す） =======
-    function updateSearchClearButton() {
-      const input = document.getElementById('searchInput');
-      const btn = document.getElementById('clearSearchBtn');
-      if (!input || !btn) return;
-      if ((input.value || '').length > 0) btn.classList.remove('hidden');
-      else btn.classList.add('hidden');
-    }
-
-    // ======= ★追加：×で「今のタブの検索だけ」クリア =======
-    function clearSearch() {
-      const input = document.getElementById('searchInput');
-      if (!input) return;
-
-      input.value = '';
-      setCurrentTabSearchQuery('');
-
-      updateSearchClearButton();
-      renderSchedule();
-      input.focus();
-    }
-
-    // ======= タブごとに検索対象フィールドを切替 =======
+    // ======= ④：タブごとに検索対象フィールドを切替 =======
     function buildSearchTextForItem(item) {
       if (!item) return '';
 
-      if (currentTab === 'school') return String(item.events || '');
-      if (currentTab === 'business') return String(item.business || '');
-      if (currentTab === 'submission') return String(item.submission || '');
-      if (currentTab === 'vacation') return String(item.vacation || '');
+      if (currentTab === 'school') {
+        return String(item.events || '');
+      }
+      if (currentTab === 'business') {
+        return String(item.business || '');
+      }
+      if (currentTab === 'submission') {
+        return String(item.submission || '');
+      }
+      if (currentTab === 'vacation') {
+        return String(item.vacation || '');
+      }
 
-      // all（allのときだけ日直あり）
+      // all
+      const showDuty = true; // allのときだけ日直あり
       return (
         String(item.events || '') + '\n' +
         String(item.business || '') + '\n' +
         String(item.submission || '') + '\n' +
         String(item.vacation || '') + '\n' +
-        String(item.duty || '') + '\n'
+        (showDuty ? (String(item.duty || '') + '\n') : '')
       );
     }
 
@@ -1038,7 +1011,7 @@
 
       const showDuty = (currentTab === 'all'); // ★日直は「全体表示」だけ表示
 
-      // ======= 現在タブの検索語だけ使う =======
+      // ======= ④：現在タブの検索語だけ使う =======
       const q = getCurrentTabSearchQuery().trim().toLowerCase();
 
       const filteredData = scheduleData.filter(item => {
@@ -1146,9 +1119,8 @@
         btn.className = `tab-btn py-3 border-b-2 text-sm font-medium transition-all ${active ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`;
       });
 
-      // タブ切替時に、そのタブの検索語を検索欄へ反映（文字は消さない）
+      // ======= ③：タブ切替時に、そのタブの検索語を検索欄へ反映 =======
       syncSearchInputWithTab();
-      updateSearchClearButton();
 
       renderSchedule();
     }
@@ -1156,9 +1128,8 @@
     // ========= 検索 =========
     function setupSearch() {
       document.getElementById('searchInput').oninput = (e) => {
-        // 入力は「現在タブ」に保存
+        // ======= ②：入力は「現在タブ」に保存 =======
         setCurrentTabSearchQuery(e.target.value || '');
-        updateSearchClearButton();
         renderSchedule();
       };
     }
