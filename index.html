@@ -2,8 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <!-- ★ズーム制御用に id を付与（見た目には影響しません） -->
-  <meta id="viewportMeta" name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" id="viewportMeta" content="width=device-width, initial-scale=1.0" />
   <title>予定表 管理システム</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
@@ -213,6 +212,18 @@
             </button>
           </div>
 
+          <!-- ★②：ログイン/ログアウトを「モード」の下に横並び配置 -->
+          <div class="flex gap-2">
+            <button onclick="loginWithIdPass()"
+              class="flex-1 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
+              ログイン
+            </button>
+            <button onclick="logout()"
+              class="flex-1 px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
+              ログアウト
+            </button>
+          </div>
+
           <div class="border-t border-slate-100 pt-4">
             <div class="text-sm font-bold text-slate-700">ID/Password変更（データ引き継ぎ）</div>
             <div class="text-xs text-slate-500 mt-1">
@@ -238,6 +249,7 @@
           </div>
         </div>
 
+        <!-- ★フッター：ログイン/ログアウトは移動したので削除（見た目は最小変更） -->
         <div class="p-4 border-t border-slate-100 flex flex-wrap justify-end gap-2">
           <button onclick="closeLoginModal()"
             class="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
@@ -246,14 +258,6 @@
           <button onclick="createNewAccount()"
             class="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
             新規作成
-          </button>
-          <button onclick="loginWithIdPass()"
-            class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
-            ログイン
-          </button>
-          <button onclick="logout()"
-            class="px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
-            ログアウト
           </button>
         </div>
       </div>
@@ -291,67 +295,67 @@
     const _pendingItemIds = new Set(); // item.id
     function _k(id, field) { return `${id}__${field}`; }
 
-    // ====== ★編集中のフォーカス落ち防止（見た目は変えない） ======
+    // ====== ★追加：編集中のフォーカス落ち防止（見た目は変えない） ======
     let isEditingCell = false;
     let pendingRerender = false;
     let activeEdit = null; // { id, field }
 
-    function onCellFocus(id, field) {
-      isEditingCell = true;
-      activeEdit = { id, field };
-    }
-
-    // ====== ★ズーム：入力終了（Enter/外タップ）で戻す ======
+    // ====== ★①：文字入力したら自動で元の画面サイズへ（iOS Safariの自動ズーム解除） ======
     const _viewportMetaEl = () => document.getElementById('viewportMeta') || document.querySelector('meta[name=viewport]');
     const _baseViewportContent = (() => {
       const m = _viewportMetaEl();
       return m ? (m.getAttribute('content') || 'width=device-width, initial-scale=1.0') : 'width=device-width, initial-scale=1.0';
     })();
+    let _zoomResetDoneForThisFocus = false;
 
-    function _isIOSWebKit() {
+    function _isIOSSafari() {
       const ua = navigator.userAgent || '';
       const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const isWebKit = /WebKit/.test(ua);
-      return isIOS && isWebKit;
+      const isNotOtheriOSBrowser = !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+      return isIOS && isWebKit && isNotOtheriOSBrowser;
     }
 
-    function forceZoomReset() {
-      if (!_isIOSWebKit()) return;
+    function resetZoomIfNeeded() {
+      if (_zoomResetDoneForThisFocus) return;
+      if (!_isIOSSafari()) return;
+
+      const vv = window.visualViewport;
+      if (vv && typeof vv.scale === 'number' && vv.scale <= 1.01) {
+        _zoomResetDoneForThisFocus = true;
+        return;
+      }
+
       const meta = _viewportMetaEl();
-      if (!meta) return;
+      if (!meta) {
+        _zoomResetDoneForThisFocus = true;
+        return;
+      }
 
       const y = window.scrollY;
-      meta.setAttribute('content', `${_baseViewportContent}, maximum-scale=1.0, user-scalable=no`);
+      meta.setAttribute('content', `${_baseViewportContent}, maximum-scale=1.0`);
       setTimeout(() => {
         meta.setAttribute('content', _baseViewportContent);
         window.scrollTo(0, y);
-      }, 120);
+      }, 80);
+
+      _zoomResetDoneForThisFocus = true;
     }
 
-    // Enterで「入力終了」扱い（Shift+Enterは改行OK）
-    function onCellKeyDown(e) {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        forceZoomReset();
-        e.target.blur();
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        forceZoomReset();
-        e.target.blur();
-      }
+    function onCellFocus(id, field) {
+      isEditingCell = true;
+      activeEdit = { id, field };
+      _zoomResetDoneForThisFocus = false; // ★次の入力でズーム解除を一回だけ実行
     }
 
     async function onCellBlur(id, field, value) {
-      // ★外タップ（入力終了）でズーム解除
-      forceZoomReset();
-
       // blur時に確実保存
       await flushSave(id, field, value);
 
       // 編集終了
       isEditingCell = false;
       activeEdit = null;
+      _zoomResetDoneForThisFocus = false;
 
       // 編集中に保留された再描画があれば、ここで反映
       if (pendingRerender) {
@@ -558,6 +562,7 @@
       }
     }
 
+    // ★追加：サーバー取り直し（onSnapshotが効かない環境の救済）
     async function pollCloudFromServer() {
       if (!authUser) return;
       const ok = await ensureFirebase();
@@ -602,11 +607,13 @@
 
       stopCloudSync();
 
+      // まず一回、クラウドから全件反映
       await loadCloudForYearOnce();
 
       const startYear = getStartYear();
       const ref = cloudDaysRef(startYear);
 
+      // リアルタイム監視
       unsubscribeSnap = ref.onSnapshot((snap) => {
         let changed = false;
         snap.docChanges().forEach(ch => {
@@ -625,6 +632,7 @@
         setSyncBadge('同期失敗', 'ng');
       });
 
+      // 学校名も共有（meta）
       unsubscribeMeta = roomDocRef().onSnapshot((snap) => {
         if (!snap.exists) return;
         const data = snap.data() || {};
@@ -634,6 +642,7 @@
         }
       });
 
+      // ★強制ポーリング
       pollTimer = setInterval(() => {
         pollCloudFromServer();
       }, POLL_MS);
@@ -689,8 +698,12 @@
       await batch.commit();
     }
 
+    // ========= 保存デバウンス（入力中にクラウドへ確実に反映） =========
     function queueSave(id, field, value) {
       if (!(authUser && canEdit)) return;
+
+      // ★①：文字入力を始めたら、ズームを元に戻す（iOS Safari）
+      resetZoomIfNeeded();
 
       const item = scheduleData.find(d => d.id === id);
       if (!item) return;
@@ -724,6 +737,7 @@
       try { await saveDayToCloud(item); } catch (e) { console.error(e); }
     }
 
+    // ★追加：ログアウト/画面離脱前に必ず保存確定
     async function flushAllPendingSaves() {
       if (!(authUser && canEdit)) {
         _saveTimers.forEach(t => clearTimeout(t));
@@ -747,6 +761,7 @@
       }
     }
 
+    // ========= 学校名（クラウドのみ） =========
     async function saveSchoolName() {
       if (!(authUser && canEdit)) return;
       const name = document.getElementById('schoolName').innerText;
@@ -755,6 +770,7 @@
       } catch (e) { console.error(e); }
     }
 
+    // ========= 初期化 =========
     async function init() {
       renderMonthNav();
       renderMonthSelect();
@@ -768,12 +784,14 @@
       const lastId = localStorage.getItem(LAST_ID_KEY) || '';
       document.getElementById('idInput').value = lastId;
 
+      // モードバッジで切替（見た目変更なし）
       document.getElementById('modeBadge').addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         toggleMode();
       });
 
+      // ★画面が裏に回る/閉じる前に保存確定
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) flushAllPendingSaves();
       });
@@ -790,6 +808,7 @@
 
           showLockedUI(false);
 
+          // デフォは閲覧
           canEdit = false;
           setModeBadge();
 
@@ -827,6 +846,7 @@
       }
     }
 
+    // ========= 年度生成 =========
     function generateYearlyCalendar() {
       const startYear = parseInt(document.getElementById('yearInput').value, 10);
       const newScheduleData = [];
@@ -860,6 +880,7 @@
       if (authUser) startCloudSyncForYear();
     }
 
+    // ========= 月ナビ =========
     function renderMonthNav() {
       const nav = document.getElementById('monthNav');
       if (!nav) return;
@@ -901,6 +922,7 @@
       applyEditLockToDOM();
     }
 
+    // ========= 描画 =========
     function renderSchedule() {
       const container = document.getElementById('scheduleContainer');
       const emptyState = document.getElementById('emptyState');
@@ -946,7 +968,6 @@
             <div class="text-[10px] bg-white px-1 py-0.5 rounded border border-slate-200 font-medium md:mt-2 editable no-print whitespace-nowrap overflow-hidden text-center flex items-center justify-center"
               contenteditable="true"
               onfocus="onCellFocus('${item.id}', 'duty')"
-              onkeydown="onCellKeyDown(event)"
               oninput="queueSave('${item.id}', 'duty', this.innerText)"
               onblur="onCellBlur('${item.id}', 'duty', this.innerText)">
               ${item.duty || ''}
@@ -962,7 +983,6 @@
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">予定</div>
                 <div class="text-sm whitespace-pre-wrap leading-relaxed editable" contenteditable="true"
                   onfocus="onCellFocus('${item.id}', 'events')"
-                  onkeydown="onCellKeyDown(event)"
                   oninput="queueSave('${item.id}', 'events', this.innerText)"
                   onblur="onCellBlur('${item.id}', 'events', this.innerText)">${item.events || ''}</div>
               </div>
@@ -970,12 +990,10 @@
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">出張・提出物</div>
                 <div class="text-sm whitespace-pre-wrap leading-relaxed editable mb-1" contenteditable="true"
                   onfocus="onCellFocus('${item.id}', 'business')"
-                  onkeydown="onCellKeyDown(event)"
                   oninput="queueSave('${item.id}', 'business', this.innerText)"
                   onblur="onCellBlur('${item.id}', 'business', this.innerText)">${item.business || ''}</div>
                 <div class="text-sm text-amber-700 font-medium whitespace-pre-wrap editable" contenteditable="true"
                   onfocus="onCellFocus('${item.id}', 'submission')"
-                  onkeydown="onCellKeyDown(event)"
                   oninput="queueSave('${item.id}', 'submission', this.innerText)"
                   onblur="onCellBlur('${item.id}', 'submission', this.innerText)">${item.submission || ''}</div>
               </div>
@@ -984,7 +1002,6 @@
                 <div class="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed editable"
                   contenteditable="true"
                   onfocus="onCellFocus('${item.id}', 'vacation')"
-                  onkeydown="onCellKeyDown(event)"
                   oninput="queueSave('${item.id}', 'vacation', this.innerText)"
                   onblur="onCellBlur('${item.id}', 'vacation', this.innerText)">${item.vacation || ''}</div>
               </div>
@@ -997,7 +1014,6 @@
             <div class="flex-1 p-3">
               <div class="text-base whitespace-pre-wrap leading-relaxed editable h-full" contenteditable="true"
                 onfocus="onCellFocus('${item.id}', '${field}')"
-                onkeydown="onCellKeyDown(event)"
                 oninput="queueSave('${item.id}', '${field}', this.innerText)"
                 onblur="onCellBlur('${item.id}', '${field}', this.innerText)">${item[field] || ''}</div>
             </div>
@@ -1011,6 +1027,7 @@
       applyEditLockToDOM();
     }
 
+    // ========= タブ =========
     function switchTab(tabId) {
       currentTab = tabId;
       document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -1020,6 +1037,7 @@
       renderSchedule();
     }
 
+    // ========= 検索 =========
     function setupSearch() {
       document.getElementById('searchInput').oninput = (e) => {
         searchQuery = e.target.value || '';
@@ -1027,6 +1045,7 @@
       };
     }
 
+    // ========= CSV =========
     function parseCSVRow(text) {
       const result = [];
       let current = '';
@@ -1106,6 +1125,7 @@
       reader.readAsText(file, 'Shift-JIS');
     }
 
+    // ========= ログインUI =========
     function openLoginModal() {
       const lastId = localStorage.getItem(LAST_ID_KEY) || '';
       if (!document.getElementById('idInput').value.trim()) document.getElementById('idInput').value = lastId;
@@ -1158,6 +1178,7 @@
 
     async function logout() {
       try {
+        // ★ログアウト直前に必ず保存確定（スマホで「消える」対策）
         await flushAllPendingSaves();
         await firebase.auth().signOut();
         closeLoginModal();
@@ -1209,6 +1230,7 @@
       }
     }
 
+    // ========= 起動 =========
     window.onload = init;
   </script>
 </body>
