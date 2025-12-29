@@ -74,7 +74,7 @@
         </div>
       </div>
 
-      <!-- 右：操作群（見た目は変えない） -->
+      <!-- 右：操作群 -->
       <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-3 w-full md:w-auto">
         <!-- ログイン -->
         <button id="loginBtn" onclick="openLoginModal()"
@@ -86,22 +86,36 @@
           <span id="modeBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs select-none">閲覧</span>
         </button>
 
-        <!-- CSVと検索（横並び） -->
-        <div class="flex items-center gap-2 w-full md:w-auto">
-          <div class="flex-1 md:flex-none flex items-center space-x-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl">
-            <label id="csvLabel"
-              class="w-full md:w-auto cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center shadow-sm active:scale-95">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
-                stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
-              CSVインポート
-              <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="importCSV(this)">
-            </label>
+        <!-- ★ヘッダー：CSV（インポート/エクスポート）＋検索（スマホは下段） -->
+        <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
+          <!-- CSV：インポート/エクスポート（横並び） -->
+          <div class="flex items-center gap-2 w-full md:w-auto">
+            <div class="flex-1 md:flex-none flex items-center space-x-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl">
+              <label id="csvLabel"
+                class="w-full md:w-auto cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center shadow-sm active:scale-95">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
+                  stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                CSVインポート
+                <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="importCSV(this)">
+              </label>
+
+              <button id="csvExportBtn" onclick="exportCSV()"
+                class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center shadow-sm active:scale-95">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
+                  stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M7 16l-4-4m0 0l4-4m-4 4h18M17 8l4 4m0 0l-4 4" />
+                </svg>
+                CSVエクスポート
+              </button>
+            </div>
           </div>
 
-          <div class="relative flex-1 md:flex-none">
+          <!-- 検索：スマホはCSVの下に1行 -->
+          <div class="relative w-full md:w-48">
             <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
                 stroke="currentColor">
@@ -110,7 +124,7 @@
               </svg>
             </span>
             <input type="text" id="searchInput" placeholder="検索"
-              class="block w-full md:w-48 pl-10 pr-4 py-2 border border-slate-200 rounded-lg bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+              class="block w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
           </div>
         </div>
       </div>
@@ -168,7 +182,7 @@
     @予定表アプリ Takayuki WAYAMA
   </div>
 
-<!-- ★ログイン モーダル -->
+  <!-- ★ログイン モーダル -->
   <div id="loginModal" class="hidden fixed inset-0 z-50">
     <div class="absolute inset-0 bg-black/40" onclick="closeLoginModal()"></div>
 
@@ -180,7 +194,7 @@
           <div class="text-lg font-bold">ID / Password ログイン</div>
           <div class="text-sm text-slate-500 mt-1">
             ・同じID/Passwordでログインした人は同じ予定表を共同編集できます。<br>
-            ・「新規作成」は、未使用のIDで最初の1回だけ作れます。<br>
+            ・「ID新規作成」は、未使用のIDで最初の1回だけ作れます。<br>
             ・編集は「閲覧⇄編集」の切替で行います（誰でも切替可能）。
           </div>
         </div>
@@ -212,54 +226,34 @@
             </button>
           </div>
 
-          <!-- ★②：ログイン/ログアウトを「モード」の下に横並び配置 -->
-          <div class="flex gap-2">
-            <button onclick="loginWithIdPass()"
-              class="flex-1 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
-              ログイン
-            </button>
-            <button onclick="logout()"
-              class="flex-1 px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
-              ログアウト
-            </button>
-          </div>
-
-          <div class="border-t border-slate-100 pt-4">
-            <div class="text-sm font-bold text-slate-700">ID/Password変更（データ引き継ぎ）</div>
-            <div class="text-xs text-slate-500 mt-1">
-              同じ予定表のまま、IDやPasswordを変更できます。
+          <!-- ★ログインモーダル：ID/Password変更を削除＋ボタン配置変更 -->
+          <div class="grid grid-cols-2 gap-2">
+            <!-- 左列：ログイン → ID新規作成（同サイズ） -->
+            <div class="space-y-2">
+              <button onclick="loginWithIdPass()"
+                class="w-full px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
+                ログイン
+              </button>
+              <button onclick="createNewAccount()"
+                class="w-full px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
+                ID新規作成
+              </button>
             </div>
 
-            <div class="mt-3 grid grid-cols-1 gap-3">
-              <div>
-                <label class="text-xs font-medium text-slate-600">新しいID（任意）</label>
-                <input id="newIdInput" type="text" placeholder="（変更しないなら空欄）"
-                  class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
-              <div>
-                <label class="text-xs font-medium text-slate-600">新しいPassword（任意 / 6文字以上）</label>
-                <input id="newPassInput" type="password" placeholder="（変更しないなら空欄）"
-                  class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
-              <button onclick="changeIdOrPassword()"
-                class="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
-                ID/Passwordを変更
+            <!-- 右列：ログアウト → キャンセル（同サイズ） -->
+            <div class="space-y-2">
+              <button onclick="logout()"
+                class="w-full px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
+                ログアウト
+              </button>
+              <button onclick="closeLoginModal()"
+                class="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
+                キャンセル
               </button>
             </div>
           </div>
         </div>
 
-        <!-- ★フッター：ログイン/ログアウトは移動したので削除（見た目は最小変更） -->
-        <div class="p-4 border-t border-slate-100 flex flex-wrap justify-end gap-2">
-          <button onclick="closeLoginModal()"
-            class="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
-            キャンセル
-          </button>
-          <button onclick="createNewAccount()"
-            class="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
-            新規作成
-          </button>
-        </div>
       </div>
     </div>
   </div>
@@ -397,20 +391,36 @@
       el.className = `px-2 py-0.5 rounded-full text-xs ${cls}`;
     }
 
+    function setExportButtonState() {
+      const btn = document.getElementById('csvExportBtn');
+      if (!btn) return;
+      if (authUser) {
+        btn.classList.remove('opacity-50', 'pointer-events-none');
+        btn.title = '';
+      } else {
+        btn.classList.add('opacity-50', 'pointer-events-none');
+        btn.title = 'ログインするとCSVエクスポートできます';
+      }
+    }
+
     function setModeBadge() {
       const el = document.getElementById('modeBadge');
       el.textContent = canEdit ? '編集' : '閲覧';
       el.className = `px-2 py-0.5 rounded-full text-xs ${canEdit ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`;
 
       const label = document.getElementById('csvLabel');
-      if (!label) return;
-      if (authUser && canEdit) {
-        label.classList.remove('opacity-50', 'pointer-events-none');
-        label.title = '';
-      } else {
-        label.classList.add('opacity-50', 'pointer-events-none');
-        label.title = '編集モードでログインしている時だけCSVインポートできます';
+      if (label) {
+        if (authUser && canEdit) {
+          label.classList.remove('opacity-50', 'pointer-events-none');
+          label.title = '';
+        } else {
+          label.classList.add('opacity-50', 'pointer-events-none');
+          label.title = '編集モードでログインしている時だけCSVインポートできます';
+        }
       }
+
+      // エクスポートは「ログインしていればOK」
+      setExportButtonState();
     }
 
     function applyEditLockToDOM() {
@@ -441,8 +451,8 @@
 
     function friendlyAuthError(e, context) {
       const code = (e && e.code) ? String(e.code) : '';
-      if (code === 'auth/email-already-in-use') return 'そのIDは既に使われています（新規作成できません）。';
-      if (code === 'auth/user-not-found') return 'そのIDは存在しません。新規作成してください。';
+      if (code === 'auth/email-already-in-use') return 'そのIDは既に使われています（ID新規作成できません）。';
+      if (code === 'auth/user-not-found') return 'そのIDは存在しません。ID新規作成してください。';
       if (code === 'auth/wrong-password') return 'Passwordが違います。';
       if (code === 'auth/invalid-email') return 'IDが不正です（英数・記号 . _ - のみ）。';
       if (code === 'auth/weak-password') return 'Passwordが弱すぎます（6文字以上にしてください）。';
@@ -1125,6 +1135,60 @@
       reader.readAsText(file, 'Shift-JIS');
     }
 
+    // ★追加：CSVエクスポート（今見ている年度＝yearInputの年度）
+    function csvEscape(v) {
+      const s = String(v ?? '');
+      if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    }
+
+    function exportCSV() {
+      if (!authUser) {
+        alert('CSVエクスポートはログイン後にできます。');
+        return;
+      }
+
+      const startYear = getStartYear();
+
+      // 念のため：順序を固定（年→月→日）
+      const rows = [...scheduleData].sort((a, b) => {
+        if (a.year !== b.year) return a.year - b.year;
+        if (a.month !== b.month) return a.month - b.month;
+        return a.day - b.day;
+      });
+
+      const header = ['月','日','曜日','日直','予定','出張','提出物','休暇'];
+      const lines = [header.map(csvEscape).join(',')];
+
+      rows.forEach(it => {
+        const line = [
+          it.month,
+          it.day,
+          it.dow || '',
+          it.duty || '',
+          it.events || '',
+          it.business || '',
+          it.submission || '',
+          it.vacation || ''
+        ].map(csvEscape).join(',');
+        lines.push(line);
+      });
+
+      // Excel対策：UTF-8 BOM 付き
+      const csvText = '\uFEFF' + lines.join('\r\n');
+      const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `schedule_${startYear}.csv`; // 今見ている年度
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
     // ========= ログインUI =========
     function openLoginModal() {
       const lastId = localStorage.getItem(LAST_ID_KEY) || '';
@@ -1152,7 +1216,7 @@
       } catch (e) {
         console.error(e);
         setSyncBadge('未接続', 'idle');
-        alert(friendlyAuthError(e, '新規作成'));
+        alert(friendlyAuthError(e, 'ID新規作成'));
       }
     }
 
@@ -1197,76 +1261,6 @@
       setModeBadge();
       applyEditLockToDOM();
     }
-
-    async function changeIdOrPassword() {
-  if (!authUser) { alert('先にログインしてください。'); return; }
-
-  const newId = document.getElementById('newIdInput').value.trim();
-  const newPass = document.getElementById('newPassInput').value;
-
-  if (!newId && !newPass) { alert('変更内容がありません。'); return; }
-  if (newPass && newPass.length < 6) { alert('新しいPasswordは6文字以上にしてください。'); return; }
-
-  const user = firebase.auth().currentUser;
-  if (!user) { alert('ログイン状態を確認できません。'); return; }
-
-  // 現在のID/Password（再認証に使う）
-  const currentId = document.getElementById('idInput').value.trim();
-  let currentPass = document.getElementById('passInput').value;
-
-  try {
-    // ---------- 再認証（これが無いと変更が通らないことが多い） ----------
-    // passInput が空なら prompt で聞く
-    if (!currentPass) {
-      currentPass = prompt('安全のため、現在のPasswordをもう一度入力してください。');
-      if (!currentPass) return;
-    }
-    const currentEmail = toEmailFromId(currentId);
-    if (!currentEmail) { alert('現在のIDが不正です。'); return; }
-
-    const cred = firebase.auth.EmailAuthProvider.credential(currentEmail, currentPass);
-    await user.reauthenticateWithCredential(cred);
-
-    // ---------- 新ID（=メール）の重複チェック ----------
-    if (newId) {
-      const newEmail = toEmailFromId(newId);
-      if (!newEmail) { alert('新しいIDは英数・記号 . _ - のみで入力してください。'); return; }
-
-      // 既に存在するIDは使えない（あなたの状況はここで弾かれる可能性大）
-      const methods = await firebase.auth().fetchSignInMethodsForEmail(newEmail).catch(() => []);
-      if (methods.length > 0 && newEmail !== user.email) {
-        alert('そのIDは既に使われています。別の未使用IDにするか、Firebase側でそのユーザーを削除してください。');
-        return;
-      }
-
-      await user.updateEmail(newEmail);
-      localStorage.setItem(LAST_ID_KEY, newId);
-      document.getElementById('idInput').value = newId;
-      document.getElementById('newIdInput').value = '';
-    }
-
-    // ---------- 新Password ----------
-    if (newPass) {
-      await user.updatePassword(newPass);
-      document.getElementById('newPassInput').value = '';
-    }
-
-    alert('ID/Passwordを変更しました（データは引き継がれています）。');
-  } catch (e) {
-    console.error(e);
-    const code = (e && e.code) ? String(e.code) : '';
-    // なるべく分かる表示に
-    if (code === 'auth/requires-recent-login') {
-      alert('安全のため、いったんログアウト→ログインし直してから再度お試しください。');
-      return;
-    }
-    if (code === 'auth/email-already-in-use') {
-      alert('そのIDは既に使われています。別の未使用IDにしてください。');
-      return;
-    }
-    alert(`ID/Password変更に失敗しました。もう一度お試しください。${code ? `（${code}）` : ''}`);
-  }
-}
 
     // ========= 起動 =========
     window.onload = init;
