@@ -278,7 +278,15 @@
     let scheduleData = [];
     let currentMonth = 4;
     let currentTab = 'all';
-    let searchQuery = '';
+
+    // ======= ①：検索語をタブ別に保持（all/school/business/submission/vacation） =======
+    let searchQueryByTab = {
+      all: '',
+      school: '',
+      business: '',
+      submission: '',
+      vacation: ''
+    };
 
     // ========= Firebase =========
     let firebaseReady = false;
@@ -850,6 +858,9 @@
         }
 
         applyEditLockToDOM();
+
+        // ======= ②&③：ログイン状態更新後に「今のタブの検索語」を検索欄へ反映 =======
+        syncSearchInputWithTab();
       });
     }
 
@@ -943,6 +954,48 @@
       applyEditLockToDOM();
     }
 
+    // ======= ③：検索欄と「現在タブの検索語」を同期 =======
+    function getCurrentTabSearchQuery() {
+      return String(searchQueryByTab[currentTab] ?? '');
+    }
+    function setCurrentTabSearchQuery(v) {
+      searchQueryByTab[currentTab] = String(v ?? '');
+    }
+    function syncSearchInputWithTab() {
+      const el = document.getElementById('searchInput');
+      if (!el) return;
+      const v = getCurrentTabSearchQuery();
+      if (el.value !== v) el.value = v;
+    }
+
+    // ======= ④：タブごとに検索対象フィールドを切替 =======
+    function buildSearchTextForItem(item) {
+      if (!item) return '';
+
+      if (currentTab === 'school') {
+        return String(item.events || '');
+      }
+      if (currentTab === 'business') {
+        return String(item.business || '');
+      }
+      if (currentTab === 'submission') {
+        return String(item.submission || '');
+      }
+      if (currentTab === 'vacation') {
+        return String(item.vacation || '');
+      }
+
+      // all
+      const showDuty = true; // allのときだけ日直あり
+      return (
+        String(item.events || '') + '\n' +
+        String(item.business || '') + '\n' +
+        String(item.submission || '') + '\n' +
+        String(item.vacation || '') + '\n' +
+        (showDuty ? (String(item.duty || '') + '\n') : '')
+      );
+    }
+
     // ========= 描画 =========
     function renderSchedule() {
       const container = document.getElementById('scheduleContainer');
@@ -958,19 +1011,15 @@
 
       const showDuty = (currentTab === 'all'); // ★日直は「全体表示」だけ表示
 
+      // ======= ④：現在タブの検索語だけ使う =======
+      const q = getCurrentTabSearchQuery().trim().toLowerCase();
+
       const filteredData = scheduleData.filter(item => {
         if (item.month !== currentMonth) return false;
 
-        if (searchQuery) {
-          // ★全体表示以外は日直を検索対象から外す
-          const text = (
-            item.events + '\n' +
-            item.business + '\n' +
-            item.submission + '\n' +
-            item.vacation + '\n' +
-            (showDuty ? (item.duty + '\n') : '')
-          ).toLowerCase();
-          return text.includes(searchQuery.toLowerCase());
+        if (q) {
+          const text = buildSearchTextForItem(item).toLowerCase();
+          return text.includes(q);
         }
         return true;
       });
@@ -1069,13 +1118,18 @@
         const active = btn.dataset.tab === tabId;
         btn.className = `tab-btn py-3 border-b-2 text-sm font-medium transition-all ${active ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`;
       });
+
+      // ======= ③：タブ切替時に、そのタブの検索語を検索欄へ反映 =======
+      syncSearchInputWithTab();
+
       renderSchedule();
     }
 
     // ========= 検索 =========
     function setupSearch() {
       document.getElementById('searchInput').oninput = (e) => {
-        searchQuery = e.target.value || '';
+        // ======= ②：入力は「現在タブ」に保存 =======
+        setCurrentTabSearchQuery(e.target.value || '');
         renderSchedule();
       };
     }
