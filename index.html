@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" id="viewportMeta" content="width=device-width, initial-scale=1.0" />
- <title>School Cal</title>
+  <title>School Cal</title>
 
-<!-- favicon（PC/タブ用） -->
-<link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
+  <!-- favicon（PC/タブ用） -->
+  <link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
 
-<!-- iOS ホーム画面アイコン（最重要） -->
-<link rel="apple-touch-icon" sizes="180x180" href="./icon-180.png">
-<link rel="apple-touch-icon" sizes="512x512" href="./icon-512.png">
+  <!-- iOS ホーム画面アイコン（最重要） -->
+  <link rel="apple-touch-icon" sizes="180x180" href="./icon-180.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="./icon-512.png">
 
-<!-- iOSでアプリっぽく -->
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <!-- iOSでアプリっぽく -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -956,10 +956,20 @@
 
       container.innerHTML = '';
 
+      const showDuty = (currentTab === 'all'); // ★日直は「全体表示」だけ表示
+
       const filteredData = scheduleData.filter(item => {
         if (item.month !== currentMonth) return false;
+
         if (searchQuery) {
-          const text = (item.events + '\n' + item.business + '\n' + item.submission + '\n' + item.duty + '\n' + item.vacation).toLowerCase();
+          // ★全体表示以外は日直を検索対象から外す
+          const text = (
+            item.events + '\n' +
+            item.business + '\n' +
+            item.submission + '\n' +
+            item.vacation + '\n' +
+            (showDuty ? (item.duty + '\n') : '')
+          ).toLowerCase();
           return text.includes(searchQuery.toLowerCase());
         }
         return true;
@@ -980,19 +990,23 @@
         const isSat = item.dow === '土';
         const dateBg = isSun ? 'bg-red-50 text-red-600' : (isSat ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-700');
 
+        const dutyHtml = showDuty ? `
+          <div class="text-[10px] bg-white px-1 py-0.5 rounded border border-slate-200 font-medium md:mt-2 editable no-print whitespace-nowrap overflow-hidden text-center flex items-center justify-center"
+            contenteditable="true"
+            onfocus="onCellFocus('${item.id}', 'duty')"
+            oninput="queueSave('${item.id}', 'duty', this.innerText)"
+            onblur="onCellBlur('${item.id}', 'duty', this.innerText)">
+            ${item.duty || ''}
+          </div>
+        ` : '';
+
         const dateSection = `
           <div class="md:w-24 ${dateBg} p-2 flex md:flex-col items-center justify-between md:justify-center md:border-r border-slate-200">
             <div class="flex items-baseline md:flex-col md:items-center">
               <span class="text-xl font-bold">${item.day}</span>
               <span class="text-xs font-bold md:mt-0.5 ml-1 md:ml-0">(${item.dow})</span>
             </div>
-            <div class="text-[10px] bg-white px-1 py-0.5 rounded border border-slate-200 font-medium md:mt-2 editable no-print whitespace-nowrap overflow-hidden text-center flex items-center justify-center"
-              contenteditable="true"
-              onfocus="onCellFocus('${item.id}', 'duty')"
-              oninput="queueSave('${item.id}', 'duty', this.innerText)"
-              onblur="onCellBlur('${item.id}', 'duty', this.innerText)">
-              ${item.duty || ''}
-            </div>
+            ${dutyHtml}
           </div>
         `;
 
