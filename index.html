@@ -125,7 +125,7 @@
             </div>
           </div>
 
-          <!-- 検索：スマホはCSVの下に1行 -->
+          <!-- 検索：スマホはCSVの下に1行（★右端に×追加） -->
           <div class="relative w-full md:w-48">
             <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
@@ -135,16 +135,16 @@
               </svg>
             </span>
 
-            <!-- ★変更：pr-4 → pr-10（×ボタンの分） -->
             <input type="text" id="searchInput" placeholder="検索"
               class="block w-full pl-10 pr-10 py-2 border border-slate-200 rounded-lg bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
 
-            <!-- ★追加：検索クリア（×） -->
-            <button type="button" id="clearSearchBtn"
-              class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 hidden"
-              aria-label="検索をクリア"
+            <!-- ★×：検索文字があるときだけ表示 -->
+            <button id="clearSearchBtn" type="button" aria-label="検索をクリア"
+              class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
               onclick="clearSearch()">
-              ×
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
             </button>
           </div>
         </div>
@@ -289,14 +289,8 @@
     let currentMonth = 4;
     let currentTab = 'all';
 
-    // ======= ①：検索語をタブ別に保持（all/school/business/submission/vacation） =======
-    let searchQueryByTab = {
-      all: '',
-      school: '',
-      business: '',
-      submission: '',
-      vacation: ''
-    };
+    // ★検索語は「共通で1つ」：タブ/月を切り替えても消さない
+    let globalSearchQuery = '';
 
     // ========= Firebase =========
     let firebaseReady = false;
@@ -809,14 +803,29 @@
       } catch (e) { console.error(e); }
     }
 
+    // ========= 検索（×表示/クリア） =========
+    function updateClearButton() {
+      const input = document.getElementById('searchInput');
+      const btn = document.getElementById('clearSearchBtn');
+      if (!input || !btn) return;
+      if (String(input.value || '').length > 0) btn.classList.remove('hidden');
+      else btn.classList.add('hidden');
+    }
+
+    function clearSearch() {
+      globalSearchQuery = '';
+      const input = document.getElementById('searchInput');
+      if (input) input.value = '';
+      updateClearButton();
+      renderSchedule(); // 即更新
+    }
+
     // ========= 初期化 =========
     async function init() {
       renderMonthNav();
       renderMonthSelect();
       setupSearch();
-
-      // ★追加：初期表示でも×の状態を整える
-      updateSearchClearButton();
+      updateClearButton();
 
       showLockedUI(true);
       generateYearlyCalendar();
@@ -872,9 +881,8 @@
 
         applyEditLockToDOM();
 
-        // ======= ログイン状態更新後に「今のタブの検索語」を検索欄へ反映 =======
-        syncSearchInputWithTab();
-        updateSearchClearButton();
+        // ★検索欄は触らない（タブ/ログイン状態で消さない）
+        updateClearButton();
       });
     }
 
@@ -942,6 +950,7 @@
           renderMonthSelect();
           renderSchedule();
           applyEditLockToDOM();
+          // ★検索欄は触らない（消さない）
         };
         nav.appendChild(btn);
       });
@@ -966,45 +975,10 @@
       renderMonthNav();
       renderSchedule();
       applyEditLockToDOM();
+      // ★検索欄は触らない（消さない）
     }
 
-    // ======= 検索欄と「現在タブの検索語」を同期 =======
-    function getCurrentTabSearchQuery() {
-      return String(searchQueryByTab[currentTab] ?? '');
-    }
-    function setCurrentTabSearchQuery(v) {
-      searchQueryByTab[currentTab] = String(v ?? '');
-    }
-    function syncSearchInputWithTab() {
-      const el = document.getElementById('searchInput');
-      if (!el) return;
-      const v = getCurrentTabSearchQuery();
-      if (el.value !== v) el.value = v;
-    }
-
-    // ======= ★追加：×表示切替（検索文字があるときだけ出す） =======
-    function updateSearchClearButton() {
-      const input = document.getElementById('searchInput');
-      const btn = document.getElementById('clearSearchBtn');
-      if (!input || !btn) return;
-      if ((input.value || '').length > 0) btn.classList.remove('hidden');
-      else btn.classList.add('hidden');
-    }
-
-    // ======= ★追加：×で「今のタブの検索だけ」クリア =======
-    function clearSearch() {
-      const input = document.getElementById('searchInput');
-      if (!input) return;
-
-      input.value = '';
-      setCurrentTabSearchQuery('');
-
-      updateSearchClearButton();
-      renderSchedule();
-      input.focus();
-    }
-
-    // ======= タブごとに検索対象フィールドを切替 =======
+    // ========= タブ別：検索対象フィールド切替（検索語は共通） =========
     function buildSearchTextForItem(item) {
       if (!item) return '';
 
@@ -1013,7 +987,7 @@
       if (currentTab === 'submission') return String(item.submission || '');
       if (currentTab === 'vacation') return String(item.vacation || '');
 
-      // all（allのときだけ日直あり）
+      // all
       return (
         String(item.events || '') + '\n' +
         String(item.business || '') + '\n' +
@@ -1037,9 +1011,7 @@
       container.innerHTML = '';
 
       const showDuty = (currentTab === 'all'); // ★日直は「全体表示」だけ表示
-
-      // ======= 現在タブの検索語だけ使う =======
-      const q = getCurrentTabSearchQuery().trim().toLowerCase();
+      const q = String(globalSearchQuery || '').trim().toLowerCase();
 
       const filteredData = scheduleData.filter(item => {
         if (item.month !== currentMonth) return false;
@@ -1146,19 +1118,18 @@
         btn.className = `tab-btn py-3 border-b-2 text-sm font-medium transition-all ${active ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`;
       });
 
-      // タブ切替時に、そのタブの検索語を検索欄へ反映（文字は消さない）
-      syncSearchInputWithTab();
-      updateSearchClearButton();
-
+      // ★検索欄は触らない（消さない）
       renderSchedule();
     }
 
     // ========= 検索 =========
     function setupSearch() {
-      document.getElementById('searchInput').oninput = (e) => {
-        // 入力は「現在タブ」に保存
-        setCurrentTabSearchQuery(e.target.value || '');
-        updateSearchClearButton();
+      const input = document.getElementById('searchInput');
+      if (!input) return;
+
+      input.oninput = (e) => {
+        globalSearchQuery = e.target.value || '';
+        updateClearButton();
         renderSchedule();
       };
     }
