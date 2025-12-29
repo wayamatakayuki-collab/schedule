@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" id="viewportMeta" content="width=device-width, initial-scale=1.0" />
   <title>予定表 管理システム</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
@@ -212,6 +212,18 @@
             </button>
           </div>
 
+          <!-- ★②：ログイン/ログアウトを「モード」の下に横並び配置 -->
+          <div class="flex gap-2">
+            <button onclick="loginWithIdPass()"
+              class="flex-1 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
+              ログイン
+            </button>
+            <button onclick="logout()"
+              class="flex-1 px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
+              ログアウト
+            </button>
+          </div>
+
           <div class="border-t border-slate-100 pt-4">
             <div class="text-sm font-bold text-slate-700">ID/Password変更（データ引き継ぎ）</div>
             <div class="text-xs text-slate-500 mt-1">
@@ -237,6 +249,7 @@
           </div>
         </div>
 
+        <!-- ★フッター：ログイン/ログアウトは移動したので削除（見た目は最小変更） -->
         <div class="p-4 border-t border-slate-100 flex flex-wrap justify-end gap-2">
           <button onclick="closeLoginModal()"
             class="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
@@ -245,14 +258,6 @@
           <button onclick="createNewAccount()"
             class="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
             新規作成
-          </button>
-          <button onclick="loginWithIdPass()"
-            class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
-            ログイン
-          </button>
-          <button onclick="logout()"
-            class="px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
-            ログアウト
           </button>
         </div>
       </div>
@@ -295,9 +300,52 @@
     let pendingRerender = false;
     let activeEdit = null; // { id, field }
 
+    // ====== ★①：文字入力したら自動で元の画面サイズへ（iOS Safariの自動ズーム解除） ======
+    const _viewportMetaEl = () => document.getElementById('viewportMeta') || document.querySelector('meta[name=viewport]');
+    const _baseViewportContent = (() => {
+      const m = _viewportMetaEl();
+      return m ? (m.getAttribute('content') || 'width=device-width, initial-scale=1.0') : 'width=device-width, initial-scale=1.0';
+    })();
+    let _zoomResetDoneForThisFocus = false;
+
+    function _isIOSSafari() {
+      const ua = navigator.userAgent || '';
+      const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isWebKit = /WebKit/.test(ua);
+      const isNotOtheriOSBrowser = !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+      return isIOS && isWebKit && isNotOtheriOSBrowser;
+    }
+
+    function resetZoomIfNeeded() {
+      if (_zoomResetDoneForThisFocus) return;
+      if (!_isIOSSafari()) return;
+
+      const vv = window.visualViewport;
+      if (vv && typeof vv.scale === 'number' && vv.scale <= 1.01) {
+        _zoomResetDoneForThisFocus = true;
+        return;
+      }
+
+      const meta = _viewportMetaEl();
+      if (!meta) {
+        _zoomResetDoneForThisFocus = true;
+        return;
+      }
+
+      const y = window.scrollY;
+      meta.setAttribute('content', `${_baseViewportContent}, maximum-scale=1.0`);
+      setTimeout(() => {
+        meta.setAttribute('content', _baseViewportContent);
+        window.scrollTo(0, y);
+      }, 80);
+
+      _zoomResetDoneForThisFocus = true;
+    }
+
     function onCellFocus(id, field) {
       isEditingCell = true;
       activeEdit = { id, field };
+      _zoomResetDoneForThisFocus = false; // ★次の入力でズーム解除を一回だけ実行
     }
 
     async function onCellBlur(id, field, value) {
@@ -307,6 +355,7 @@
       // 編集終了
       isEditingCell = false;
       activeEdit = null;
+      _zoomResetDoneForThisFocus = false;
 
       // 編集中に保留された再描画があれば、ここで反映
       if (pendingRerender) {
@@ -652,6 +701,9 @@
     // ========= 保存デバウンス（入力中にクラウドへ確実に反映） =========
     function queueSave(id, field, value) {
       if (!(authUser && canEdit)) return;
+
+      // ★①：文字入力を始めたら、ズームを元に戻す（iOS Safari）
+      resetZoomIfNeeded();
 
       const item = scheduleData.find(d => d.id === id);
       if (!item) return;
