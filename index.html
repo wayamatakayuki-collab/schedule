@@ -1081,20 +1081,62 @@
     }
 
     // ========= CSV =========
-    function parseCSVRow(text) {
-      const result = [];
-      let current = '';
+    // ★セル内改行（ダブルクォートで囲まれたフィールド内の改行）を壊さずに読み取るCSVパーサ
+    function parseCSV(text) {
+      const rows = [];
+      let row = [];
+      let field = '';
       let inQuotes = false;
+
       for (let i = 0; i < text.length; i++) {
         const char = text[i];
-        if (char === '"') inQuotes = !inQuotes;
-        else if (char === ',' && !inQuotes) {
-          result.push(current.trim());
-          current = '';
-        } else current += char;
+
+        if (char === '"') {
+          // エスケープされたダブルクォート ("") を処理
+          if (inQuotes && text[i + 1] === '"') {
+            field += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+          continue;
+        }
+
+        if (char === ',' && !inQuotes) {
+          row.push(field);
+          field = '';
+          continue;
+        }
+
+        if (!inQuotes && (char === '\n' || char === '\r')) {
+          // 行終端（CRLFも対応）
+          if (char === '\r' && text[i + 1] === '\n') i++;
+          row.push(field);
+          rows.push(row);
+          row = [];
+          field = '';
+          continue;
+        }
+
+        // 通常文字（inQuotesなら改行もここに来る）
+        field += char;
       }
-      result.push(current.trim());
-      return result;
+
+      // 最終フィールド/行
+      row.push(field);
+      rows.push(row);
+
+      // 末尾の完全空行を除去（元の挙動：空白行は無視）
+      const cleaned = rows
+        .map(r => r.map(c => String(c ?? '')))
+        .filter(r => r.some(c => String(c).trim() !== ''));
+
+      // BOM対策（ExcelのUTF-8 BOM付きCSV）
+      if (cleaned.length > 0 && cleaned[0].length > 0) {
+        cleaned[0][0] = cleaned[0][0].replace(/^\uFEFF/, '');
+      }
+
+      return cleaned;
     }
 
     async function importCSV(input) {
@@ -1110,10 +1152,12 @@
       const reader = new FileReader();
       reader.onload = async function (e) {
         const text = e.target.result;
-        const rows = text.split(/\r?\n/).filter(r => r.trim() !== '');
-        if (rows.length < 2) { alert('CSVにデータ行がありません。'); input.value=''; return; }
 
-        const headerLine = parseCSVRow(rows[0]);
+        // ★ここだけ変更：セル内改行を壊さないCSV全体パース
+        const table = parseCSV(String(text || ''));
+        if (table.length < 2) { alert('CSVにデータ行がありません。'); input.value=''; return; }
+
+        const headerLine = table[0].map(v => String(v ?? '').trim());
         const mapping = { '月': -1, '日': -1, '日直': -1, '予定': -1, '出張': -1, '提出物': -1, '休暇': -1 };
         headerLine.forEach((h, i) => {
           const cleanH = String(h ?? '').trim();
@@ -1121,13 +1165,13 @@
         });
         if (mapping['月'] === -1 || mapping['日'] === -1) { alert('CSVのヘッダーに「月」「日」が見つかりませんでした。'); input.value=''; return; }
 
-        const dataRows = rows.slice(1);
+        const dataRows = table.slice(1);
         let count = 0, skipped = 0;
         const startYear = getStartYear();
         const touched = [];
 
-        dataRows.forEach(rowText => {
-          const cols = parseCSVRow(rowText);
+        dataRows.forEach(colsRaw => {
+          const cols = colsRaw.map(v => String(v ?? '')); // undefined対策
           const m = parseInt(String(cols[mapping['月']] ?? '').trim(), 10);
           const d = parseInt(String(cols[mapping['日']] ?? '').trim(), 10);
           if (!Number.isFinite(m) || !Number.isFinite(d)) { skipped++; return; }
@@ -1136,6 +1180,7 @@
           const target = scheduleData.find(item => item.year === y && item.month === m && item.day === d);
           if (!target) { skipped++; return; }
 
+          // ★改行はそのまま（セル内改行を保持）※トリム挙動は元のまま
           if (mapping['日直'] !== -1) target.duty = String(cols[mapping['日直']] ?? '').trim();
           if (mapping['予定'] !== -1) target.events = String(cols[mapping['予定']] ?? '').trim();
           if (mapping['出張'] !== -1) target.business = String(cols[mapping['出張']] ?? '').trim();
