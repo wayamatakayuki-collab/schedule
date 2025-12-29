@@ -55,10 +55,29 @@
       outline: none !important;
     }
     .readonly:hover { outline: none !important; background-color: transparent !important; }
+
+    /* ★祝日ラベル（セル右上の小ラベル） */
+    .holiday-badge{
+      position:absolute;
+      top:6px;
+      right:6px;
+      font-size:10px;
+      line-height:1;
+      padding:3px 6px;
+      border-radius:9999px;
+      background:#fff7ed; /* amber-50 */
+      color:#b45309;      /* amber-700 */
+      border:1px solid #fed7aa; /* amber-200 */
+      pointer-events:none;
+      white-space:nowrap;
+      max-width:90px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
   </style>
 </head>
 
-<body class="bg-slate-100 text-slate-800 min-h-screen pb-10">
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-24">
 
   <header class="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm no-print">
     <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
@@ -79,8 +98,11 @@
               onchange="generateYearlyCalendar()" />
             <span class="text-xl font-bold">年度 予定表</span>
           </div>
-          <div id="schoolName" class="text-xs text-slate-500 editable" contenteditable="true" onblur="saveSchoolName()">
-            ここに学校名等を入力してください
+          <div class="flex items-center gap-2">
+            <div id="schoolName" class="text-xs text-slate-500 editable" contenteditable="true" onblur="saveSchoolName()">
+              ここに学校名等を入力してください
+            </div>
+            <div id="lastUpdatedInline" class="text-[11px] text-slate-400 whitespace-nowrap"></div>
           </div>
         </div>
       </div>
@@ -193,6 +215,34 @@
     @School Cal  Takayuki WAYAMA
   </div>
 
+  <!-- ★更新履歴（固定表示カード：トグル） -->
+  <div class="no-print fixed bottom-3 left-3 z-40">
+    <button id="logToggleBtn" onclick="toggleLogPanel()"
+      class="px-3 py-2 rounded-xl border border-slate-200 bg-white shadow-sm text-sm hover:bg-slate-50 flex items-center gap-2">
+      <span class="font-medium text-slate-700">更新履歴</span>
+      <span id="logCountBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs">0</span>
+    </button>
+  </div>
+
+  <div id="logPanel" class="no-print hidden fixed inset-x-3 bottom-16 z-40">
+    <div class="max-w-xl bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
+      <div class="p-3 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <div class="font-bold text-slate-800">更新履歴</div>
+          <div id="lastUpdatedText" class="text-xs text-slate-500 mt-0.5"></div>
+        </div>
+        <button onclick="toggleLogPanel()"
+          class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm">
+          閉じる
+        </button>
+      </div>
+      <div id="logList" class="max-h-72 overflow-y-auto p-3 space-y-2" style="-webkit-overflow-scrolling: touch;"></div>
+      <div class="p-3 border-t border-slate-100 text-[11px] text-slate-400">
+        ※「更新履歴」は祝日表示・検索件数には影響しません。
+      </div>
+    </div>
+  </div>
+
   <!-- ★ログイン モーダル -->
   <div id="loginModal" class="hidden fixed inset-0 z-50">
     <div class="absolute inset-0 bg-black/40" onclick="closeLoginModal()"></div>
@@ -280,6 +330,40 @@
     let currentTab = 'all';
     let searchQuery = '';
 
+    // ========= 祝日（外部JSONを取得して表示：セル右上ラベル） =========
+    let holidayMap = {}; // "YYYY-MM-DD" => "祝日名"
+    const HOLIDAY_API = 'https://holidays-jp.github.io/api/v1/date.json'; // 安定・無料の祝日JSON
+    function pad2(n){ return String(n).padStart(2,'0'); }
+    function ymd(y,m,d){ return `${y}-${pad2(m)}-${pad2(d)}`; }
+
+    async function loadHolidaysForFiscalYear(startYear){
+      // 年度は startYear(4-12) と startYear+1(1-3) を含むので、両年ぶんまとめて取得
+      try{
+        const r = await fetch(HOLIDAY_API, { cache: 'force-cache' });
+        if(!r.ok) throw new Error('holiday fetch failed');
+        const all = await r.json();
+
+        const map = {};
+        const y1 = startYear;
+        const y2 = startYear + 1;
+        // all は全年度が入っているので、該当2年分だけ抽出
+        Object.keys(all || {}).forEach(k=>{
+          if (k.startsWith(String(y1) + '-') || k.startsWith(String(y2) + '-')) {
+            map[k] = all[k];
+          }
+        });
+        holidayMap = map;
+
+        // 描画更新（ログインしてなくても表示したいので renderSchedule だけ）
+        renderSchedule();
+      }catch(e){
+        // 祝日取得失敗でも、他機能は止めない
+        console.warn('holiday load error', e);
+        holidayMap = {};
+        renderSchedule();
+      }
+    }
+
     // ========= Firebase =========
     let firebaseReady = false;
     let db = null;
@@ -354,7 +438,7 @@
     }
 
     async function onCellBlur(id, field, value) {
-      // blur時に確実保存
+      // blur時に確実保存（ログもここでだけ残す）
       await flushSave(id, field, value);
 
       // 編集終了
@@ -502,15 +586,21 @@
         .collection('years').doc(String(startYear))
         .collection('days');
     }
+    function logsRef() {
+      return roomDocRef().collection('logs');
+    }
 
     let unsubscribeSnap = null;
     let unsubscribeMeta = null;
+    let unsubscribeLogs = null;
 
     function stopCloudSync() {
       if (typeof unsubscribeSnap === 'function') unsubscribeSnap();
       if (typeof unsubscribeMeta === 'function') unsubscribeMeta();
+      if (typeof unsubscribeLogs === 'function') unsubscribeLogs();
       unsubscribeSnap = null;
       unsubscribeMeta = null;
+      unsubscribeLogs = null;
 
       if (pollTimer) {
         clearInterval(pollTimer);
@@ -543,6 +633,48 @@
       return true;
     }
 
+    function formatTs(ts){
+      try{
+        const d = ts && ts.toDate ? ts.toDate() : (ts instanceof Date ? ts : null);
+        if(!d) return '';
+        const y = d.getFullYear();
+        const m = d.getMonth()+1;
+        const da = d.getDate();
+        const hh = String(d.getHours()).padStart(2,'0');
+        const mm = String(d.getMinutes()).padStart(2,'0');
+        return `${y}/${m}/${da} ${hh}:${mm}`;
+      }catch(_){ return ''; }
+    }
+
+    function setLastUpdatedUI(text){
+      const a = document.getElementById('lastUpdatedText');
+      const b = document.getElementById('lastUpdatedInline');
+      if (a) a.textContent = text || '';
+      if (b) b.textContent = text ? `最終更新: ${text.replace(/^最終更新:\s*/,'')}` : '';
+    }
+
+    async function appendLog(message){
+      if (!authUser) return;
+      const ok = await ensureFirebase();
+      if (!ok) return;
+
+      try{
+        // 履歴は最新30件を表示（保存は増え続けるので、運用で必要なら定期削除）
+        await logsRef().add({
+          message: String(message || ''),
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          by: authUser.email || authUser.uid || ''
+        });
+        // 最終更新（meta）も更新
+        await roomDocRef().set({
+          lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          lastUpdatedBy: authUser.email || authUser.uid || ''
+        }, { merge: true });
+      }catch(e){
+        console.error(e);
+      }
+    }
+
     async function loadCloudForYearOnce() {
       if (!authUser) return;
       const ok = await ensureFirebase();
@@ -561,7 +693,7 @@
           if (did) changed = true;
         });
 
-        // 学校名（meta）
+        // 学校名（meta）+ 最終更新
         try {
           const meta = await roomDocRef().get();
           if (meta.exists) {
@@ -569,6 +701,8 @@
             if (typeof md.schoolName === 'string' && md.schoolName.trim()) {
               document.getElementById('schoolName').innerText = md.schoolName;
             }
+            const lu = md.lastUpdatedAt ? formatTs(md.lastUpdatedAt) : '';
+            if (lu) setLastUpdatedUI(`最終更新: ${lu}`);
           }
         } catch (e) { console.error(e); }
 
@@ -617,6 +751,51 @@
       }
     }
 
+    function renderLogs(items){
+      const wrap = document.getElementById('logList');
+      const badge = document.getElementById('logCountBadge');
+      if (!wrap) return;
+
+      badge.textContent = String(items.length);
+
+      wrap.innerHTML = '';
+      if (items.length === 0) {
+        wrap.innerHTML = `<div class="text-sm text-slate-400">履歴がありません。</div>`;
+        return;
+      }
+
+      items.forEach(it=>{
+        const msg = it.message || '';
+        const ts = it.createdAt ? formatTs(it.createdAt) : '';
+        const by = it.by || '';
+        const row = document.createElement('div');
+        row.className = "p-2 rounded-xl border border-slate-200 bg-slate-50/40";
+        row.innerHTML = `
+          <div class="text-sm text-slate-800 whitespace-pre-wrap">${escapeHtml(msg)}</div>
+          <div class="text-[11px] text-slate-500 mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
+            <span>${ts ? ts : ''}</span>
+            <span>${by ? `by ${escapeHtml(by)}` : ''}</span>
+          </div>
+        `;
+        wrap.appendChild(row);
+      });
+    }
+
+    function escapeHtml(str){
+      return String(str ?? '')
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'","&#039;");
+    }
+
+    function toggleLogPanel(){
+      const p = document.getElementById('logPanel');
+      if (!p) return;
+      p.classList.toggle('hidden');
+    }
+
     async function startCloudSyncForYear() {
       if (!authUser) {
         setSyncBadge('未接続', 'idle');
@@ -634,7 +813,7 @@
       const startYear = getStartYear();
       const ref = cloudDaysRef(startYear);
 
-      // リアルタイム監視
+      // リアルタイム監視（日データ）
       unsubscribeSnap = ref.onSnapshot((snap) => {
         let changed = false;
         snap.docChanges().forEach(ch => {
@@ -653,13 +832,35 @@
         setSyncBadge('同期失敗', 'ng');
       });
 
-      // 学校名も共有（meta）
+      // 学校名/最終更新（meta）
       unsubscribeMeta = roomDocRef().onSnapshot((snap) => {
         if (!snap.exists) return;
         const data = snap.data() || {};
         if (typeof data.schoolName === 'string' && data.schoolName.trim()) {
           const el = document.getElementById('schoolName');
           if (document.activeElement !== el) el.innerText = data.schoolName;
+        }
+        const lu = data.lastUpdatedAt ? formatTs(data.lastUpdatedAt) : '';
+        if (lu) setLastUpdatedUI(`最終更新: ${lu}`);
+      });
+
+      // 更新履歴（logs）
+      unsubscribeLogs = logsRef().orderBy('createdAt','desc').limit(30).onSnapshot((snap)=>{
+        const items = [];
+        snap.forEach(doc=>{
+          const d = doc.data() || {};
+          items.push({
+            message: d.message || '',
+            createdAt: d.createdAt || null,
+            by: d.by || ''
+          });
+        });
+        renderLogs(items);
+
+        // 最終更新表示（履歴があるときは履歴先頭の時刻も使う）
+        if (items[0] && items[0].createdAt) {
+          const lu = formatTs(items[0].createdAt);
+          if (lu) setLastUpdatedUI(`最終更新: ${lu}`);
         }
       });
 
@@ -669,7 +870,7 @@
       }, POLL_MS);
     }
 
-    async function saveDayToCloud(item) {
+    async function saveDayToCloud(item, opts = {}) {
       if (!authUser) return;
       const ok = await ensureFirebase();
       if (!ok) return;
@@ -690,9 +891,16 @@
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedBy: authUser ? authUser.uid : null
       }, { merge: true });
+
+      // ログは「silentでない時だけ」（＝blur確定やCSV反映など）
+      if (!opts.silent) {
+        const labelMap = { duty:'日直', events:'予定', business:'出張', submission:'提出物', vacation:'休暇' };
+        const f = opts.field ? (labelMap[opts.field] || opts.field) : '内容';
+        await appendLog(`${item.month}/${item.day}（${item.dow || ''}） ${f} を更新`);
+      }
     }
 
-    async function batchSaveToCloud(items) {
+    async function batchSaveToCloud(items, opts = {}) {
       if (!authUser) return;
       const ok = await ensureFirebase();
       if (!ok) return;
@@ -717,6 +925,10 @@
         }, { merge: true });
       });
       await batch.commit();
+
+      if (!opts.silent) {
+        await appendLog(`CSVで ${items.length}件 まとめて更新`);
+      }
     }
 
     // ========= 保存デバウンス（入力中にクラウドへ確実に反映） =========
@@ -735,7 +947,7 @@
       const key = _k(id, field);
       if (_saveTimers.has(key)) clearTimeout(_saveTimers.get(key));
       _saveTimers.set(key, setTimeout(async () => {
-        try { await saveDayToCloud(item); } catch (e) { console.error(e); }
+        try { await saveDayToCloud(item, { silent: true }); } catch (e) { console.error(e); }
         _saveTimers.delete(key);
       }, 500));
     }
@@ -755,7 +967,7 @@
       item[field] = (value || '').trim();
       _pendingItemIds.add(item.id);
 
-      try { await saveDayToCloud(item); } catch (e) { console.error(e); }
+      try { await saveDayToCloud(item, { silent: false, field }); } catch (e) { console.error(e); }
     }
 
     // ★追加：ログアウト/画面離脱前に必ず保存確定
@@ -778,7 +990,8 @@
       _pendingItemIds.clear();
 
       if (items.length > 0) {
-        try { await batchSaveToCloud(items); } catch (e) { console.error(e); }
+        try { await batchSaveToCloud(items, { silent: true }); } catch (e) { console.error(e); }
+        // 離脱前の自動確定は履歴に残さない（スパム抑制）
       }
     }
 
@@ -788,6 +1001,7 @@
       const name = document.getElementById('schoolName').innerText;
       try {
         await roomDocRef().set({ schoolName: String(name || '') }, { merge: true });
+        await appendLog(`学校名を更新：「${String(name || '').trim()}」`);
       } catch (e) { console.error(e); }
     }
 
@@ -799,6 +1013,9 @@
 
       showLockedUI(true);
       generateYearlyCalendar();
+
+      // 祝日取得（年度に合わせて）
+      await loadHolidaysForFiscalYear(getStartYear());
 
       await ensureFirebase();
 
@@ -847,6 +1064,8 @@
           showLockedUI(true);
 
           setModeBadge();
+          setLastUpdatedUI('');
+          renderLogs([]); // 履歴をクリア表示
         }
 
         applyEditLockToDOM();
@@ -897,6 +1116,9 @@
       scheduleData = newScheduleData;
       renderSchedule();
       applyEditLockToDOM();
+
+      // 祝日再取得（年度変更に追従）
+      loadHolidaysForFiscalYear(startYear);
 
       if (authUser) startCloudSyncForYear();
     }
@@ -996,12 +1218,17 @@
             onfocus="onCellFocus('${item.id}', 'duty')"
             oninput="queueSave('${item.id}', 'duty', this.innerText)"
             onblur="onCellBlur('${item.id}', 'duty', this.innerText)">
-            ${item.duty || ''}
+            ${escapeHtml(item.duty || '')}
           </div>
         ` : '';
 
+        // ★祝日（別枠：右上ラベル。検索対象にも含めない）
+        const hname = holidayMap[ymd(item.year, item.month, item.day)] || '';
+        const holidayHtml = hname ? `<div class="holiday-badge" title="${escapeHtml(hname)}">${escapeHtml(hname)}</div>` : '';
+
         const dateSection = `
-          <div class="md:w-24 ${dateBg} p-2 flex md:flex-col items-center justify-between md:justify-center md:border-r border-slate-200">
+          <div class="md:w-24 ${dateBg} p-2 flex md:flex-col items-center justify-between md:justify-center md:border-r border-slate-200 relative">
+            ${holidayHtml}
             <div class="flex items-baseline md:flex-col md:items-center">
               <span class="text-xl font-bold">${item.day}</span>
               <span class="text-xs font-bold md:mt-0.5 ml-1 md:ml-0">(${item.dow})</span>
@@ -1019,18 +1246,18 @@
                 <div class="text-sm whitespace-pre-wrap leading-relaxed editable" contenteditable="true"
                   onfocus="onCellFocus('${item.id}', 'events')"
                   oninput="queueSave('${item.id}', 'events', this.innerText)"
-                  onblur="onCellBlur('${item.id}', 'events', this.innerText)">${item.events || ''}</div>
+                  onblur="onCellBlur('${item.id}', 'events', this.innerText)">${escapeHtml(item.events || '')}</div>
               </div>
               <div class="p-2 md:col-span-5">
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">出張・提出物</div>
                 <div class="text-sm whitespace-pre-wrap leading-relaxed editable mb-1" contenteditable="true"
                   onfocus="onCellFocus('${item.id}', 'business')"
                   oninput="queueSave('${item.id}', 'business', this.innerText)"
-                  onblur="onCellBlur('${item.id}', 'business', this.innerText)">${item.business || ''}</div>
+                  onblur="onCellBlur('${item.id}', 'business', this.innerText)">${escapeHtml(item.business || '')}</div>
                 <div class="text-sm text-amber-700 font-medium whitespace-pre-wrap editable" contenteditable="true"
                   onfocus="onCellFocus('${item.id}', 'submission')"
                   oninput="queueSave('${item.id}', 'submission', this.innerText)"
-                  onblur="onCellBlur('${item.id}', 'submission', this.innerText)">${item.submission || ''}</div>
+                  onblur="onCellBlur('${item.id}', 'submission', this.innerText)">${escapeHtml(item.submission || '')}</div>
               </div>
               <div class="p-2 md:col-span-2 bg-slate-50/30">
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">休暇</div>
@@ -1038,7 +1265,7 @@
                   contenteditable="true"
                   onfocus="onCellFocus('${item.id}', 'vacation')"
                   oninput="queueSave('${item.id}', 'vacation', this.innerText)"
-                  onblur="onCellBlur('${item.id}', 'vacation', this.innerText)">${item.vacation || ''}</div>
+                  onblur="onCellBlur('${item.id}', 'vacation', this.innerText)">${escapeHtml(item.vacation || '')}</div>
               </div>
             </div>
           `;
@@ -1050,7 +1277,7 @@
               <div class="text-base whitespace-pre-wrap leading-relaxed editable h-full" contenteditable="true"
                 onfocus="onCellFocus('${item.id}', '${field}')"
                 oninput="queueSave('${item.id}', '${field}', this.innerText)"
-                onblur="onCellBlur('${item.id}', '${field}', this.innerText)">${item[field] || ''}</div>
+                onblur="onCellBlur('${item.id}', '${field}', this.innerText)">${escapeHtml(item[field] || '')}</div>
             </div>
           `;
         }
@@ -1148,7 +1375,7 @@
 
         if (count > 0) {
           renderSchedule();
-          try { await batchSaveToCloud(touched); } catch (err) { console.error(err); }
+          try { await batchSaveToCloud(touched, { silent: false }); } catch (err) { console.error(err); }
           alert(`${count}件の予定を更新しました。${skipped ? `（スキップ ${skipped}行）` : ''}`);
         } else {
           alert('有効なデータが見つかりませんでした。');
