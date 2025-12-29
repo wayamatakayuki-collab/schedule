@@ -1199,36 +1199,65 @@
     }
 
     async function changeIdOrPassword() {
-      if (!authUser) { alert('先にログインしてください。'); return; }
+  if (!authUser) { alert('先にログインしてください。'); return; }
 
-      const newId = document.getElementById('newIdInput').value.trim();
-      const newPass = document.getElementById('newPassInput').value;
+  const newId = document.getElementById('newIdInput').value.trim();
+  const newPass = document.getElementById('newPassInput').value;
 
-      const user = firebase.auth().currentUser;
-      if (!user) { alert('ログイン状態を確認できません。'); return; }
+  if (!newId && !newPass) {
+    alert('変更する項目がありません（新しいID/Passwordのどちらかを入力してください）。');
+    return;
+  }
 
-      try {
-        if (newId) {
-          const newEmail = toEmailFromId(newId);
-          if (!newEmail) { alert('新しいIDは英数・記号 . _ - のみで入力してください。'); return; }
-          await user.updateEmail(newEmail);
-          localStorage.setItem(LAST_ID_KEY, newId);
-          document.getElementById('idInput').value = newId;
-          document.getElementById('newIdInput').value = '';
-        }
+  const user = firebase.auth().currentUser;
+  if (!user) { alert('ログイン状態を確認できません。'); return; }
 
-        if (newPass) {
-          if (newPass.length < 6) { alert('新しいPasswordは6文字以上にしてください。'); return; }
-          await user.updatePassword(newPass);
-          document.getElementById('newPassInput').value = '';
-        }
+  // ★再認証（現在のID/Passwordが必要）
+  const curId = document.getElementById('idInput').value.trim();
+  const curPass = document.getElementById('passInput').value;
 
-        alert('ID/Passwordを変更しました（データは引き継がれています）。');
-      } catch (e) {
-        console.error(e);
-        alert(friendlyAuthError(e, 'ID/Password変更'));
-      }
+  const curEmail = toEmailFromId(curId);
+  if (!curEmail) { alert('現在のIDが不正です（英数・記号 . _ - のみ）。'); return; }
+  if (!curPass || curPass.length < 6) {
+    alert('安全のため、上の「Password（6文字以上）」に“現在のPassword”を入れてから変更してください。');
+    return;
+  }
+
+  try {
+    // 念のため：変更前に未保存があれば確定
+    await flushAllPendingSaves();
+
+    // ★ここが重要：recent-login要件を満たす
+    const cred = firebase.auth.EmailAuthProvider.credential(curEmail, curPass);
+    await user.reauthenticateWithCredential(cred);
+
+    // ID変更（email変更）
+    if (newId) {
+      const newEmail = toEmailFromId(newId);
+      if (!newEmail) { alert('新しいIDは英数・記号 . _ - のみで入力してください。'); return; }
+      await user.updateEmail(newEmail);
+
+      localStorage.setItem(LAST_ID_KEY, newId);
+      document.getElementById('idInput').value = newId;
+      document.getElementById('newIdInput').value = '';
     }
+
+    // Password変更
+    if (newPass) {
+      if (newPass.length < 6) { alert('新しいPasswordは6文字以上にしてください。'); return; }
+      await user.updatePassword(newPass);
+
+      document.getElementById('newPassInput').value = '';
+      // ★次回の再認証で困らないように、上のPassword欄も更新（UIは変えない）
+      document.getElementById('passInput').value = newPass;
+    }
+
+    alert('ID/Passwordを変更しました（データは引き継がれています）。');
+  } catch (e) {
+    console.error(e);
+    alert(friendlyAuthError(e, 'ID/Password変更'));
+  }
+}
 
     // ========= 起動 =========
     window.onload = init;
