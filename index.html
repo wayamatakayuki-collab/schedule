@@ -605,10 +605,11 @@
     // ========= ★更新ボタン方式：差分読み込み =========
     // ・initialFull=true なら全件（初回表示用）
     // ・initialFull=false なら「updatedAt > lastSeen」だけ（変更が無ければ0件＝0カウント相当）
+    // ★戻り値：{ updatedCount, changed }
     async function loadCloudForYear({ initialFull = false } = {}) {
-      if (!authUser) return;
+      if (!authUser) return { updatedCount: 0, changed: false };
       const ok = await ensureFirebase();
-      if (!ok) return;
+      if (!ok) return { updatedCount: 0, changed: false };
 
       const startYear = getStartYear();
       const ref = cloudDaysRef(startYear);
@@ -624,6 +625,9 @@
       }
 
       const snap = await qref.get();
+
+      // ★ここが「◯件更新しました」の件数（=差分で拾えた日ドキュメント数）
+      let updatedCount = snap.size;
 
       let changed = false;
       let maxTs = lastSeen;
@@ -683,6 +687,7 @@
       } catch (e) { console.error(e); }
 
       setSyncBadge('同期OK', 'ok');
+      return { updatedCount, changed };
     }
 
     // ========= 保存デバウンス =========
@@ -1001,7 +1006,8 @@
         try { await flushAllPendingSaves(); } catch (e) { console.error(e); }
 
         // ★差分のみ同期（変更が無ければ0件）
-        await loadCloudForYear({ initialFull: false });
+        const result = await loadCloudForYear({ initialFull: false });
+        const n = (result && Number.isFinite(result.updatedCount)) ? result.updatedCount : 0;
 
         lastSyncAt = Date.now();
         updateLastSyncLabel();
@@ -1012,7 +1018,7 @@
         setSyncBadge('同期OK', 'ok');
         showToast({
           title: '更新しました',
-          message: '最新の予定（差分）を読み込みました。',
+          message: (n > 0) ? `${n}件更新しました。` : '更新事項はありません。',
           kind: 'ok'
         });
       } catch (e) {
