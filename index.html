@@ -104,11 +104,9 @@
             最終更新：未更新
           </div>
 
-          <!-- ★ここだけ修正：PCだけ幅をCSVインポート級に（スマホは現状維持） -->
           <button id="refreshBtn" type="button" onclick="manualRefresh()"
             class="shrink-0 px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 active:scale-95 inline-flex items-center gap-2 justify-center
                    md:px-4 md:min-w-[100px]">
-            <!-- ★スピナー（更新中だけ表示） -->
             <svg id="refreshSpinner" class="hidden h-4 w-4 animate-spin text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
@@ -158,7 +156,6 @@
             <input type="text" id="searchInput" placeholder="検索"
               class="block w-full pl-10 pr-10 py-2 border border-slate-200 rounded-lg bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
 
-            <!-- ★×：検索文字があるときだけ表示 -->
             <button id="clearSearchBtn" type="button" aria-label="検索をクリア"
               class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
               onclick="clearSearch()">
@@ -314,6 +311,7 @@
   <script>
     // =========================================================
     // 重要：ローカル保存は使わない（全てクラウド）
+    // ただし「差分同期カーソル（最終既読）」だけは端末内に保持（予定データ本体は保存しない）
     // =========================================================
 
     // ========= 状態 =========
@@ -331,6 +329,11 @@
 
     // ログインID表示用（IDだけ保存。Passwordは保存しない）
     const LAST_ID_KEY = 'schedule_last_id_v1';
+
+    // ★差分同期カーソル（前回更新時点まで読み込んだupdatedAt）
+    // ・更新ボタンでは「updatedAt > lastSeen」を読む
+    // ・0件なら lead(read) は 0ドキュメント相当
+    const LAST_SEEN_KEY_PREFIX = 'schedule_last_seen_millis_v1__';
 
     // モード：閲覧/編集（ログイン後に誰でも切替）
     let canEdit = false;
@@ -539,10 +542,30 @@
     function roomDocRef() {
       return db.collection('rooms').doc(roomId());
     }
+    function yearDocRef(startYear) {
+      return roomDocRef().collection('years').doc(String(startYear));
+    }
     function cloudDaysRef(startYear) {
-      return roomDocRef()
-        .collection('years').doc(String(startYear))
-        .collection('days');
+      return yearDocRef(startYear).collection('days');
+    }
+
+    // ========= ★差分同期カーソル（最終既読） =========
+    function _seenKey(startYear) {
+      if (!authUser) return null;
+      return `${LAST_SEEN_KEY_PREFIX}${authUser.uid}__${startYear}`;
+    }
+    function getLastSeenTs(startYear) {
+      const k = _seenKey(startYear);
+      if (!k) return null;
+      const ms = parseInt(localStorage.getItem(k) || '', 10);
+      if (!Number.isFinite(ms) || ms <= 0) return null;
+      return firebase.firestore.Timestamp.fromMillis(ms);
+    }
+    function setLastSeenTs(startYear, ts) {
+      const k = _seenKey(startYear);
+      if (!k) return;
+      const ms = (ts && typeof ts.toMillis === 'function') ? ts.toMillis() : Date.now();
+      localStorage.setItem(k, String(ms));
     }
 
     function findDayByYMD(y, m, d) {
@@ -560,6 +583,16 @@
       const ae = activeEdit && activeEdit.id ? activeEdit : null;
       const sameItem = ae && (target.id === ae.id);
 
+      // ★ソフト削除（isDeleted=true）は、ローカルを空にする
+      if (data.isDeleted === true) {
+        if (!(sameItem && ae.field === 'duty')) target.duty = '';
+        if (!(sameItem && ae.field === 'events')) target.events = '';
+        if (!(sameItem && ae.field === 'business')) target.business = '';
+        if (!(sameItem && ae.field === 'submission')) target.submission = '';
+        if (!(sameItem && ae.field === 'vacation')) target.vacation = '';
+        return true;
+      }
+
       if (!(sameItem && ae.field === 'duty')) target.duty = data.duty || '';
       if (!(sameItem && ae.field === 'events')) target.events = data.events || '';
       if (!(sameItem && ae.field === 'business')) target.business = data.business || '';
@@ -569,8 +602,10 @@
       return true;
     }
 
-    // ========= ★更新ボタン方式：1回読み込み =========
-    async function loadCloudForYearOnce() {
+    // ========= ★更新ボタン方式：差分読み込み =========
+    // ・initialFull=true なら全件（初回表示用）
+    // ・initialFull=false なら「updatedAt > lastSeen」だけ（変更が無ければ0件＝0カウント相当）
+    async function loadCloudForYear({ initialFull = false } = {}) {
       if (!authUser) return;
       const ok = await ensureFirebase();
       if (!ok) return;
@@ -580,34 +615,78 @@
 
       setSyncBadge('同期中', 'wait');
 
-      const snap = await ref.get();
+      const lastSeen = getLastSeenTs(startYear);
+
+      let qref = ref;
+      if (!initialFull && lastSeen) {
+        // 差分：updatedAt > lastSeen のみ
+        qref = ref.where('updatedAt', '>', lastSeen).orderBy('updatedAt', 'asc');
+      }
+
+      const snap = await qref.get();
+
       let changed = false;
+      let maxTs = lastSeen;
+
       snap.forEach(doc => {
-        const did = applyCloudDocToLocal(doc.data());
+        const data = doc.data() || {};
+        const did = applyCloudDocToLocal(data);
         if (did) changed = true;
+
+        const ts = data.updatedAt;
+        if (ts && typeof ts.toMillis === 'function') {
+          if (!maxTs || ts.toMillis() > maxTs.toMillis()) maxTs = ts;
+        }
       });
 
-      // 学校名（meta）
-      try {
-        const meta = await roomDocRef().get();
-        if (meta.exists) {
-          const md = meta.data() || {};
-          if (typeof md.schoolName === 'string' && md.schoolName.trim()) {
-            document.getElementById('schoolName').innerText = md.schoolName;
-          }
-        }
-      } catch (e) { console.error(e); }
+      // ★差分クエリが0件でも、lastSeenは維持（＝次も0件になり得る）
+      // ★初回フルロードでupdatedAtが無い場合に備えて「今」を入れる
+      if (initialFull && !maxTs) {
+        maxTs = firebase.firestore.Timestamp.fromMillis(Date.now());
+      }
+      if (maxTs) setLastSeenTs(startYear, maxTs);
 
       if (changed) {
         if (isEditingCell) pendingRerender = true;
         else renderSchedule();
       }
 
+      // ========= 学校名（meta） =========
+      // ※ここも差分扱い（1ドキュメント読みを毎回発生させないため）
+      // 年度doc(years/{startYear}) に schoolName / updatedAt を持たせる
+      try {
+        // 年度docを「差分」扱いにするため、同じlastSeenを流用（メタもupdatedAtで管理）
+        // ただし years/{startYear} の updatedAt が無い場合は毎回0件になるので、初回はgetで補完
+        if (initialFull || !lastSeen) {
+          const metaSnap = await yearDocRef(startYear).get();
+          if (metaSnap.exists) {
+            const md = metaSnap.data() || {};
+            if (typeof md.schoolName === 'string' && md.schoolName.trim()) {
+              document.getElementById('schoolName').innerText = md.schoolName;
+            }
+          }
+        } else {
+          // years コレクションを updatedAt で差分取得（0件なら0カウント相当）
+          const ys = await roomDocRef().collection('years')
+            .where('updatedAt', '>', lastSeen)
+            .orderBy('updatedAt', 'asc')
+            .get();
+
+          ys.forEach(d => {
+            if (d.id !== String(startYear)) return;
+            const md = d.data() || {};
+            if (typeof md.schoolName === 'string' && md.schoolName.trim()) {
+              document.getElementById('schoolName').innerText = md.schoolName;
+            }
+          });
+        }
+      } catch (e) { console.error(e); }
+
       setSyncBadge('同期OK', 'ok');
     }
 
     // ========= 保存デバウンス =========
-    // ★差し替え：空っぽの「日」はドキュメント削除して0カウント相当にする
+    // ★ソフト削除：空っぽの「日」は delete ではなく isDeleted=true で更新（差分更新で拾える）
     async function saveDayToCloud(item) {
       if (!authUser) return;
       const ok = await ensureFirebase();
@@ -626,7 +705,21 @@
       const isEmpty = !duty && !events && !business && !submission && !vacation;
 
       if (isEmpty) {
-        try { await ref.delete(); } catch (e) { /* 既に無ければOK */ }
+        // ★ソフト削除（差分で拾える）
+        await ref.set({
+          year: item.year,
+          month: item.month,
+          day: item.day,
+          duty: '',
+          events: '',
+          business: '',
+          submission: '',
+          vacation: '',
+          isDeleted: true,
+          deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedBy: authUser ? authUser.uid : null
+        }, { merge: true });
         return;
       }
 
@@ -639,12 +732,13 @@
         business,
         submission,
         vacation,
+        isDeleted: false,
+        deletedAt: firebase.firestore.FieldValue.delete(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedBy: authUser ? authUser.uid : null
       }, { merge: true });
     }
 
-    // ★補強（おすすめ）：batch保存でも空はdelete（CSVインポート/一括確定でも0カウント化）
     async function batchSaveToCloud(items) {
       if (!authUser) return;
       const ok = await ensureFirebase();
@@ -666,7 +760,20 @@
         const isEmpty = !duty && !events && !business && !submission && !vacation;
 
         if (isEmpty) {
-          batch.delete(ref.doc(docId));
+          batch.set(ref.doc(docId), {
+            year: item.year,
+            month: item.month,
+            day: item.day,
+            duty: '',
+            events: '',
+            business: '',
+            submission: '',
+            vacation: '',
+            isDeleted: true,
+            deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: authUser ? authUser.uid : null
+          }, { merge: true });
         } else {
           batch.set(ref.doc(docId), {
             year: item.year,
@@ -677,6 +784,8 @@
             business,
             submission,
             vacation,
+            isDeleted: false,
+            deletedAt: firebase.firestore.FieldValue.delete(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedBy: authUser ? authUser.uid : null
           }, { merge: true });
@@ -749,8 +858,14 @@
     async function saveSchoolName() {
       if (!(authUser && canEdit)) return;
       const name = document.getElementById('schoolName').innerText;
+
+      const startYear = getStartYear();
       try {
-        await roomDocRef().set({ schoolName: String(name || '') }, { merge: true });
+        await yearDocRef(startYear).set({
+          schoolName: String(name || ''),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedBy: authUser ? authUser.uid : null
+        }, { merge: true });
       } catch (e) { console.error(e); }
     }
 
@@ -802,7 +917,6 @@
       return `${d}日前`;
     }
 
-    // ★追加：日時（12/30 15:42）を併記するため（★改行防止のNBSP入り）
     function _formatDateTimeShort(ms) {
       if (ms == null) return '';
       const d = new Date(ms);
@@ -813,7 +927,6 @@
       return `${MM}/${DD}\u00A0${hh}:${mm}`;
     }
 
-    // ★差し替え：◯分前 ＋（日時）を小さく併記
     function updateLastSyncLabel() {
       const el = document.getElementById('lastUpdateLabel');
       if (!el) return;
@@ -840,7 +953,6 @@
       const btn = document.getElementById('refreshBtn');
       if (!btn) return;
 
-      // 更新中は常に無効（manualRefresh側でも弾く）
       if (isRefreshing) return;
 
       if (authUser) {
@@ -888,7 +1000,8 @@
         // 入力途中があれば先に確定
         try { await flushAllPendingSaves(); } catch (e) { console.error(e); }
 
-        await loadCloudForYearOnce();
+        // ★差分のみ同期（変更が無ければ0件）
+        await loadCloudForYear({ initialFull: false });
 
         lastSyncAt = Date.now();
         updateLastSyncLabel();
@@ -899,7 +1012,7 @@
         setSyncBadge('同期OK', 'ok');
         showToast({
           title: '更新しました',
-          message: '最新の予定を読み込みました。',
+          message: '最新の予定（差分）を読み込みました。',
           kind: 'ok'
         });
       } catch (e) {
@@ -975,10 +1088,10 @@
           canEdit = false;
           setModeBadge();
 
-          // ★ここは「最初に1回だけ読み込み」（リアルタイム同期はしない）
+          // ★ログイン直後は表示に必要なので「初回フル読み込み」（1回だけ）
           generateYearlyCalendar();
           try {
-            await loadCloudForYearOnce();
+            await loadCloudForYear({ initialFull: true });
             lastSyncAt = Date.now();
             updateLastSyncLabel();
             startLastSyncTicker();
@@ -1051,9 +1164,6 @@
       scheduleData = newScheduleData;
       renderSchedule();
       applyEditLockToDOM();
-
-      // ★年度変更では「勝手に読み込まない」＝更新ボタン方式（Readを増やさない）
-      // 必要なら「更新」ボタンを押して同期
     }
 
     // ========= 月ナビ =========
