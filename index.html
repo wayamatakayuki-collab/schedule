@@ -97,6 +97,24 @@
           <span id="modeBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs select-none">閲覧</span>
         </button>
 
+        <!-- ★ヘッダー右：最終更新 + 更新ボタン（スピナー/二重押し防止） -->
+        <div class="flex items-center gap-2 w-full md:w-auto">
+          <div id="lastUpdateLabel"
+            class="px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-500 w-full md:w-auto">
+            最終更新：未更新
+          </div>
+
+          <button id="refreshBtn" type="button" onclick="manualRefresh()"
+            class="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 active:scale-95 inline-flex items-center gap-2 justify-center w-full md:w-auto">
+            <!-- ★スピナー（更新中だけ表示） -->
+            <svg id="refreshSpinner" class="hidden h-4 w-4 animate-spin text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+            </svg>
+            <span id="refreshBtnText">更新</span>
+          </button>
+        </div>
+
         <!-- ★ヘッダー：CSV（インポート/エクスポート）＋検索（スマホは下段） -->
         <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
           <!-- CSV：インポート/エクスポート（横並び） -->
@@ -203,6 +221,21 @@
     @School Cal  Takayuki WAYAMA
   </div>
 
+  <!-- ★トースト（右下） -->
+  <div id="toast" class="pointer-events-none hidden fixed bottom-4 right-4 z-50">
+    <div id="toastInner"
+      class="pointer-events-auto max-w-sm rounded-xl border border-slate-200 bg-white shadow-lg px-4 py-3 text-sm text-slate-700 flex items-start gap-3">
+      <div class="mt-0.5">
+        <div id="toastIcon"
+          class="h-7 w-7 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center">✓</div>
+      </div>
+      <div class="flex-1">
+        <div id="toastTitle" class="font-bold">更新しました</div>
+        <div id="toastMsg" class="text-slate-500 mt-0.5">最新の予定を読み込みました。</div>
+      </div>
+    </div>
+  </div>
+
   <!-- ★ログイン モーダル -->
   <div id="loginModal" class="hidden fixed inset-0 z-50">
     <div class="absolute inset-0 bg-black/40" onclick="closeLoginModal()"></div>
@@ -247,9 +280,7 @@
             </button>
           </div>
 
-          <!-- ★ログインモーダル：ID/Password変更を削除＋ボタン配置変更 -->
           <div class="grid grid-cols-2 gap-2">
-            <!-- 左列：ログイン → ID新規作成（同サイズ） -->
             <div class="space-y-2">
               <button onclick="loginWithIdPass()"
                 class="w-full px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
@@ -261,7 +292,6 @@
               </button>
             </div>
 
-            <!-- 右列：ログアウト → キャンセル（同サイズ） -->
             <div class="space-y-2">
               <button onclick="logout()"
                 class="w-full px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
@@ -303,10 +333,6 @@
     // モード：閲覧/編集（ログイン後に誰でも切替）
     let canEdit = false;
 
-    // ★強制同期ポーリング（onSnapshotが不安定でも必ず追いつく）
-    const POLL_MS = 5000;
-    let pollTimer = null;
-
     // ★保存デバウンス（スマホでblurが起きない問題対策）
     const _saveTimers = new Map(); // key => timer
     const _pendingItemIds = new Set(); // item.id
@@ -316,6 +342,13 @@
     let isEditingCell = false;
     let pendingRerender = false;
     let activeEdit = null; // { id, field }
+
+    // ====== ★更新ボタン方式：二重押し防止 ======
+    let isRefreshing = false;
+
+    // ====== ★最終更新表示 ======
+    let lastSyncAt = null;
+    let lastSyncTicker = null;
 
     // ====== ★①：文字入力したら自動で元の画面サイズへ（iOS Safariの自動ズーム解除） ======
     const _viewportMetaEl = () => document.getElementById('viewportMeta') || document.querySelector('meta[name=viewport]');
@@ -362,19 +395,15 @@
     function onCellFocus(id, field) {
       isEditingCell = true;
       activeEdit = { id, field };
-      _zoomResetDoneForThisFocus = false; // ★次の入力でズーム解除を一回だけ実行
+      _zoomResetDoneForThisFocus = false;
     }
 
     async function onCellBlur(id, field, value) {
-      // blur時に確実保存
       await flushSave(id, field, value);
-
-      // 編集終了
       isEditingCell = false;
       activeEdit = null;
       _zoomResetDoneForThisFocus = false;
 
-      // 編集中に保留された再描画があれば、ここで反映
       if (pendingRerender) {
         pendingRerender = false;
         renderSchedule();
@@ -442,12 +471,11 @@
         }
       }
 
-      // エクスポートは「ログインしていればOK」
       setExportButtonState();
+      setRefreshButtonState();
     }
 
     function applyEditLockToDOM() {
-      // ★編集中にcontenteditable/readonlyを触ると、フォーカスが外れることがある
       if (isEditingCell) return;
 
       const editable = !!(authUser && canEdit);
@@ -515,21 +543,6 @@
         .collection('days');
     }
 
-    let unsubscribeSnap = null;
-    let unsubscribeMeta = null;
-
-    function stopCloudSync() {
-      if (typeof unsubscribeSnap === 'function') unsubscribeSnap();
-      if (typeof unsubscribeMeta === 'function') unsubscribeMeta();
-      unsubscribeSnap = null;
-      unsubscribeMeta = null;
-
-      if (pollTimer) {
-        clearInterval(pollTimer);
-        pollTimer = null;
-      }
-    }
-
     function findDayByYMD(y, m, d) {
       return scheduleData.find(it => it.year === y && it.month === m && it.day === d) || null;
     }
@@ -542,7 +555,6 @@
       const target = findDayByYMD(y, m, d);
       if (!target) return false;
 
-      // ★編集中のセルは、クラウドの値で上書きしない（入力中に奪われるのを防ぐ）
       const ae = activeEdit && activeEdit.id ? activeEdit : null;
       const sameItem = ae && (target.id === ae.id);
 
@@ -555,6 +567,7 @@
       return true;
     }
 
+    // ========= ★更新ボタン方式：1回読み込み =========
     async function loadCloudForYearOnce() {
       if (!authUser) return;
       const ok = await ensureFirebase();
@@ -565,122 +578,33 @@
 
       setSyncBadge('同期中', 'wait');
 
-      try {
-        const snap = await ref.get();
-        let changed = false;
-        snap.forEach(doc => {
-          const did = applyCloudDocToLocal(doc.data());
-          if (did) changed = true;
-        });
+      const snap = await ref.get();
+      let changed = false;
+      snap.forEach(doc => {
+        const did = applyCloudDocToLocal(doc.data());
+        if (did) changed = true;
+      });
 
-        // 学校名（meta）
-        try {
-          const meta = await roomDocRef().get();
-          if (meta.exists) {
-            const md = meta.data() || {};
-            if (typeof md.schoolName === 'string' && md.schoolName.trim()) {
-              document.getElementById('schoolName').innerText = md.schoolName;
-            }
+      // 学校名（meta）
+      try {
+        const meta = await roomDocRef().get();
+        if (meta.exists) {
+          const md = meta.data() || {};
+          if (typeof md.schoolName === 'string' && md.schoolName.trim()) {
+            document.getElementById('schoolName').innerText = md.schoolName;
           }
-        } catch (e) { console.error(e); }
-
-        if (changed) {
-          if (isEditingCell) pendingRerender = true;
-          else renderSchedule();
         }
-        setSyncBadge('同期OK', 'ok');
-      } catch (e) {
-        console.error(e);
-        setSyncBadge('同期失敗', 'ng');
+      } catch (e) { console.error(e); }
+
+      if (changed) {
+        if (isEditingCell) pendingRerender = true;
+        else renderSchedule();
       }
+
+      setSyncBadge('同期OK', 'ok');
     }
 
-    // ★追加：サーバー取り直し（onSnapshotが効かない環境の救済）
-    async function pollCloudFromServer() {
-      if (!authUser) return;
-      const ok = await ensureFirebase();
-      if (!ok) return;
-
-      const startYear = getStartYear();
-      const ref = cloudDaysRef(startYear);
-
-      try {
-        let snap;
-        try {
-          snap = await ref.get({ source: 'server' });
-        } catch (_) {
-          snap = await ref.get();
-        }
-
-        let changed = false;
-        snap.forEach(doc => {
-          const did = applyCloudDocToLocal(doc.data());
-          if (did) changed = true;
-        });
-
-        if (changed) {
-          if (isEditingCell) pendingRerender = true;
-          else renderSchedule();
-        }
-        setSyncBadge('同期OK', 'ok');
-      } catch (e) {
-        console.error(e);
-        setSyncBadge('同期中', 'wait');
-      }
-    }
-
-    async function startCloudSyncForYear() {
-      if (!authUser) {
-        setSyncBadge('未接続', 'idle');
-        stopCloudSync();
-        return;
-      }
-      const ok = await ensureFirebase();
-      if (!ok) return;
-
-      stopCloudSync();
-
-      // まず一回、クラウドから全件反映
-      await loadCloudForYearOnce();
-
-      const startYear = getStartYear();
-      const ref = cloudDaysRef(startYear);
-
-      // リアルタイム監視
-      unsubscribeSnap = ref.onSnapshot((snap) => {
-        let changed = false;
-        snap.docChanges().forEach(ch => {
-          if (ch.type === 'removed') return;
-          const did = applyCloudDocToLocal(ch.doc.data());
-          if (did) changed = true;
-        });
-
-        if (changed) {
-          if (isEditingCell) pendingRerender = true;
-          else renderSchedule();
-        }
-        setSyncBadge('同期OK', 'ok');
-      }, (err) => {
-        console.error(err);
-        setSyncBadge('同期失敗', 'ng');
-      });
-
-      // 学校名も共有（meta）
-      unsubscribeMeta = roomDocRef().onSnapshot((snap) => {
-        if (!snap.exists) return;
-        const data = snap.data() || {};
-        if (typeof data.schoolName === 'string' && data.schoolName.trim()) {
-          const el = document.getElementById('schoolName');
-          if (document.activeElement !== el) el.innerText = data.schoolName;
-        }
-      });
-
-      // ★強制ポーリング
-      pollTimer = setInterval(() => {
-        pollCloudFromServer();
-      }, POLL_MS);
-    }
-
+    // ========= 保存デバウンス =========
     async function saveDayToCloud(item) {
       if (!authUser) return;
       const ok = await ensureFirebase();
@@ -731,11 +655,9 @@
       await batch.commit();
     }
 
-    // ========= 保存デバウンス（入力中にクラウドへ確実に反映） =========
     function queueSave(id, field, value) {
       if (!(authUser && canEdit)) return;
 
-      // ★①：文字入力を始めたら、ズームを元に戻す（iOS Safari）
       resetZoomIfNeeded();
 
       const item = scheduleData.find(d => d.id === id);
@@ -770,7 +692,6 @@
       try { await saveDayToCloud(item); } catch (e) { console.error(e); }
     }
 
-    // ★追加：ログアウト/画面離脱前に必ず保存確定
     async function flushAllPendingSaves() {
       if (!(authUser && canEdit)) {
         _saveTimers.forEach(t => clearTimeout(t));
@@ -803,6 +724,148 @@
       } catch (e) { console.error(e); }
     }
 
+    // ========= トースト =========
+    let _toastTimer = null;
+    function showToast({ title = '更新しました', message = '', kind = 'ok' } = {}) {
+      const toast = document.getElementById('toast');
+      const icon = document.getElementById('toastIcon');
+      const t = document.getElementById('toastTitle');
+      const m = document.getElementById('toastMsg');
+
+      if (!toast || !icon || !t || !m) return;
+
+      if (kind === 'ng') {
+        icon.className = 'h-7 w-7 rounded-full bg-rose-50 text-rose-700 flex items-center justify-center';
+        icon.textContent = '!';
+      } else if (kind === 'info') {
+        icon.className = 'h-7 w-7 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center';
+        icon.textContent = 'i';
+      } else {
+        icon.className = 'h-7 w-7 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center';
+        icon.textContent = '✓';
+      }
+
+      t.textContent = title;
+      m.textContent = message;
+
+      toast.classList.remove('hidden');
+
+      if (_toastTimer) clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 2500);
+    }
+
+    // ========= 最終更新表示 =========
+    function _formatAgo(ms) {
+      if (ms == null) return '未更新';
+      const diff = Date.now() - ms;
+      if (diff < 0) return 'たった今';
+      const s = Math.floor(diff / 1000);
+      if (s < 10) return 'たった今';
+      if (s < 60) return `${s}秒前`;
+      const m = Math.floor(s / 60);
+      if (m < 60) return `${m}分前`;
+      const h = Math.floor(m / 60);
+      if (h < 24) return `${h}時間前`;
+      const d = Math.floor(h / 24);
+      return `${d}日前`;
+    }
+
+    function updateLastSyncLabel() {
+      const el = document.getElementById('lastUpdateLabel');
+      if (!el) return;
+      el.textContent = `最終更新：${_formatAgo(lastSyncAt)}`;
+    }
+
+    function startLastSyncTicker() {
+      if (lastSyncTicker) clearInterval(lastSyncTicker);
+      lastSyncTicker = setInterval(() => {
+        updateLastSyncLabel();
+      }, 10000);
+    }
+
+    // ========= 更新ボタン UI（スピナー/二重押し防止/未ログイン無効） =========
+    function setRefreshButtonState() {
+      const btn = document.getElementById('refreshBtn');
+      if (!btn) return;
+
+      // 更新中は常に無効（manualRefresh側でも弾く）
+      if (isRefreshing) return;
+
+      if (authUser) {
+        btn.disabled = false;
+        btn.classList.remove('opacity-60', 'pointer-events-none');
+        btn.title = '';
+      } else {
+        btn.disabled = true;
+        btn.classList.add('opacity-60', 'pointer-events-none');
+        btn.title = 'ログインすると更新できます';
+      }
+    }
+
+    function setRefreshingUI(on) {
+      const btn = document.getElementById('refreshBtn');
+      const sp = document.getElementById('refreshSpinner');
+      const tx = document.getElementById('refreshBtnText');
+
+      if (!btn || !sp || !tx) return;
+
+      if (on) {
+        btn.disabled = true;
+        btn.classList.add('opacity-60', 'pointer-events-none');
+        sp.classList.remove('hidden');
+        tx.textContent = '更新中…';
+      } else {
+        sp.classList.add('hidden');
+        tx.textContent = '更新';
+        setRefreshButtonState();
+      }
+    }
+
+    async function manualRefresh() {
+      if (!authUser) {
+        alert('ログインすると更新できます。');
+        return;
+      }
+      if (isRefreshing) return;
+
+      isRefreshing = true;
+      setRefreshingUI(true);
+      setSyncBadge('同期中', 'wait');
+
+      try {
+        // 入力途中があれば先に確定
+        try { await flushAllPendingSaves(); } catch (e) { console.error(e); }
+
+        await loadCloudForYearOnce();
+
+        lastSyncAt = Date.now();
+        updateLastSyncLabel();
+        startLastSyncTicker();
+
+        renderSchedule();
+
+        setSyncBadge('同期OK', 'ok');
+        showToast({
+          title: '更新しました',
+          message: '最新の予定を読み込みました。',
+          kind: 'ok'
+        });
+      } catch (e) {
+        console.error(e);
+        setSyncBadge('同期失敗', 'ng');
+        showToast({
+          title: '更新に失敗しました',
+          message: '通信状況を確認して、もう一度「更新」を押してください。',
+          kind: 'ng'
+        });
+      } finally {
+        isRefreshing = false;
+        setRefreshingUI(false);
+      }
+    }
+
     // ========= 検索（×表示/クリア） =========
     function updateClearButton() {
       const input = document.getElementById('searchInput');
@@ -817,7 +880,7 @@
       const input = document.getElementById('searchInput');
       if (input) input.value = '';
       updateClearButton();
-      renderSchedule(); // 即更新
+      renderSchedule();
     }
 
     // ========= 初期化 =========
@@ -826,6 +889,8 @@
       renderMonthSelect();
       setupSearch();
       updateClearButton();
+      updateLastSyncLabel();
+      setRefreshButtonState();
 
       showLockedUI(true);
       generateYearlyCalendar();
@@ -835,14 +900,12 @@
       const lastId = localStorage.getItem(LAST_ID_KEY) || '';
       document.getElementById('idInput').value = lastId;
 
-      // モードバッジで切替（見た目変更なし）
       document.getElementById('modeBadge').addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         toggleMode();
       });
 
-      // ★画面が裏に回る/閉じる前に保存確定
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) flushAllPendingSaves();
       });
@@ -859,30 +922,38 @@
 
           showLockedUI(false);
 
-          // デフォは閲覧
           canEdit = false;
           setModeBadge();
 
+          // ★ここは「最初に1回だけ読み込み」（リアルタイム同期はしない）
           generateYearlyCalendar();
-          await startCloudSyncForYear();
+          try {
+            await loadCloudForYearOnce();
+            lastSyncAt = Date.now();
+            updateLastSyncLabel();
+            startLastSyncTicker();
+          } catch (e) { console.error(e); }
+
+          setSyncBadge('同期OK', 'ok');
         } else {
           setLoginBadge('未ログイン', 'off');
           setSyncBadge('未接続', 'idle');
           canEdit = false;
-
-          stopCloudSync();
 
           scheduleData = [];
           renderSchedule();
           showLockedUI(true);
 
           setModeBadge();
+
+          lastSyncAt = null;
+          updateLastSyncLabel();
+          if (lastSyncTicker) { clearInterval(lastSyncTicker); lastSyncTicker = null; }
         }
 
         applyEditLockToDOM();
-
-        // ★検索欄は触らない（タブ/ログイン状態で消さない）
         updateClearButton();
+        setRefreshButtonState();
       });
     }
 
@@ -931,7 +1002,8 @@
       renderSchedule();
       applyEditLockToDOM();
 
-      if (authUser) startCloudSyncForYear();
+      // ★年度変更では「勝手に読み込まない」＝更新ボタン方式（Readを増やさない）
+      // 必要なら「更新」ボタンを押して同期
     }
 
     // ========= 月ナビ =========
@@ -950,7 +1022,6 @@
           renderMonthSelect();
           renderSchedule();
           applyEditLockToDOM();
-          // ★検索欄は触らない（消さない）
         };
         nav.appendChild(btn);
       });
@@ -975,7 +1046,6 @@
       renderMonthNav();
       renderSchedule();
       applyEditLockToDOM();
-      // ★検索欄は触らない（消さない）
     }
 
     // ========= タブ別：検索対象フィールド切替（検索語は共通） =========
@@ -987,7 +1057,6 @@
       if (currentTab === 'submission') return String(item.submission || '');
       if (currentTab === 'vacation') return String(item.vacation || '');
 
-      // all
       return (
         String(item.events || '') + '\n' +
         String(item.business || '') + '\n' +
@@ -1010,7 +1079,7 @@
 
       container.innerHTML = '';
 
-      const showDuty = (currentTab === 'all'); // ★日直は「全体表示」だけ表示
+      const showDuty = (currentTab === 'all');
       const q = String(globalSearchQuery || '').trim().toLowerCase();
 
       const filteredData = scheduleData.filter(item => {
@@ -1117,8 +1186,6 @@
         const active = btn.dataset.tab === tabId;
         btn.className = `tab-btn py-3 border-b-2 text-sm font-medium transition-all ${active ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`;
       });
-
-      // ★検索欄は触らない（消さない）
       renderSchedule();
     }
 
@@ -1135,7 +1202,6 @@
     }
 
     // ========= CSV =========
-    // ★セル内改行（ダブルクォートで囲まれたフィールド内の改行）を壊さずに読み取るCSVパーサ
     function parseCSV(text) {
       const rows = [];
       let row = [];
@@ -1146,7 +1212,6 @@
         const char = text[i];
 
         if (char === '"') {
-          // エスケープされたダブルクォート ("") を処理
           if (inQuotes && text[i + 1] === '"') {
             field += '"';
             i++;
@@ -1163,7 +1228,6 @@
         }
 
         if (!inQuotes && (char === '\n' || char === '\r')) {
-          // 行終端（CRLFも対応）
           if (char === '\r' && text[i + 1] === '\n') i++;
           row.push(field);
           rows.push(row);
@@ -1172,20 +1236,16 @@
           continue;
         }
 
-        // 通常文字（inQuotesなら改行もここに来る）
         field += char;
       }
 
-      // 最終フィールド/行
       row.push(field);
       rows.push(row);
 
-      // 末尾の完全空行を除去（元の挙動：空白行は無視）
       const cleaned = rows
         .map(r => r.map(c => String(c ?? '')))
         .filter(r => r.some(c => String(c).trim() !== ''));
 
-      // BOM対策（ExcelのUTF-8 BOM付きCSV）
       if (cleaned.length > 0 && cleaned[0].length > 0) {
         cleaned[0][0] = cleaned[0][0].replace(/^\uFEFF/, '');
       }
@@ -1207,7 +1267,6 @@
       reader.onload = async function (e) {
         const text = e.target.result;
 
-        // ★ここだけ変更：セル内改行を壊さないCSV全体パース
         const table = parseCSV(String(text || ''));
         if (table.length < 2) { alert('CSVにデータ行がありません。'); input.value=''; return; }
 
@@ -1225,7 +1284,7 @@
         const touched = [];
 
         dataRows.forEach(colsRaw => {
-          const cols = colsRaw.map(v => String(v ?? '')); // undefined対策
+          const cols = colsRaw.map(v => String(v ?? ''));
           const m = parseInt(String(cols[mapping['月']] ?? '').trim(), 10);
           const d = parseInt(String(cols[mapping['日']] ?? '').trim(), 10);
           if (!Number.isFinite(m) || !Number.isFinite(d)) { skipped++; return; }
@@ -1234,7 +1293,6 @@
           const target = scheduleData.find(item => item.year === y && item.month === m && item.day === d);
           if (!target) { skipped++; return; }
 
-          // ★改行はそのまま（セル内改行を保持）※トリム挙動は元のまま
           if (mapping['日直'] !== -1) target.duty = String(cols[mapping['日直']] ?? '').trim();
           if (mapping['予定'] !== -1) target.events = String(cols[mapping['予定']] ?? '').trim();
           if (mapping['出張'] !== -1) target.business = String(cols[mapping['出張']] ?? '').trim();
@@ -1259,7 +1317,6 @@
       reader.readAsText(file, 'Shift-JIS');
     }
 
-    // ★追加：CSVエクスポート（今見ている年度＝yearInputの年度）
     function csvEscape(v) {
       const s = String(v ?? '');
       if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
@@ -1274,7 +1331,6 @@
 
       const startYear = getStartYear();
 
-      // 念のため：順序を固定（年→月→日）
       const rows = [...scheduleData].sort((a, b) => {
         if (a.year !== b.year) return a.year - b.year;
         if (a.month !== b.month) return a.month - b.month;
@@ -1298,14 +1354,13 @@
         lines.push(line);
       });
 
-      // Excel対策：UTF-8 BOM 付き
       const csvText = '\uFEFF' + lines.join('\r\n');
       const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
 
       const a = document.createElement('a');
       a.href = url;
-      a.download = `schedule_${startYear}.csv`; // 今見ている年度
+      a.download = `schedule_${startYear}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -1366,7 +1421,6 @@
 
     async function logout() {
       try {
-        // ★ログアウト直前に必ず保存確定（スマホで「消える」対策）
         await flushAllPendingSaves();
         await firebase.auth().signOut();
         closeLoginModal();
