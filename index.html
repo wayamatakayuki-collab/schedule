@@ -196,8 +196,9 @@
             </svg>
           </span>
 
+          <!-- ★①：text-sm → text-base（iOSの自動ズーム防止） -->
           <input type="text" id="searchInput" placeholder="検索"
-            class="block w-full pl-10 pr-10 py-2 border border-slate-200 rounded-lg bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+            class="block w-full pl-10 pr-10 py-2 border border-slate-200 rounded-lg bg-slate-50 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
 
           <button id="clearSearchBtn" type="button" aria-label="検索をクリア"
             class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
@@ -452,6 +453,22 @@
       }, 80);
 
       _zoomResetDoneForThisFocus = true;
+    }
+
+    // ★②：検索欄など blur 時に確実に元倍率へ戻す（iOS Safari対策）
+    function forceResetZoom() {
+      if (!_isIOSSafari()) return;
+
+      const meta = _viewportMetaEl();
+      if (!meta) return;
+
+      const y = window.scrollY;
+      meta.setAttribute('content', `${_baseViewportContent}, maximum-scale=1.0`);
+
+      setTimeout(() => {
+        meta.setAttribute('content', _baseViewportContent);
+        window.scrollTo(0, y);
+      }, 80);
     }
 
     function onCellFocus(id, field) {
@@ -1506,6 +1523,15 @@
     function setupSearch() {
       const input = document.getElementById('searchInput');
       if (!input) return;
+
+      // ★②：検索欄フォーカス/決定でズーム残りを解消
+      input.addEventListener('focus', () => {
+        _zoomResetDoneForThisFocus = false;
+      });
+
+      input.addEventListener('blur', () => {
+        forceResetZoom();
+      });
 
       input.oninput = (e) => {
         globalSearchQuery = e.target.value || '';
