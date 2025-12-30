@@ -77,116 +77,142 @@
       outline: none !important;
     }
     .readonly:hover { outline: none !important; background-color: transparent !important; }
+
+    /* ====== ★ツール折りたたみ（スマホ中心） ====== */
+    .tools-wrap{
+      overflow: hidden;
+      transition: max-height .25s ease, opacity .2s ease;
+      max-height: 1200px; /* 展開時の最大高さ（十分大きく） */
+      opacity: 1;
+    }
+    body.tools-collapsed .tools-wrap{
+      max-height: 0;
+      opacity: 0;
+    }
   </style>
 </head>
 
 <body class="bg-slate-100 text-slate-800 min-h-screen pb-10">
 
   <header class="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm no-print">
-    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
-      <!-- 左：タイトル -->
-      <div class="flex items-center space-x-3">
-        <div class="bg-indigo-600 p-2 rounded-lg text-white">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
+
+    <!-- ★ツール群：折りたたみ対象（タイトル＋ログイン＋最終更新＋更新＋CSV） -->
+    <div id="toolsWrap" class="tools-wrap">
+      <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+        <!-- 左：タイトル -->
+        <div class="flex items-center space-x-3">
+          <div class="bg-indigo-600 p-2 rounded-lg text-white">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+
+          <div>
+            <div class="flex items-center space-x-2">
+              <span>西暦</span>
+              <input type="number" id="yearInput" value="2025"
+                class="w-20 font-bold text-lg border-b-2 border-indigo-600 focus:outline-none"
+                onchange="generateYearlyCalendar(); updatePrintTitle();" />
+              <span class="text-xl font-bold">年度 予定表</span>
+            </div>
+            <div id="schoolName" class="text-xs text-slate-500 editable" contenteditable="true" onblur="saveSchoolName()">
+              ここに学校名等を入力してください
+            </div>
+          </div>
         </div>
 
-        <div>
-          <div class="flex items-center space-x-2">
-            <span>西暦</span>
-            <input type="number" id="yearInput" value="2025"
-              class="w-20 font-bold text-lg border-b-2 border-indigo-600 focus:outline-none"
-              onchange="generateYearlyCalendar(); updatePrintTitle();" />
-            <span class="text-xl font-bold">年度 予定表</span>
+        <!-- 右：操作群（検索はここに置かない：常時表示エリアへ移動） -->
+        <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-3 w-full md:w-auto">
+          <!-- ログイン -->
+          <button id="loginBtn" onclick="openLoginModal()"
+            class="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 flex items-center gap-2 w-full md:w-auto justify-between md:justify-start">
+            <span class="text-slate-500">ログイン</span>
+            <span id="loginBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs">未ログイン</span>
+            <span id="syncBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs">未接続</span>
+            <span class="text-slate-400">モード</span>
+            <span id="modeBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs select-none">閲覧</span>
+          </button>
+
+          <!-- ★ヘッダー右：最終更新 + 更新ボタン（スピナー/二重押し防止） -->
+          <div class="flex items-center gap-2 w-full md:w-auto">
+            <div id="lastUpdateLabel"
+              class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-500 truncate">
+              最終更新：未更新
+            </div>
+
+            <button id="refreshBtn" type="button" onclick="manualRefresh()"
+              class="shrink-0 px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 active:scale-95 inline-flex items-center gap-2 justify-center
+                     md:px-4 md:min-w-[100px]">
+              <svg id="refreshSpinner" class="hidden h-4 w-4 animate-spin text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+              </svg>
+              <span id="refreshBtnText" class="whitespace-nowrap">更新</span>
+            </button>
           </div>
-          <div id="schoolName" class="text-xs text-slate-500 editable" contenteditable="true" onblur="saveSchoolName()">
-            ここに学校名等を入力してください
+
+          <!-- ★ヘッダー：CSV（インポート/エクスポート） -->
+          <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
+            <div class="flex items-center gap-2 w-full md:w-auto">
+              <div class="flex-1 md:flex-none flex items-center space-x-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl">
+                <label id="csvLabel"
+                  class="w-full md:w-auto cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center shadow-sm active:scale-95">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  CSVインポート
+                  <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="importCSV(this)">
+                </label>
+
+                <button id="csvExportBtn" onclick="exportCSV()"
+                  class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center shadow-sm active:scale-95">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M7 16l-4-4m0 0l4-4m-4 4h18M17 8l4 4m0 0l-4 4" />
+                  </svg>
+                  CSVエクスポート
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+    </div><!-- /tools-wrap -->
 
-      <!-- 右：操作群 -->
-      <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-3 w-full md:w-auto">
-        <!-- ログイン -->
-        <button id="loginBtn" onclick="openLoginModal()"
-          class="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 flex items-center gap-2 w-full md:w-auto justify-between md:justify-start">
-          <span class="text-slate-500">ログイン</span>
-          <span id="loginBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs">未ログイン</span>
-          <span id="syncBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs">未接続</span>
-          <span class="text-slate-400">モード</span>
-          <span id="modeBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs select-none">閲覧</span>
-        </button>
-
-        <!-- ★ヘッダー右：最終更新 + 更新ボタン（スピナー/二重押し防止） -->
-        <div class="flex items-center gap-2 w-full md:w-auto">
-          <div id="lastUpdateLabel"
-            class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-500 truncate">
-            最終更新：未更新
-          </div>
-
-          <button id="refreshBtn" type="button" onclick="manualRefresh()"
-            class="shrink-0 px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 active:scale-95 inline-flex items-center gap-2 justify-center
-                   md:px-4 md:min-w-[100px]">
-            <svg id="refreshSpinner" class="hidden h-4 w-4 animate-spin text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+    <!-- ★常時表示：検索 + 「ツールを隠す／表示」 -->
+    <div class="max-w-7xl mx-auto px-4 py-2 border-t border-slate-100">
+      <div class="flex items-center gap-2">
+        <!-- 検索（常時表示） -->
+        <div class="relative flex-1">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+              stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <span id="refreshBtnText" class="whitespace-nowrap">更新</span>
+          </span>
+
+          <input type="text" id="searchInput" placeholder="検索"
+            class="block w-full pl-10 pr-10 py-2 border border-slate-200 rounded-lg bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+
+          <button id="clearSearchBtn" type="button" aria-label="検索をクリア"
+            class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+            onclick="clearSearch()">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
           </button>
         </div>
 
-        <!-- ★ヘッダー：CSV（インポート/エクスポート）＋検索（スマホは下段） -->
-        <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
-          <!-- CSV：インポート/エクスポート（横並び） -->
-          <div class="flex items-center gap-2 w-full md:w-auto">
-            <div class="flex-1 md:flex-none flex items-center space-x-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl">
-              <label id="csvLabel"
-                class="w-full md:w-auto cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center shadow-sm active:scale-95">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
-                  stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-                CSVインポート
-                <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="importCSV(this)">
-              </label>
-
-              <button id="csvExportBtn" onclick="exportCSV()"
-                class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center shadow-sm active:scale-95">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
-                  stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M7 16l-4-4m0 0l4-4m-4 4h18M17 8l4 4m0 0l-4 4" />
-                </svg>
-                CSVエクスポート
-              </button>
-            </div>
-          </div>
-
-          <!-- 検索：スマホはCSVの下に1行（★右端に×追加） -->
-          <div class="relative w-full md:w-48">
-            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
-                stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </span>
-
-            <input type="text" id="searchInput" placeholder="検索"
-              class="block w-full pl-10 pr-10 py-2 border border-slate-200 rounded-lg bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
-
-            <button id="clearSearchBtn" type="button" aria-label="検索をクリア"
-              class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
-              onclick="clearSearch()">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-        </div>
+        <!-- ツール表示切替 -->
+        <button id="toggleToolsBtn" type="button" onclick="toggleTools()"
+          class="shrink-0 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 active:scale-95">
+          <span id="toggleToolsText">ツールを隠す</span>
+        </button>
       </div>
     </div>
 
@@ -358,6 +384,9 @@
     // ログインID表示用（IDだけ保存。Passwordは保存しない）
     const LAST_ID_KEY = 'schedule_last_id_v1';
 
+    // ★ツール折りたたみ状態（端末に保存）
+    const TOOLS_COLLAPSED_KEY = 'schedule_tools_collapsed_v1';
+
     // ★差分同期カーソル（前回更新時点まで読み込んだupdatedAt）
     // ・更新ボタンでは「updatedAt > lastSeen」を読む
     // ・0件なら lead(read) は 0ドキュメント相当
@@ -441,6 +470,21 @@
         pendingRerender = false;
         renderSchedule();
       }
+    }
+
+    // ★ツール折りたたみ（表示/非表示）
+    function applyToolsCollapsedState(collapsed) {
+      document.body.classList.toggle('tools-collapsed', collapsed);
+
+      const t = document.getElementById('toggleToolsText');
+      if (t) t.textContent = collapsed ? 'ツールを表示' : 'ツールを隠す';
+    }
+
+    function toggleTools() {
+      const now = document.body.classList.contains('tools-collapsed');
+      const next = !now;
+      localStorage.setItem(TOOLS_COLLAPSED_KEY, next ? '1' : '0');
+      applyToolsCollapsedState(next);
     }
 
     // ★印刷見出し（年度＋学校名＋◯月）を自動生成
@@ -1114,6 +1158,10 @@
       updateLastSyncLabel();
       setRefreshButtonState();
       updatePrintTitle();
+
+      // ★ツール折りたたみ：前回状態を反映
+      const collapsed = localStorage.getItem(TOOLS_COLLAPSED_KEY) === '1';
+      applyToolsCollapsedState(collapsed);
 
       showLockedUI(true);
       generateYearlyCalendar();
