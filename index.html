@@ -607,6 +607,7 @@
     }
 
     // ========= 保存デバウンス =========
+    // ★差し替え：空っぽの「日」はドキュメント削除して0カウント相当にする
     async function saveDayToCloud(item) {
       if (!authUser) return;
       const ok = await ensureFirebase();
@@ -616,20 +617,34 @@
       const docId = `${item.year}-${item.month}-${item.day}`;
       const ref = cloudDaysRef(startYear).doc(docId);
 
+      const duty = (item.duty || '').trim();
+      const events = (item.events || '').trim();
+      const business = (item.business || '').trim();
+      const submission = (item.submission || '').trim();
+      const vacation = (item.vacation || '').trim();
+
+      const isEmpty = !duty && !events && !business && !submission && !vacation;
+
+      if (isEmpty) {
+        try { await ref.delete(); } catch (e) { /* 既に無ければOK */ }
+        return;
+      }
+
       await ref.set({
         year: item.year,
         month: item.month,
         day: item.day,
-        duty: item.duty || '',
-        events: item.events || '',
-        business: item.business || '',
-        submission: item.submission || '',
-        vacation: item.vacation || '',
+        duty,
+        events,
+        business,
+        submission,
+        vacation,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedBy: authUser ? authUser.uid : null
       }, { merge: true });
     }
 
+    // ★補強（おすすめ）：batch保存でも空はdelete（CSVインポート/一括確定でも0カウント化）
     async function batchSaveToCloud(items) {
       if (!authUser) return;
       const ok = await ensureFirebase();
@@ -641,18 +656,31 @@
       const batch = db.batch();
       items.forEach(item => {
         const docId = `${item.year}-${item.month}-${item.day}`;
-        batch.set(ref.doc(docId), {
-          year: item.year,
-          month: item.month,
-          day: item.day,
-          duty: item.duty || '',
-          events: item.events || '',
-          business: item.business || '',
-          submission: item.submission || '',
-          vacation: item.vacation || '',
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          updatedBy: authUser ? authUser.uid : null
-        }, { merge: true });
+
+        const duty = (item.duty || '').trim();
+        const events = (item.events || '').trim();
+        const business = (item.business || '').trim();
+        const submission = (item.submission || '').trim();
+        const vacation = (item.vacation || '').trim();
+
+        const isEmpty = !duty && !events && !business && !submission && !vacation;
+
+        if (isEmpty) {
+          batch.delete(ref.doc(docId));
+        } else {
+          batch.set(ref.doc(docId), {
+            year: item.year,
+            month: item.month,
+            day: item.day,
+            duty,
+            events,
+            business,
+            submission,
+            vacation,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: authUser ? authUser.uid : null
+          }, { merge: true });
+        }
       });
       await batch.commit();
     }
