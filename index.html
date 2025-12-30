@@ -1306,14 +1306,14 @@
         if (currentTab === 'all') {
           contentHtml = `
             <div class="flex-1 grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-              <div class="p-2 md:col-span-5">
+              <div class="p-2 md:col-span-4">
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">予定</div>
                 <div class="text-sm whitespace-pre-wrap leading-relaxed editable" contenteditable="true"
                   onfocus="onCellFocus('${item.id}', 'events')"
                   oninput="queueSave('${item.id}', 'events', this.innerText)"
                   onblur="onCellBlur('${item.id}', 'events', this.innerText)">${item.events || ''}</div>
               </div>
-              <div class="p-2 md:col-span-5">
+              <div class="p-2 md:col-span-6">
                 <div class="text-[10px] font-bold text-slate-400 mb-1 no-print">出張・提出物</div>
                 <div class="text-sm whitespace-pre-wrap leading-relaxed editable mb-1" contenteditable="true"
                   onfocus="onCellFocus('${item.id}', 'business')"
