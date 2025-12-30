@@ -772,10 +772,30 @@
       return `${d}日前`;
     }
 
+    // ★追加：日時（12/30 15:42）を併記するため
+    function _formatDateTimeShort(ms) {
+      if (ms == null) return '';
+      const d = new Date(ms);
+      const MM = String(d.getMonth() + 1).padStart(2, '0');
+      const DD = String(d.getDate()).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      return `${MM}/${DD} ${hh}:${mm}`;
+    }
+
+    // ★差し替え：◯分前 ＋（日時）を小さく併記
     function updateLastSyncLabel() {
       const el = document.getElementById('lastUpdateLabel');
       if (!el) return;
-      el.textContent = `最終更新：${_formatAgo(lastSyncAt)}`;
+
+      if (lastSyncAt == null) {
+        el.textContent = '最終更新：未更新';
+        return;
+      }
+
+      const ago = _formatAgo(lastSyncAt);
+      const dt = _formatDateTimeShort(lastSyncAt);
+      el.innerHTML = `最終更新：${ago} <span class="ml-1 text-[10px] text-slate-400">(${dt})</span>`;
     }
 
     function startLastSyncTicker() {
