@@ -230,7 +230,8 @@
       </div>
       <div class="flex-1">
         <div id="toastTitle" class="font-bold">更新しました</div>
-        <div id="toastMsg" class="text-slate-500 mt-0.5">最新の予定を読み込みました。</div>
+        <div id="toastMsg1" class="text-slate-500 mt-0.5">最新の予定を読み込みました。</div>
+        <div id="toastMsg2" class="text-slate-500 mt-0.5"></div>
       </div>
     </div>
   </div>
@@ -876,13 +877,14 @@
 
     // ========= トースト =========
     let _toastTimer = null;
-    function showToast({ title = '更新しました', message = '', kind = 'ok' } = {}) {
+    function showToast({ title = '更新しました', line1 = '', line2 = '', kind = 'ok' } = {}) {
       const toast = document.getElementById('toast');
       const icon = document.getElementById('toastIcon');
       const t = document.getElementById('toastTitle');
-      const m = document.getElementById('toastMsg');
+      const m1 = document.getElementById('toastMsg1');
+      const m2 = document.getElementById('toastMsg2');
 
-      if (!toast || !icon || !t || !m) return;
+      if (!toast || !icon || !t || !m1 || !m2) return;
 
       if (kind === 'ng') {
         icon.className = 'h-7 w-7 rounded-full bg-rose-50 text-rose-700 flex items-center justify-center';
@@ -896,7 +898,12 @@
       }
 
       t.textContent = title;
-      m.textContent = message;
+      m1.textContent = line1 || '';
+      m2.textContent = line2 || '';
+
+      // 2行目が空なら詰める
+      if (line2 && String(line2).trim()) m2.classList.remove('hidden');
+      else m2.classList.add('hidden');
 
       toast.classList.remove('hidden');
 
@@ -1018,7 +1025,8 @@
         setSyncBadge('同期OK', 'ok');
         showToast({
           title: '更新しました',
-          message: (n > 0) ? `${n}件更新しました。` : '更新事項はありません。',
+          line1: '最新の予定を読み込みました。',
+          line2: (n > 0) ? `${n}件の変更を反映しました。` : '前回から変更はありません。',
           kind: 'ok'
         });
       } catch (e) {
@@ -1026,7 +1034,8 @@
         setSyncBadge('同期失敗', 'ng');
         showToast({
           title: '更新に失敗しました',
-          message: '通信状況を確認して、もう一度「更新」を押してください。',
+          line1: '通信状況を確認して、もう一度「更新」を押してください。',
+          line2: '',
           kind: 'ng'
         });
       } finally {
