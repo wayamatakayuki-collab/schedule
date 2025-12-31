@@ -143,7 +143,7 @@
                      md:px-4 md:min-w-[100px]">
               <svg id="refreshSpinner" class="hidden h-4 w-4 animate-spin text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 00-4 4H4z"></path>
               </svg>
               <span id="refreshBtnText" class="whitespace-nowrap">更新</span>
             </button>
@@ -320,6 +320,16 @@
             </div>
           </div>
 
+          <!-- ★追加：ID新規作成コード（新規作成時のみ使用） -->
+          <div>
+            <label class="text-sm font-medium text-slate-700">ID新規作成コード</label>
+            <input id="createCodeInput" type="password" inputmode="numeric" placeholder="（新規作成する時だけ）"
+              class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <div class="text-xs text-slate-500 mt-1">
+              ※通常のログインには不要です（ID新規作成の時だけ必要）。
+            </div>
+          </div>
+
           <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3">
             <div>
               <div class="text-sm font-medium text-slate-700">モード</div>
@@ -396,6 +406,10 @@
 
     // ★予定データ本体キャッシュ（uid + 年度で分離）
     const LOCAL_CACHE_PREFIX = 'schedule_cache_v1__';
+
+    // ★ID新規作成コード照合：Cloud Functions のURL（デプロイ後のURLに置換）
+    // 例）https://asia-northeast1-schedule-collab-38ed7.cloudfunctions.net/verifyCreateCode
+    const CREATE_CODE_VERIFY_URL = '<<<CloudFunctionsのverifyCreateCode URLをここに>>>';
 
     // モード：閲覧/編集（ログイン後に誰でも切替）
     let canEdit = false;
@@ -1969,18 +1983,68 @@
       document.getElementById('loginModal').classList.add('hidden');
     }
 
+    // ========= ★ID新規作成コード照合（サーバ側） =========
+    async function verifyCreateCode(code) {
+      try {
+        const url = String(CREATE_CODE_VERIFY_URL || '');
+        if (!url || url.includes('<<<')) {
+          return { ok: false, reason: 'missing_url' };
+        }
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: String(code || '') })
+        });
+
+        if (!res.ok) return { ok: false, reason: 'http' };
+        const data = await res.json().catch(() => ({}));
+        return { ok: !!data.ok, reason: !!data.ok ? 'ok' : 'ng' };
+      } catch (e) {
+        console.error(e);
+        return { ok: false, reason: 'net' };
+      }
+    }
+
     async function createNewAccount() {
       const id = document.getElementById('idInput').value.trim();
       const pass = document.getElementById('passInput').value;
+
+      const code = (document.getElementById('createCodeInput')?.value || '').trim();
 
       const email = toEmailFromId(id);
       if (!email) { alert('IDは英数・記号 . _ - のみで入力してください。'); return; }
       if (!pass || pass.length < 6) { alert('Passwordは6文字以上で入力してください。'); return; }
 
+      // ★ID新規作成コード必須
+      if (!code) { alert('ID新規作成コードを入力してください。'); return; }
+
       try {
+        setSyncBadge('確認中', 'wait');
+
+        const vr = await verifyCreateCode(code);
+        if (!vr.ok) {
+          setSyncBadge('未接続', 'idle');
+
+          if (vr.reason === 'missing_url') {
+            alert('（設定不足）CREATE_CODE_VERIFY_URL が未設定です。Cloud Functions のURLを貼り付けてください。');
+          } else if (vr.reason === 'net') {
+            alert('通信に失敗しました。ネットワーク状況を確認して、もう一度お試しください。');
+          } else {
+            alert('ID新規作成コードが違います。');
+          }
+          return;
+        }
+
         setSyncBadge('作成中', 'wait');
         await firebase.auth().createUserWithEmailAndPassword(email, pass);
+
         localStorage.setItem(LAST_ID_KEY, id);
+
+        // ★コード欄はクリア（覗き見対策）
+        const cc = document.getElementById('createCodeInput');
+        if (cc) cc.value = '';
+
         closeLoginModal();
       } catch (e) {
         console.error(e);
