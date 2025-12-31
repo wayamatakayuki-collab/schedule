@@ -581,6 +581,13 @@
     let lastSyncAt = null;
     let lastSyncTicker = null;
 
+    // ====== ★iOS relatedTarget=null 対策のため「直前に触った要素」を追跡 ======
+    let _lastPointerDownTarget = null;
+    function _trackLastPointerTarget(e) { _lastPointerDownTarget = e.target; }
+    document.addEventListener('pointerdown', _trackLastPointerTarget, true);
+    document.addEventListener('mousedown', _trackLastPointerTarget, true);
+    document.addEventListener('touchstart', _trackLastPointerTarget, true);
+
     // ====== ★①：文字入力したら自動で元の画面サイズへ（iOS Safariの自動ズーム解除） ======
     const _viewportMetaEl = () => document.getElementById('viewportMeta') || document.querySelector('meta[name=viewport]');
     const _baseViewportContent = (() => {
@@ -654,35 +661,56 @@
     async function flushSave(id, field, value) { /* no-op */ }
 
     // ★カードから完全に離れたら保存（focusout）
+    // ✅ iOS Safariで relatedTarget が null になっても誤判定しない版
     function attachCardSaveOnLeave(card, itemId) {
+      const doCommit = async () => {
+        // カード単位保存：debounceが残っていれば取消して即保存
+        if (_saveTimers.has(itemId)) {
+          clearTimeout(_saveTimers.get(itemId));
+          _saveTimers.delete(itemId);
+        }
+
+        // 編集状態を外す（必要なら再描画を後回し）
+        isEditingCell = false;
+        activeEdit = null;
+        _zoomResetDoneForThisFocus = false;
+
+        await commitSaveItem(itemId);
+
+        if (pendingRerender) {
+          pendingRerender = false;
+          renderSchedule();
+        }
+      };
+
       // focusin/out は bubble するので、子要素(contenteditable)の移動も検知できる
       card.addEventListener('focusout', (e) => {
         if (!(authUser && canEdit)) return;
 
-        // relatedTarget が card 内なら「カード内移動」なので保存しない
         const to = e.relatedTarget;
+
+        // relatedTarget が card 内なら「カード内移動」なので保存しない
         if (to && card.contains(to)) return;
 
-        // ここに来たら「カードから完全に離れた」
-        (async () => {
-          // カード単位保存：debounceが残っていれば取消して即保存
-          if (_saveTimers.has(itemId)) {
-            clearTimeout(_saveTimers.get(itemId));
-            _saveTimers.delete(itemId);
-          }
+        // ★iOS Safari：relatedTarget が null のことがある → activeElement と直前タップ位置で再判定
+        if (!to) {
+          setTimeout(() => {
+            const ae = document.activeElement;
 
-          // 編集状態を外す（必要なら再描画を後回し）
-          isEditingCell = false;
-          activeEdit = null;
-          _zoomResetDoneForThisFocus = false;
+            // フォーカスが実はカード内に残っている（iOSの遅延反映）なら保存しない
+            if (ae && card.contains(ae)) return;
 
-          await commitSaveItem(itemId);
+            // 直前に触った場所がカード内なら「カード内操作」とみなし保存しない
+            if (_lastPointerDownTarget && card.contains(_lastPointerDownTarget)) return;
 
-          if (pendingRerender) {
-            pendingRerender = false;
-            renderSchedule();
-          }
-        })();
+            // ここに来たら「カードから完全に離れた」
+            doCommit();
+          }, 0);
+          return;
+        }
+
+        // to が外なら通常通り保存
+        doCommit();
       });
     }
 
@@ -1661,7 +1689,7 @@
         card.className = "card bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex flex-col md:flex-row";
         card.dataset.itemId = item.id;
 
-        // ★今回追加：カードから完全に離れたら保存（focusout）
+        // ★今回追加：カードから完全に離れたら保存（focusout）※iOS対策込み
         attachCardSaveOnLeave(card, item.id);
 
         const isSun = item.dow === '日';
