@@ -1057,7 +1057,7 @@
       _saveTimers.set(id, setTimeout(async () => {
         _saveTimers.delete(id);
         await commitSaveItem(id);
-      }, 500));
+      }, 1000));
     }
 
     async function flushAllPendingSaves() {
