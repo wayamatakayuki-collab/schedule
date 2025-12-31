@@ -304,66 +304,75 @@
           </div>
         </div>
 
-        <div class="p-4 space-y-4">
-          <div>
-            <label class="text-sm font-medium text-slate-700">ID（英数・記号 . _ -）</label>
-            <input id="idInput" type="text" placeholder=""
-              class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          </div>
+       <div class="p-4 space-y-4">
+  <!-- 1) ID -->
+  <div>
+    <label class="text-sm font-medium text-slate-700">ID（英数・記号 . _ -）</label>
+    <input id="idInput" type="text" placeholder=""
+      class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+  </div>
 
-          <div>
-            <label class="text-sm font-medium text-slate-700">Password（6文字以上）</label>
-            <input id="passInput" type="password" placeholder=""
-              class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            <div class="text-xs text-slate-500 mt-1">
-              ※セキュリティ目的の“本格ログイン”ではなく「校内共有の合言葉」用途想定です。
-            </div>
-          </div>
+  <!-- 2) Password -->
+  <div>
+    <label class="text-sm font-medium text-slate-700">Password（6文字以上）</label>
+    <input id="passInput" type="password" placeholder=""
+      class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+    <div class="text-xs text-slate-500 mt-1">
+      ※セキュリティ目的の“本格ログイン”ではなく「校内共有の合言葉」用途想定です。
+    </div>
+  </div>
 
-          <!-- ★追加：ID新規作成コード（新規作成時のみ使用） -->
-          <div>
-            <label class="text-sm font-medium text-slate-700">ID新規作成コード</label>
-            <input id="createCodeInput" type="password" inputmode="numeric" placeholder="（新規作成する時だけ）"
-              class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            <div class="text-xs text-slate-500 mt-1">
-              ※通常のログインには不要です（ID新規作成の時だけ必要）。
-            </div>
-          </div>
+  <!-- 3) モード切り替え -->
+  <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3">
+    <div>
+      <div class="text-sm font-medium text-slate-700">モード</div>
+      <div class="text-xs text-slate-500">ログイン後に切り替えできます</div>
+    </div>
+    <button onclick="toggleMode()"
+      class="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm">
+      <span id="modeBtnText">閲覧 ⇄ 編集</span>
+    </button>
+  </div>
 
-          <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3">
-            <div>
-              <div class="text-sm font-medium text-slate-700">モード</div>
-              <div class="text-xs text-slate-500">ログイン後に切り替えできます</div>
-            </div>
-            <button onclick="toggleMode()"
-              class="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm">
-              <span id="modeBtnText">閲覧 ⇄ 編集</span>
-            </button>
-          </div>
+  <!-- 4) ログインボタン・ログアウトボタン -->
+  <div class="grid grid-cols-2 gap-2">
+    <button onclick="loginWithIdPass()"
+      class="w-full px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
+      ログイン
+    </button>
 
-          <div class="grid grid-cols-2 gap-2">
-            <div class="space-y-2">
-              <button onclick="loginWithIdPass()"
-                class="w-full px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
-                ログイン
-              </button>
-              <button onclick="createNewAccount()"
-                class="w-full px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
-                ID新規作成
-              </button>
-            </div>
+    <button onclick="logout()"
+      class="w-full px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
+      ログアウト
+    </button>
+  </div>
 
-            <div class="space-y-2">
-              <button onclick="logout()"
-                class="w-full px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
-                ログアウト
-              </button>
-              <button onclick="closeLoginModal()"
-                class="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
-                キャンセル
-              </button>
-            </div>
-          </div>
+  <!-- 5) 区切り線 -->
+  <hr class="border-slate-200" />
+
+  <!-- 6) ID新規作成コード -->
+  <div>
+    <label class="text-sm font-medium text-slate-700">ID新規作成コード</label>
+    <input id="createCodeInput" type="password" inputmode="numeric" placeholder="（新規作成する時だけ）"
+      class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+    <div class="text-xs text-slate-500 mt-1">
+      ※通常のログインには不要です（ID新規作成の時だけ必要）。
+    </div>
+  </div>
+
+  <!-- 7) ID新規作成ボタン・キャンセルボタン -->
+  <div class="grid grid-cols-2 gap-2">
+    <button onclick="createNewAccount()"
+      class="w-full px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
+      ID新規作成
+    </button>
+
+    <button onclick="closeLoginModal()"
+      class="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
+      キャンセル
+    </button>
+  </div>
+</div>
         </div>
 
       </div>
