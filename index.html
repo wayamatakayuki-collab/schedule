@@ -393,10 +393,107 @@
     // モード：閲覧/編集（ログイン後に誰でも切替）
     let canEdit = false;
 
-    // ★保存デバウンス（スマホでblurが起きない問題対策）
-    const _saveTimers = new Map(); // key => timer
-    const _pendingItemIds = new Set(); // item.id
+    // =========================================================
+    // ★保存ロジック（ここが今回の差し替えポイント）
+    // 1) フィールド単位→「日（カード）単位」でまとめて1回だけ保存（timerキーは itemId ）
+    // 2) blur保存→「カードから完全に離れたら」だけ即保存（カードfocusoutでflush）
+    // =========================================================
+
+    // ★保存デバウンス（dirty管理 / カード単位 / 二重write抑制）
+    const _saveTimers = new Map();       // itemId => timer
+    const _pendingItemIds = new Set();   // item.id（未保存変更がある日）
+    const _baseValue = new Map();        // key(id__field) => baseline (normalized)
+    const _dirtyKeys = new Set();        // key(id__field)
+    const _itemDirtyCount = new Map();   // itemId => dirty field count
+    const _savingItems = new Set();      // itemId in-flight
+    const _needsResaveItems = new Set(); // itemId: save中にさらに変更が入った
+
     function _k(id, field) { return `${id}__${field}`; }
+
+    // 値の正規化（※現行のtrim運用に合わせる）
+    function norm(v) {
+      return String(v ?? '').replace(/\r\n/g, '\n').trim();
+    }
+
+    function markDirty(id, field) {
+      const key = _k(id, field);
+      if (_dirtyKeys.has(key)) return;
+      _dirtyKeys.add(key);
+      _itemDirtyCount.set(id, (_itemDirtyCount.get(id) || 0) + 1);
+      _pendingItemIds.add(id);
+    }
+
+    function clearDirty(id, field) {
+      const key = _k(id, field);
+      if (!_dirtyKeys.has(key)) return;
+      _dirtyKeys.delete(key);
+      const n = (_itemDirtyCount.get(id) || 0) - 1;
+      if (n <= 0) _itemDirtyCount.delete(id);
+      else _itemDirtyCount.set(id, n);
+
+      // その日が完全にdirtyじゃなく、debounceも無いならpending解除
+      if (!hasDirtyForItem(id) && !_saveTimers.has(id)) {
+        _pendingItemIds.delete(id);
+      }
+    }
+
+    function hasDirtyForItem(id) {
+      return (_itemDirtyCount.get(id) || 0) > 0;
+    }
+
+    function setBaselineFromCurrent(id, field, value) {
+      const key = _k(id, field);
+      _baseValue.set(key, norm(value));
+    }
+
+    function _fields() {
+      return ['duty', 'events', 'business', 'submission', 'vacation'];
+    }
+
+    async function commitSaveItem(itemId) {
+      if (!(authUser && canEdit)) return;
+
+      // dirtyが無いなら何もしない（write 0）
+      if (!hasDirtyForItem(itemId)) {
+        _pendingItemIds.delete(itemId);
+        return;
+      }
+
+      // 同じ日に対して並行saveを避ける
+      if (_savingItems.has(itemId)) {
+        _needsResaveItems.add(itemId);
+        return;
+      }
+
+      const item = scheduleData.find(d => d.id === itemId);
+      if (!item) return;
+
+      _savingItems.add(itemId);
+
+      try {
+        await saveDayToCloud(item);
+
+        // ★保存成功：その時点の値を baseline にし、dirty/pending を外す
+        _fields().forEach(f => {
+          _baseValue.set(_k(itemId, f), norm(item[f] || ''));
+          clearDirty(itemId, f);
+        });
+
+        _pendingItemIds.delete(itemId);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        _savingItems.delete(itemId);
+
+        // save中にさらに変更が入っていたら、もう一度だけ追いかけ保存
+        if (_needsResaveItems.has(itemId)) {
+          _needsResaveItems.delete(itemId);
+          if (hasDirtyForItem(itemId)) {
+            await commitSaveItem(itemId);
+          }
+        }
+      }
+    }
 
     // ====== ★追加：編集中のフォーカス落ち防止（見た目は変えない） ======
     let isEditingCell = false;
@@ -468,22 +565,51 @@
       }, 80);
     }
 
-    function onCellFocus(id, field) {
+    // ★フォーカス時点を baseline として記録（ここから変化が無ければ write 0）
+    function onCellFocus(id, field, value) {
       isEditingCell = true;
       activeEdit = { id, field };
       _zoomResetDoneForThisFocus = false;
+
+      setBaselineFromCurrent(id, field, value);
     }
 
-    async function onCellBlur(id, field, value) {
-      await flushSave(id, field, value);
-      isEditingCell = false;
-      activeEdit = null;
-      _zoomResetDoneForThisFocus = false;
+    // ★（互換のため残置）以前の onCellBlur / flushSave は使わない。
+    //   今回は「カードから完全に離れたら保存」に統一する。
+    async function onCellBlur(id, field, value) { /* no-op */ }
+    async function flushSave(id, field, value) { /* no-op */ }
 
-      if (pendingRerender) {
-        pendingRerender = false;
-        renderSchedule();
-      }
+    // ★カードから完全に離れたら保存（focusout）
+    function attachCardSaveOnLeave(card, itemId) {
+      // focusin/out は bubble するので、子要素(contenteditable)の移動も検知できる
+      card.addEventListener('focusout', (e) => {
+        if (!(authUser && canEdit)) return;
+
+        // relatedTarget が card 内なら「カード内移動」なので保存しない
+        const to = e.relatedTarget;
+        if (to && card.contains(to)) return;
+
+        // ここに来たら「カードから完全に離れた」
+        (async () => {
+          // カード単位保存：debounceが残っていれば取消して即保存
+          if (_saveTimers.has(itemId)) {
+            clearTimeout(_saveTimers.get(itemId));
+            _saveTimers.delete(itemId);
+          }
+
+          // 編集状態を外す（必要なら再描画を後回し）
+          isEditingCell = false;
+          activeEdit = null;
+          _zoomResetDoneForThisFocus = false;
+
+          await commitSaveItem(itemId);
+
+          if (pendingRerender) {
+            pendingRerender = false;
+            renderSchedule();
+          }
+        })();
+      });
     }
 
     // ★ツール折りたたみ（表示/非表示）
@@ -706,9 +832,6 @@
     }
 
     // ========= ★更新ボタン方式：差分読み込み =========
-    // ・initialFull=true なら全件（初回表示用）
-    // ・initialFull=false なら「updatedAt > lastSeen」だけ（変更が無ければ0件＝0カウント相当）
-    // ★戻り値：{ updatedCount, changed }
     async function loadCloudForYear({ initialFull = false } = {}) {
       if (!authUser) return { updatedCount: 0, changed: false };
       const ok = await ensureFirebase();
@@ -723,13 +846,11 @@
 
       let qref = ref;
       if (!initialFull && lastSeen) {
-        // 差分：updatedAt > lastSeen のみ
         qref = ref.where('updatedAt', '>', lastSeen).orderBy('updatedAt', 'asc');
       }
 
       const snap = await qref.get();
 
-      // ★ここが「◯件更新しました」の件数（=差分で拾えた日ドキュメント数）
       let updatedCount = snap.size;
 
       let changed = false;
@@ -746,8 +867,6 @@
         }
       });
 
-      // ★差分クエリが0件でも、lastSeenは維持（＝次も0件になり得る）
-      // ★初回フルロードでupdatedAtが無い場合に備えて「今」を入れる
       if (initialFull && !maxTs) {
         maxTs = firebase.firestore.Timestamp.fromMillis(Date.now());
       }
@@ -759,11 +878,7 @@
       }
 
       // ========= 学校名（meta） =========
-      // ※ここも差分扱い（1ドキュメント読みを毎回発生させないため）
-      // 年度doc(years/{startYear}) に schoolName / updatedAt を持たせる
       try {
-        // 年度docを「差分」扱いにするため、同じlastSeenを流用（メタもupdatedAtで管理）
-        // ただし years/{startYear} の updatedAt が無い場合は毎回0件になるので、初回はgetで補完
         if (initialFull || !lastSeen) {
           const metaSnap = await yearDocRef(startYear).get();
           if (metaSnap.exists) {
@@ -773,7 +888,6 @@
             }
           }
         } else {
-          // years コレクションを updatedAt で差分取得（0件なら0カウント相当）
           const ys = await roomDocRef().collection('years')
             .where('updatedAt', '>', lastSeen)
             .orderBy('updatedAt', 'asc')
@@ -794,7 +908,6 @@
     }
 
     // ========= 保存デバウンス =========
-    // ★ソフト削除：空っぽの「日」は delete ではなく isDeleted=true で更新（差分更新で拾える）
     async function saveDayToCloud(item) {
       if (!authUser) return;
       const ok = await ensureFirebase();
@@ -813,7 +926,6 @@
       const isEmpty = !duty && !events && !business && !submission && !vacation;
 
       if (isEmpty) {
-        // ★ソフト削除（差分で拾える）
         await ref.set({
           year: item.year,
           month: item.month,
@@ -902,6 +1014,7 @@
       await batch.commit();
     }
 
+    // ★入力中は「カード単位」で debounce して保存予約（保存処理は commitSaveItem(itemId) 1回）
     function queueSave(id, field, value) {
       if (!(authUser && canEdit)) return;
 
@@ -910,33 +1023,41 @@
       const item = scheduleData.find(d => d.id === id);
       if (!item) return;
 
-      item[field] = (value || '').trim();
-      _pendingItemIds.add(item.id);
-
       const key = _k(id, field);
-      if (_saveTimers.has(key)) clearTimeout(_saveTimers.get(key));
-      _saveTimers.set(key, setTimeout(async () => {
-        try { await saveDayToCloud(item); } catch (e) { console.error(e); }
-        _saveTimers.delete(key);
-      }, 500));
-    }
 
-    async function flushSave(id, field, value) {
-      if (!(authUser && canEdit)) return;
-
-      const key = _k(id, field);
-      if (_saveTimers.has(key)) {
-        clearTimeout(_saveTimers.get(key));
-        _saveTimers.delete(key);
+      // baselineが無い場合は「変更前（現在のitem値）」を基準にする
+      if (!_baseValue.has(key)) {
+        _baseValue.set(key, norm(item[field] || ''));
       }
 
-      const item = scheduleData.find(d => d.id === id);
-      if (!item) return;
+      const v = norm(value);
+      item[field] = v;
 
-      item[field] = (value || '').trim();
-      _pendingItemIds.add(item.id);
+      const base = _baseValue.get(key);
 
-      try { await saveDayToCloud(item); } catch (e) { console.error(e); }
+      // ✅ 文字を変えていない / ✅ 入力して元に戻した → write 0（dirty解除＋debounce取消）
+      if (v === base) {
+        clearDirty(id, field);
+
+        // その日が完全にdirtyじゃないなら、debounceも止める
+        if (!hasDirtyForItem(id)) {
+          if (_saveTimers.has(id)) {
+            clearTimeout(_saveTimers.get(id));
+            _saveTimers.delete(id);
+          }
+          _pendingItemIds.delete(id);
+        }
+        return;
+      }
+
+      // ✅ ちゃんと変更した → その日だけ write（debounce）
+      markDirty(id, field);
+
+      if (_saveTimers.has(id)) clearTimeout(_saveTimers.get(id));
+      _saveTimers.set(id, setTimeout(async () => {
+        _saveTimers.delete(id);
+        await commitSaveItem(id);
+      }, 500));
     }
 
     async function flushAllPendingSaves() {
@@ -944,6 +1065,8 @@
         _saveTimers.forEach(t => clearTimeout(t));
         _saveTimers.clear();
         _pendingItemIds.clear();
+        _dirtyKeys.clear();
+        _itemDirtyCount.clear();
         return;
       }
 
@@ -951,14 +1074,28 @@
       _saveTimers.clear();
 
       const items = [];
-      _pendingItemIds.forEach(itemId => {
+      const ids = Array.from(_pendingItemIds);
+      _pendingItemIds.clear();
+
+      ids.forEach(itemId => {
+        if (!hasDirtyForItem(itemId)) return;
         const it = scheduleData.find(d => d.id === itemId);
         if (it) items.push(it);
       });
-      _pendingItemIds.clear();
 
       if (items.length > 0) {
-        try { await batchSaveToCloud(items); } catch (e) { console.error(e); }
+        try {
+          await batchSaveToCloud(items);
+
+          items.forEach(it => {
+            _fields().forEach(f => {
+              _baseValue.set(_k(it.id, f), norm(it[f] || ''));
+              clearDirty(it.id, f);
+            });
+          });
+        } catch (e) {
+          console.error(e);
+        }
       }
     }
 
@@ -1003,7 +1140,6 @@
       m1.textContent = line1 || '';
       m2.textContent = line2 || '';
 
-      // 2行目が空なら詰める
       if (line2 && String(line2).trim()) m2.classList.remove('hidden');
       else m2.classList.add('hidden');
 
@@ -1111,10 +1247,8 @@
       setSyncBadge('同期中', 'wait');
 
       try {
-        // 入力途中があれば先に確定
         try { await flushAllPendingSaves(); } catch (e) { console.error(e); }
 
-        // ★差分のみ同期（変更が無ければ0件）
         const result = await loadCloudForYear({ initialFull: false });
         const n = (result && Number.isFinite(result.updatedCount)) ? result.updatedCount : 0;
 
@@ -1173,7 +1307,6 @@
       setRefreshButtonState();
       updatePrintTitle();
 
-      // ★ツール折りたたみ：前回状態を反映
       const collapsed = localStorage.getItem(TOOLS_COLLAPSED_KEY) === '1';
       applyToolsCollapsedState(collapsed);
 
@@ -1210,7 +1343,6 @@
           canEdit = false;
           setModeBadge();
 
-          // ★ログイン直後は表示に必要なので「初回フル読み込み」（1回だけ）
           generateYearlyCalendar();
           try {
             await loadCloudForYear({ initialFull: true });
@@ -1234,6 +1366,15 @@
           lastSyncAt = null;
           updateLastSyncLabel();
           if (lastSyncTicker) { clearInterval(lastSyncTicker); lastSyncTicker = null; }
+
+          _saveTimers.forEach(t => clearTimeout(t));
+          _saveTimers.clear();
+          _pendingItemIds.clear();
+          _dirtyKeys.clear();
+          _itemDirtyCount.clear();
+          _baseValue.clear();
+          _savingItems.clear();
+          _needsResaveItems.clear();
         }
 
         applyEditLockToDOM();
@@ -1367,7 +1508,6 @@
     function nl2br(s) {
       return String(s ?? '').replace(/\n/g, '<br>');
     }
-    // 閲覧用：検索語を黄色ハイライトしてHTMLとして返す（XSS対策済み）
     function highlightHtml(text, query) {
       const t = String(text ?? '');
       const q = String(query ?? '').trim();
@@ -1420,6 +1560,10 @@
       filteredData.forEach(item => {
         const card = document.createElement('div');
         card.className = "card bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex flex-col md:flex-row";
+        card.dataset.itemId = item.id;
+
+        // ★今回追加：カードから完全に離れたら保存（focusout）
+        attachCardSaveOnLeave(card, item.id);
 
         const isSun = item.dow === '日';
         const isSat = item.dow === '土';
@@ -1429,12 +1573,12 @@
           ? escapeHtml(item.duty || '')
           : highlightHtml(item.duty || '', queryRaw);
 
+        // ★今回変更：フィールドの onblur 保存を廃止（カード離脱時のみ保存）
         const dutyHtml = showDuty ? `
           <div class="text-[10px] bg-white px-1 py-0.5 rounded border border-slate-200 font-medium md:mt-2 editable whitespace-nowrap overflow-hidden text-center flex items-center justify-center"
             contenteditable="true"
-            onfocus="onCellFocus('${item.id}', 'duty')"
-            oninput="queueSave('${item.id}', 'duty', this.innerText)"
-            onblur="onCellBlur('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
+            onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
+            oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
         ` : '';
 
         const dateSection = `
@@ -1459,28 +1603,24 @@
               <div class="p-2 md:col-span-4">
                 <div class="text-[10px] font-bold text-slate-400 mb-1">予定</div>
                 <div class="text-sm whitespace-pre-wrap leading-relaxed editable" contenteditable="true"
-                  onfocus="onCellFocus('${item.id}', 'events')"
-                  oninput="queueSave('${item.id}', 'events', this.innerText)"
-                  onblur="onCellBlur('${item.id}', 'events', this.innerText)">${eventsVal}</div>
+                  onfocus="onCellFocus('${item.id}', 'events', this.innerText)"
+                  oninput="queueSave('${item.id}', 'events', this.innerText)">${eventsVal}</div>
               </div>
               <div class="p-2 md:col-span-6">
                 <div class="text-[10px] font-bold text-slate-400 mb-1">出張・提出物</div>
                 <div class="text-sm whitespace-pre-wrap leading-relaxed editable mb-1" contenteditable="true"
-                  onfocus="onCellFocus('${item.id}', 'business')"
-                  oninput="queueSave('${item.id}', 'business', this.innerText)"
-                  onblur="onCellBlur('${item.id}', 'business', this.innerText)">${businessVal}</div>
+                  onfocus="onCellFocus('${item.id}', 'business', this.innerText)"
+                  oninput="queueSave('${item.id}', 'business', this.innerText)">${businessVal}</div>
                 <div class="text-sm text-amber-700 font-medium whitespace-pre-wrap editable" contenteditable="true"
-                  onfocus="onCellFocus('${item.id}', 'submission')"
-                  oninput="queueSave('${item.id}', 'submission', this.innerText)"
-                  onblur="onCellBlur('${item.id}', 'submission', this.innerText)">${submissionVal}</div>
+                  onfocus="onCellFocus('${item.id}', 'submission', this.innerText)"
+                  oninput="queueSave('${item.id}', 'submission', this.innerText)">${submissionVal}</div>
               </div>
               <div class="p-2 md:col-span-2 bg-slate-50/30">
                 <div class="text-[10px] font-bold text-slate-400 mb-1">休暇</div>
                 <div class="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed editable"
                   contenteditable="true"
-                  onfocus="onCellFocus('${item.id}', 'vacation')"
-                  oninput="queueSave('${item.id}', 'vacation', this.innerText)"
-                  onblur="onCellBlur('${item.id}', 'vacation', this.innerText)">${vacationVal}</div>
+                  onfocus="onCellFocus('${item.id}', 'vacation', this.innerText)"
+                  oninput="queueSave('${item.id}', 'vacation', this.innerText)">${vacationVal}</div>
               </div>
             </div>
           `;
@@ -1492,9 +1632,8 @@
           contentHtml = `
             <div class="flex-1 p-3">
               <div class="text-base whitespace-pre-wrap leading-relaxed editable h-full" contenteditable="true"
-                onfocus="onCellFocus('${item.id}', '${field}')"
-                oninput="queueSave('${item.id}', '${field}', this.innerText)"
-                onblur="onCellBlur('${item.id}', '${field}', this.innerText)">${fieldVal}</div>
+                onfocus="onCellFocus('${item.id}', '${field}', this.innerText)"
+                oninput="queueSave('${item.id}', '${field}', this.innerText)">${fieldVal}</div>
             </div>
           `;
         }
@@ -1521,7 +1660,6 @@
       const input = document.getElementById('searchInput');
       if (!input) return;
 
-      // ★②：検索欄フォーカス/決定でズーム残りを解消
       input.addEventListener('focus', () => {
         _zoomResetDoneForThisFocus = false;
       });
@@ -1589,6 +1727,11 @@
       return cleaned;
     }
 
+    function pick(before, candidateRaw) {
+      const c = norm(candidateRaw);
+      return c ? c : before;
+    }
+
     async function importCSV(input) {
       if (!(authUser && canEdit)) {
         alert('CSVインポートは「ログイン＋編集モード」の時だけできます。');
@@ -1620,57 +1763,58 @@
         const touched = [];
 
         dataRows.forEach(colsRaw => {
-  const cols = colsRaw.map(v => String(v ?? ''));
-  const m = parseInt(String(cols[mapping['月']] ?? '').trim(), 10);
-  const d = parseInt(String(cols[mapping['日']] ?? '').trim(), 10);
-  if (!Number.isFinite(m) || !Number.isFinite(d)) { skipped++; return; }
+          const cols = colsRaw.map(v => String(v ?? ''));
+          const m = parseInt(String(cols[mapping['月']] ?? '').trim(), 10);
+          const d = parseInt(String(cols[mapping['日']] ?? '').trim(), 10);
+          if (!Number.isFinite(m) || !Number.isFinite(d)) { skipped++; return; }
 
-  const y = (m >= 4) ? startYear : startYear + 1;
-  const target = scheduleData.find(item => item.year === y && item.month === m && item.day === d);
-  if (!target) { skipped++; return; }
+          const y = (m >= 4) ? startYear : startYear + 1;
+          const target = scheduleData.find(item => item.year === y && item.month === m && item.day === d);
+          if (!target) { skipped++; return; }
 
-  // 現在値（ローカル）を保持
-  const before = {
-    duty: norm(target.duty),
-    events: norm(target.events),
-    business: norm(target.business),
-    submission: norm(target.submission),
-    vacation: norm(target.vacation),
-  };
+          const before = {
+            duty: norm(target.duty),
+            events: norm(target.events),
+            business: norm(target.business),
+            submission: norm(target.submission),
+            vacation: norm(target.vacation),
+          };
 
-  // CSVの値を「空欄上書きしない」ルールで候補化
-  const next = { ...before };
+          const next = { ...before };
 
-  if (mapping['日直'] !== -1) next.duty = pick(before.duty, cols[mapping['日直']]);
-  if (mapping['予定'] !== -1) next.events = pick(before.events, cols[mapping['予定']]);
-  if (mapping['出張'] !== -1) next.business = pick(before.business, cols[mapping['出張']]);
-  if (mapping['提出物'] !== -1) next.submission = pick(before.submission, cols[mapping['提出物']]);
-  if (mapping['休暇'] !== -1) next.vacation = pick(before.vacation, cols[mapping['休暇']]);
+          if (mapping['日直'] !== -1) next.duty = pick(before.duty, cols[mapping['日直']]);
+          if (mapping['予定'] !== -1) next.events = pick(before.events, cols[mapping['予定']]);
+          if (mapping['出張'] !== -1) next.business = pick(before.business, cols[mapping['出張']]);
+          if (mapping['提出物'] !== -1) next.submission = pick(before.submission, cols[mapping['提出物']]);
+          if (mapping['休暇'] !== -1) next.vacation = pick(before.vacation, cols[mapping['休暇']]);
 
-  // ★差分判定：1つでも違えばその日だけ更新対象
-  const changed =
-    next.duty !== before.duty ||
-    next.events !== before.events ||
-    next.business !== before.business ||
-    next.submission !== before.submission ||
-    next.vacation !== before.vacation;
+          const changed =
+            next.duty !== before.duty ||
+            next.events !== before.events ||
+            next.business !== before.business ||
+            next.submission !== before.submission ||
+            next.vacation !== before.vacation;
 
-  if (!changed) return; // ★変化なし → touchedに入れない → write 0
+          if (!changed) return;
 
-  // 変更がある日だけ反映＋保存対象へ
-  target.duty = next.duty;
-  target.events = next.events;
-  target.business = next.business;
-  target.submission = next.submission;
-  target.vacation = next.vacation;
+          target.duty = next.duty;
+          target.events = next.events;
+          target.business = next.business;
+          target.submission = next.submission;
+          target.vacation = next.vacation;
 
-  touched.push(target);
-  count++;
-});
+          touched.push(target);
+          count++;
+        });
 
         if (count > 0) {
           renderSchedule();
           try { await batchSaveToCloud(touched); } catch (err) { console.error(err); }
+
+          touched.forEach(it => {
+            _fields().forEach(f => _baseValue.set(_k(it.id, f), norm(it[f] || '')));
+          });
+
           alert(`${count}件の予定を更新しました。${skipped ? `（スキップ ${skipped}行）` : ''}`);
         } else {
           alert('有効なデータが見つかりませんでした。');
