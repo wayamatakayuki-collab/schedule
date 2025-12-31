@@ -1620,24 +1620,53 @@
         const touched = [];
 
         dataRows.forEach(colsRaw => {
-          const cols = colsRaw.map(v => String(v ?? ''));
-          const m = parseInt(String(cols[mapping['月']] ?? '').trim(), 10);
-          const d = parseInt(String(cols[mapping['日']] ?? '').trim(), 10);
-          if (!Number.isFinite(m) || !Number.isFinite(d)) { skipped++; return; }
+  const cols = colsRaw.map(v => String(v ?? ''));
+  const m = parseInt(String(cols[mapping['月']] ?? '').trim(), 10);
+  const d = parseInt(String(cols[mapping['日']] ?? '').trim(), 10);
+  if (!Number.isFinite(m) || !Number.isFinite(d)) { skipped++; return; }
 
-          const y = (m >= 4) ? startYear : startYear + 1;
-          const target = scheduleData.find(item => item.year === y && item.month === m && item.day === d);
-          if (!target) { skipped++; return; }
+  const y = (m >= 4) ? startYear : startYear + 1;
+  const target = scheduleData.find(item => item.year === y && item.month === m && item.day === d);
+  if (!target) { skipped++; return; }
 
-          if (mapping['日直'] !== -1) target.duty = String(cols[mapping['日直']] ?? '').trim();
-          if (mapping['予定'] !== -1) target.events = String(cols[mapping['予定']] ?? '').trim();
-          if (mapping['出張'] !== -1) target.business = String(cols[mapping['出張']] ?? '').trim();
-          if (mapping['提出物'] !== -1) target.submission = String(cols[mapping['提出物']] ?? '').trim();
-          if (mapping['休暇'] !== -1) target.vacation = String(cols[mapping['休暇']] ?? '').trim();
+  // 現在値（ローカル）を保持
+  const before = {
+    duty: norm(target.duty),
+    events: norm(target.events),
+    business: norm(target.business),
+    submission: norm(target.submission),
+    vacation: norm(target.vacation),
+  };
 
-          touched.push(target);
-          count++;
-        });
+  // CSVの値を「空欄上書きしない」ルールで候補化
+  const next = { ...before };
+
+  if (mapping['日直'] !== -1) next.duty = pick(before.duty, cols[mapping['日直']]);
+  if (mapping['予定'] !== -1) next.events = pick(before.events, cols[mapping['予定']]);
+  if (mapping['出張'] !== -1) next.business = pick(before.business, cols[mapping['出張']]);
+  if (mapping['提出物'] !== -1) next.submission = pick(before.submission, cols[mapping['提出物']]);
+  if (mapping['休暇'] !== -1) next.vacation = pick(before.vacation, cols[mapping['休暇']]);
+
+  // ★差分判定：1つでも違えばその日だけ更新対象
+  const changed =
+    next.duty !== before.duty ||
+    next.events !== before.events ||
+    next.business !== before.business ||
+    next.submission !== before.submission ||
+    next.vacation !== before.vacation;
+
+  if (!changed) return; // ★変化なし → touchedに入れない → write 0
+
+  // 変更がある日だけ反映＋保存対象へ
+  target.duty = next.duty;
+  target.events = next.events;
+  target.business = next.business;
+  target.submission = next.submission;
+  target.vacation = next.vacation;
+
+  touched.push(target);
+  count++;
+});
 
         if (count > 0) {
           renderSchedule();
