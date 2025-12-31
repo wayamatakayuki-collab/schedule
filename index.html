@@ -362,8 +362,12 @@
 
   <script>
     // =========================================================
-    // 重要：ローカル保存は使わない（全てクラウド）
-    // ただし「差分同期カーソル（最終既読）」だけは端末内に保持（予定データ本体は保存しない）
+    // 方針（完璧版）は崩さない：
+    //  - 更新ボタン文化（差分同期 lastSeen）そのまま
+    //  - write は変更があった日だけ
+    // 追加（軽い調整）：
+    //  - 予定データ本体（scheduleData）を端末にキャッシュして、
+    //    ログアウト→ログインでも「初回だけフルread」、以降は差分readにする
     // =========================================================
 
     // ========= 状態 =========
@@ -389,6 +393,9 @@
     // ・更新ボタンでは「updatedAt > lastSeen」を読む
     // ・0件なら lead(read) は 0ドキュメント相当
     const LAST_SEEN_KEY_PREFIX = 'schedule_last_seen_millis_v1__';
+
+    // ★予定データ本体キャッシュ（uid + 年度で分離）
+    const LOCAL_CACHE_PREFIX = 'schedule_cache_v1__';
 
     // モード：閲覧/編集（ログイン後に誰でも切替）
     let canEdit = false;
@@ -450,6 +457,49 @@
       return ['duty', 'events', 'business', 'submission', 'vacation'];
     }
 
+    // ====== ★ローカルキャッシュ（予定データ本体） ======
+    function _cacheKey(startYear) {
+      if (!authUser) return null;
+      return `${LOCAL_CACHE_PREFIX}${authUser.uid}__${startYear}`;
+    }
+
+    function loadScheduleCache(startYear) {
+      try {
+        const k = _cacheKey(startYear);
+        if (!k) return false;
+        const raw = localStorage.getItem(k);
+        if (!raw) return false;
+
+        const arr = JSON.parse(raw);
+        // 1年分あるか軽くチェック（年度で約365）
+        if (!Array.isArray(arr) || arr.length < 300) return false;
+
+        scheduleData = arr;
+        return true;
+      } catch (e) {
+        console.error(e);
+        return false;
+      }
+    }
+
+    let _cacheSaveTimer = null;
+    function queueScheduleCacheSave() {
+      if (!authUser) return;
+      const startYear = getStartYear();
+      const k = _cacheKey(startYear);
+      if (!k) return;
+
+      // 保存連打しないように軽くデバウンス
+      if (_cacheSaveTimer) clearTimeout(_cacheSaveTimer);
+      _cacheSaveTimer = setTimeout(() => {
+        try {
+          localStorage.setItem(k, JSON.stringify(scheduleData));
+        } catch (e) {
+          console.error(e);
+        }
+      }, 500);
+    }
+
     async function commitSaveItem(itemId) {
       if (!(authUser && canEdit)) return;
 
@@ -480,6 +530,9 @@
         });
 
         _pendingItemIds.delete(itemId);
+
+        // ★端末キャッシュも更新（ログインし直しでもフルread回避）
+        queueScheduleCacheSave();
       } catch (e) {
         console.error(e);
       } finally {
@@ -903,6 +956,11 @@
         }
       } catch (e) { console.error(e); }
 
+      // ★予定データ本体キャッシュ（初回フル / 変更あり / 更新件数あり のときだけ保存）
+      if (initialFull || changed || updatedCount > 0) {
+        queueScheduleCacheSave();
+      }
+
       setSyncBadge('同期OK', 'ok');
       return { updatedCount, changed };
     }
@@ -1093,6 +1151,9 @@
               clearDirty(it.id, f);
             });
           });
+
+          // ★まとめ保存後もキャッシュ更新
+          queueScheduleCacheSave();
         } catch (e) {
           console.error(e);
         }
@@ -1343,12 +1404,20 @@
           canEdit = false;
           setModeBadge();
 
-          generateYearlyCalendar();
+          // ★ログイン直後：キャッシュがあれば復元してから、必要な場合だけフルread
+          const cacheLoaded = generateYearlyCalendar(); // 内部で cache を試し、描画まで行う
+          const startYear = getStartYear();
+          const lastSeen = getLastSeenTs(startYear);
+          const needFull = (!cacheLoaded) || (!lastSeen);
+
           try {
-            await loadCloudForYear({ initialFull: true });
+            await loadCloudForYear({ initialFull: needFull });
             lastSyncAt = Date.now();
             updateLastSyncLabel();
             startLastSyncTicker();
+
+            // ★初回の状態を確実にキャッシュ
+            queueScheduleCacheSave();
           } catch (e) { console.error(e); }
 
           setSyncBadge('同期OK', 'ok');
@@ -1426,9 +1495,18 @@
       }
 
       scheduleData = newScheduleData;
+
+      // ★ログイン中なら、同年度のローカルキャッシュがあれば復元（フルread回避の鍵）
+      let cacheLoaded = false;
+      if (authUser) {
+        cacheLoaded = loadScheduleCache(startYear);
+      }
+
       renderSchedule();
       applyEditLockToDOM();
       updatePrintTitle();
+
+      return cacheLoaded;
     }
 
     // ========= 月ナビ =========
@@ -1814,6 +1892,9 @@
           touched.forEach(it => {
             _fields().forEach(f => _baseValue.set(_k(it.id, f), norm(it[f] || '')));
           });
+
+          // ★CSV反映後もキャッシュ更新
+          queueScheduleCacheSave();
 
           alert(`${count}件の予定を更新しました。${skipped ? `（スキップ ${skipped}行）` : ''}`);
         } else {
