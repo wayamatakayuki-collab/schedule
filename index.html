@@ -1698,7 +1698,7 @@
 
         // ★今回変更：フィールドの onblur 保存を廃止（カード離脱時のみ保存）
         const dutyHtml = showDuty ? `
-          <div class="text-[10px] bg-white px-1 py-0.5 rounded border border-slate-200 font-medium md:mt-2 editable whitespace-nowrap overflow-hidden text-center flex items-center justify-center"
+          <div class="text-sm bg-white px-1 py-0.5 rounded border border-slate-200 font-medium md:mt-2 editable whitespace-nowrap overflow-hidden text-center flex items-center justify-center"
             contenteditable="true"
             onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
             oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
