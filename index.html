@@ -231,6 +231,11 @@
       <div class="flex space-x-6 text-sm font-medium" id="tabsztabs">
         <button onclick="switchTab('all')" data-tab="all"
           class="tab-btn py-3 border-b-2 border-indigo-600 text-indigo-600">全体表示</button>
+
+        <!-- ★追加：お知らせタブ -->
+        <button onclick="switchTab('notice')" data-tab="notice"
+          class="tab-btn py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700">お知らせ</button>
+
         <button onclick="switchTab('school')" data-tab="school"
           class="tab-btn py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700">予定</button>
         <button onclick="switchTab('business')" data-tab="business"
@@ -471,7 +476,8 @@
     }
 
     function _fields() {
-      return ['duty', 'events', 'business', 'submission', 'vacation'];
+      // ★追加：notice
+      return ['notice', 'duty', 'events', 'business', 'submission', 'vacation'];
     }
 
     // ====== ★ローカルキャッシュ（予定データ本体） ======
@@ -492,6 +498,8 @@
         if (!Array.isArray(arr) || arr.length < 300) return false;
 
         scheduleData = arr;
+        // 旧キャッシュ互換：notice が無い場合に備え、空で補完
+        scheduleData.forEach(it => { if (typeof it.notice !== 'string') it.notice = ''; });
         return true;
       } catch (e) {
         console.error(e);
@@ -679,33 +687,25 @@
         }
       };
 
-      // focusin/out は bubble するので、子要素(contenteditable)の移動も検知できる
       card.addEventListener('focusout', (e) => {
         if (!(authUser && canEdit)) return;
 
         const to = e.relatedTarget;
 
-        // relatedTarget が card 内なら「カード内移動」なので保存しない
         if (to && card.contains(to)) return;
 
-        // ★iOS Safari：relatedTarget が null のことがある → activeElement と直前タップ位置で再判定
         if (!to) {
           setTimeout(() => {
             const ae = document.activeElement;
 
-            // フォーカスが実はカード内に残っている（iOSの遅延反映）なら保存しない
             if (ae && card.contains(ae)) return;
-
-            // 直前に触った場所がカード内なら「カード内操作」とみなし保存しない
             if (_lastPointerDownTarget && card.contains(_lastPointerDownTarget)) return;
 
-            // ここに来たら「カードから完全に離れた」
             doCommit();
           }, 0);
           return;
         }
 
-        // to が外なら通常通り保存
         doCommit();
       });
     }
@@ -737,7 +737,6 @@
       if (el) el.textContent = title;
     }
 
-    // 印刷を開く直前にタイトルを更新（確実に反映）
     window.addEventListener('beforeprint', () => {
       updatePrintTitle();
     });
@@ -912,6 +911,7 @@
 
       // ★ソフト削除（isDeleted=true）は、ローカルを空にする
       if (data.isDeleted === true) {
+        if (!(sameItem && ae.field === 'notice')) target.notice = '';
         if (!(sameItem && ae.field === 'duty')) target.duty = '';
         if (!(sameItem && ae.field === 'events')) target.events = '';
         if (!(sameItem && ae.field === 'business')) target.business = '';
@@ -920,6 +920,7 @@
         return true;
       }
 
+      if (!(sameItem && ae.field === 'notice')) target.notice = data.notice || '';
       if (!(sameItem && ae.field === 'duty')) target.duty = data.duty || '';
       if (!(sameItem && ae.field === 'events')) target.events = data.events || '';
       if (!(sameItem && ae.field === 'business')) target.business = data.business || '';
@@ -1020,19 +1021,21 @@
       const docId = `${item.year}-${item.month}-${item.day}`;
       const ref = cloudDaysRef(startYear).doc(docId);
 
+      const notice = (item.notice || '').trim();
       const duty = (item.duty || '').trim();
       const events = (item.events || '').trim();
       const business = (item.business || '').trim();
       const submission = (item.submission || '').trim();
       const vacation = (item.vacation || '').trim();
 
-      const isEmpty = !duty && !events && !business && !submission && !vacation;
+      const isEmpty = !notice && !duty && !events && !business && !submission && !vacation;
 
       if (isEmpty) {
         await ref.set({
           year: item.year,
           month: item.month,
           day: item.day,
+          notice: '',
           duty: '',
           events: '',
           business: '',
@@ -1050,6 +1053,7 @@
         year: item.year,
         month: item.month,
         day: item.day,
+        notice,
         duty,
         events,
         business,
@@ -1074,19 +1078,21 @@
       items.forEach(item => {
         const docId = `${item.year}-${item.month}-${item.day}`;
 
+        const notice = (item.notice || '').trim();
         const duty = (item.duty || '').trim();
         const events = (item.events || '').trim();
         const business = (item.business || '').trim();
         const submission = (item.submission || '').trim();
         const vacation = (item.vacation || '').trim();
 
-        const isEmpty = !duty && !events && !business && !submission && !vacation;
+        const isEmpty = !notice && !duty && !events && !business && !submission && !vacation;
 
         if (isEmpty) {
           batch.set(ref.doc(docId), {
             year: item.year,
             month: item.month,
             day: item.day,
+            notice: '',
             duty: '',
             events: '',
             business: '',
@@ -1102,6 +1108,7 @@
             year: item.year,
             month: item.month,
             day: item.day,
+            notice,
             duty,
             events,
             business,
@@ -1128,7 +1135,6 @@
 
       const key = _k(id, field);
 
-      // baselineが無い場合は「変更前（現在のitem値）」を基準にする
       if (!_baseValue.has(key)) {
         _baseValue.set(key, norm(item[field] || ''));
       }
@@ -1138,11 +1144,9 @@
 
       const base = _baseValue.get(key);
 
-      // ✅ 文字を変えていない / ✅ 入力して元に戻した → write 0（dirty解除＋debounce取消）
       if (v === base) {
         clearDirty(id, field);
 
-        // その日が完全にdirtyじゃないなら、debounceも止める
         if (!hasDirtyForItem(id)) {
           if (_saveTimers.has(id)) {
             clearTimeout(_saveTimers.get(id));
@@ -1153,7 +1157,6 @@
         return;
       }
 
-      // ✅ ちゃんと変更した → その日だけ write（debounce）
       markDirty(id, field);
 
       if (_saveTimers.has(id)) clearTimeout(_saveTimers.get(id));
@@ -1197,7 +1200,6 @@
             });
           });
 
-          // ★まとめ保存後もキャッシュ更新
           queueScheduleCacheSave();
         } catch (e) {
           console.error(e);
@@ -1461,7 +1463,6 @@
             updateLastSyncLabel();
             startLastSyncTicker();
 
-            // ★初回の状態を確実にキャッシュ
             queueScheduleCacheSave();
           } catch (e) { console.error(e); }
 
@@ -1530,6 +1531,8 @@
           newScheduleData.push({
             id: `${year}-${month}-${day}`,
             year, month, day, dow,
+            // ★追加：notice
+            notice: '',
             duty: '',
             events: '',
             business: '',
@@ -1546,6 +1549,9 @@
       if (authUser) {
         cacheLoaded = loadScheduleCache(startYear);
       }
+
+      // 旧データ互換：notice が無い場合に補完
+      scheduleData.forEach(it => { if (typeof it.notice !== 'string') it.notice = ''; });
 
       renderSchedule();
       applyEditLockToDOM();
@@ -1602,12 +1608,14 @@
     function buildSearchTextForItem(item) {
       if (!item) return '';
 
+      if (currentTab === 'notice') return String(item.notice || '');
       if (currentTab === 'school') return String(item.events || '');
       if (currentTab === 'business') return String(item.business || '');
       if (currentTab === 'submission') return String(item.submission || '');
       if (currentTab === 'vacation') return String(item.vacation || '');
 
       return (
+        String(item.notice || '') + '\n' +
         String(item.events || '') + '\n' +
         String(item.business || '') + '\n' +
         String(item.submission || '') + '\n' +
@@ -1685,7 +1693,6 @@
         card.className = "card bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex flex-col md:flex-row";
         card.dataset.itemId = item.id;
 
-        // ★今回追加：カードから完全に離れたら保存（focusout）※iOS対策込み
         attachCardSaveOnLeave(card, item.id);
 
         const isSun = item.dow === '日';
@@ -1696,7 +1703,6 @@
           ? escapeHtml(item.duty || '')
           : highlightHtml(item.duty || '', queryRaw);
 
-        // ★今回変更：フィールドの onblur 保存を廃止（カード離脱時のみ保存）
         const dutyHtml = showDuty ? `
           <div class="text-sm bg-white px-1 py-0.5 rounded border border-slate-200 font-medium md:mt-2 editable whitespace-nowrap overflow-hidden text-center flex items-center justify-center"
             contenteditable="true"
@@ -1716,6 +1722,7 @@
 
         let contentHtml = '';
         if (currentTab === 'all') {
+          const noticeVal = editable ? escapeHtml(item.notice || '') : highlightHtml(item.notice || '', queryRaw);
           const eventsVal = editable ? escapeHtml(item.events || '') : highlightHtml(item.events || '', queryRaw);
           const businessVal = editable ? escapeHtml(item.business || '') : highlightHtml(item.business || '', queryRaw);
           const submissionVal = editable ? escapeHtml(item.submission || '') : highlightHtml(item.submission || '', queryRaw);
@@ -1723,13 +1730,23 @@
 
           contentHtml = `
             <div class="flex-1 grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-              <div class="p-2 md:col-span-4">
+              <!-- ★追加：お知らせ（全体表示内に欄を新設） -->
+              <div class="p-2 md:col-span-3">
+                <!-- ★見出し色：他と同じ（text-slate-400） -->
+                <div class="text-[10px] font-bold text-slate-400 mb-1">お知らせ</div>
+                <div class="text-sm whitespace-pre-wrap leading-relaxed editable" contenteditable="true"
+                  onfocus="onCellFocus('${item.id}', 'notice', this.innerText)"
+                  oninput="queueSave('${item.id}', 'notice', this.innerText)">${noticeVal}</div>
+              </div>
+
+              <div class="p-2 md:col-span-3">
                 <div class="text-[10px] font-bold text-slate-400 mb-1">予定</div>
                 <div class="text-sm whitespace-pre-wrap leading-relaxed editable" contenteditable="true"
                   onfocus="onCellFocus('${item.id}', 'events', this.innerText)"
                   oninput="queueSave('${item.id}', 'events', this.innerText)">${eventsVal}</div>
               </div>
-              <div class="p-2 md:col-span-6">
+
+              <div class="p-2 md:col-span-4">
                 <div class="text-[10px] font-bold text-slate-400 mb-1">出張・提出物</div>
                 <div class="text-sm whitespace-pre-wrap leading-relaxed editable mb-1" contenteditable="true"
                   onfocus="onCellFocus('${item.id}', 'business', this.innerText)"
@@ -1738,6 +1755,7 @@
                   onfocus="onCellFocus('${item.id}', 'submission', this.innerText)"
                   oninput="queueSave('${item.id}', 'submission', this.innerText)">${submissionVal}</div>
               </div>
+
               <div class="p-2 md:col-span-2 bg-slate-50/30">
                 <div class="text-[10px] font-bold text-slate-400 mb-1">休暇</div>
                 <div class="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed editable"
@@ -1748,7 +1766,7 @@
             </div>
           `;
         } else {
-          const fields = { school: 'events', business: 'business', submission: 'submission', vacation: 'vacation' };
+          const fields = { notice: 'notice', school: 'events', business: 'business', submission: 'submission', vacation: 'vacation' };
           const field = fields[currentTab];
           const fieldVal = editable ? escapeHtml(item[field] || '') : highlightHtml(item[field] || '', queryRaw);
 
@@ -1896,6 +1914,7 @@
           if (!target) { skipped++; return; }
 
           const before = {
+            notice: norm(target.notice),
             duty: norm(target.duty),
             events: norm(target.events),
             business: norm(target.business),
@@ -1912,6 +1931,7 @@
           if (mapping['休暇'] !== -1) next.vacation = pick(before.vacation, cols[mapping['休暇']]);
 
           const changed =
+            next.notice !== before.notice ||
             next.duty !== before.duty ||
             next.events !== before.events ||
             next.business !== before.business ||
@@ -1920,6 +1940,7 @@
 
           if (!changed) return;
 
+          target.notice = next.notice;
           target.duty = next.duty;
           target.events = next.events;
           target.business = next.business;
@@ -1938,7 +1959,6 @@
             _fields().forEach(f => _baseValue.set(_k(it.id, f), norm(it[f] || '')));
           });
 
-          // ★CSV反映後もキャッシュ更新
           queueScheduleCacheSave();
 
           alert(`${count}件の予定を更新しました。${skipped ? `（スキップ ${skipped}行）` : ''}`);
@@ -2024,7 +2044,6 @@
       if (!email) { alert('IDは英数・記号 . _ - のみで入力してください。'); return; }
       if (!pass || pass.length < 6) { alert('Passwordは6文字以上で入力してください。'); return; }
 
-      // ★ID新規作成コード必須（固定照合）
       if (!code) { alert('ID新規作成コードを入力してください。'); return; }
       if (code !== FIXED_CREATE_CODE) { alert('ID新規作成コードが違います。'); return; }
 
@@ -2034,7 +2053,6 @@
 
         localStorage.setItem(LAST_ID_KEY, id);
 
-        // ★コード欄はクリア（覗き見対策）
         const cc = document.getElementById('createCodeInput');
         if (cc) cc.value = '';
 
