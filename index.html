@@ -231,9 +231,8 @@
       <div class="flex space-x-6 text-sm font-medium" id="tabsztabs">
         <button onclick="switchTab('all')" data-tab="all"
           class="tab-btn py-3 border-b-2 border-indigo-600 text-indigo-600">全体表示</button>
-        <!-- ★ここ：予定タブ → お知らせ -->
         <button onclick="switchTab('school')" data-tab="school"
-          class="tab-btn py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700">お知らせ</button>
+          class="tab-btn py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700">予定</button>
         <button onclick="switchTab('business')" data-tab="business"
           class="tab-btn py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700">出張</button>
         <button onclick="switchTab('submission')" data-tab="submission"
@@ -1725,8 +1724,7 @@
           contentHtml = `
             <div class="flex-1 grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-100">
               <div class="p-2 md:col-span-4">
-                <!-- ★ここ：全体表示の見出し 予定 → お知らせ -->
-                <div class="text-[10px] font-bold text-slate-700 mb-1">お知らせ</div>
+                <div class="text-[10px] font-bold text-slate-400 mb-1">予定</div>
                 <div class="text-sm whitespace-pre-wrap leading-relaxed editable" contenteditable="true"
                   onfocus="onCellFocus('${item.id}', 'events', this.innerText)"
                   oninput="queueSave('${item.id}', 'events', this.innerText)">${eventsVal}</div>
@@ -1736,8 +1734,7 @@
                 <div class="text-sm whitespace-pre-wrap leading-relaxed editable mb-1" contenteditable="true"
                   onfocus="onCellFocus('${item.id}', 'business', this.innerText)"
                   oninput="queueSave('${item.id}', 'business', this.innerText)">${businessVal}</div>
-                <!-- ★色：黒でよい → 提出物の文字色を黒寄りに -->
-                <div class="text-sm text-slate-800 font-medium whitespace-pre-wrap editable" contenteditable="true"
+                <div class="text-sm text-amber-700 font-medium whitespace-pre-wrap editable" contenteditable="true"
                   onfocus="onCellFocus('${item.id}', 'submission', this.innerText)"
                   oninput="queueSave('${item.id}', 'submission', this.innerText)">${submissionVal}</div>
               </div>
