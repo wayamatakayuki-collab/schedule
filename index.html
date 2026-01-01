@@ -1886,6 +1886,7 @@
       return c ? c : before;
     }
 
+    // ★お知らせ対応：旧CSV（お知らせ列なし）も読める
     async function importCSV(input) {
       if (!(authUser && canEdit)) {
         alert('CSVインポートは「ログイン＋編集モード」の時だけできます。');
@@ -1904,12 +1905,31 @@
         if (table.length < 2) { alert('CSVにデータ行がありません。'); input.value=''; return; }
 
         const headerLine = table[0].map(v => String(v ?? '').trim());
-        const mapping = { '月': -1, '日': -1, '日直': -1, '予定': -1, '出張': -1, '提出物': -1, '休暇': -1 };
+
+        // ★期待ヘッダー（順序は問わない・存在すれば読む）
+        // ['月','日','曜日','日直','予定','出張','提出物','お知らせ','休暇']
+        const mapping = {
+          '月': -1,
+          '日': -1,
+          '曜日': -1,      // あっても使わない（あれば読み飛ばし）
+          '日直': -1,
+          '予定': -1,
+          '出張': -1,
+          '提出物': -1,
+          'お知らせ': -1,  // ★追加
+          '休暇': -1
+        };
+
         headerLine.forEach((h, i) => {
           const cleanH = String(h ?? '').trim();
           if (Object.prototype.hasOwnProperty.call(mapping, cleanH)) mapping[cleanH] = i;
         });
-        if (mapping['月'] === -1 || mapping['日'] === -1) { alert('CSVのヘッダーに「月」「日」が見つかりませんでした。'); input.value=''; return; }
+
+        if (mapping['月'] === -1 || mapping['日'] === -1) {
+          alert('CSVのヘッダーに「月」「日」が見つかりませんでした。');
+          input.value='';
+          return;
+        }
 
         const dataRows = table.slice(1);
         let count = 0, skipped = 0;
@@ -1941,6 +1961,8 @@
           if (mapping['予定'] !== -1) next.events = pick(before.events, cols[mapping['予定']]);
           if (mapping['出張'] !== -1) next.business = pick(before.business, cols[mapping['出張']]);
           if (mapping['提出物'] !== -1) next.submission = pick(before.submission, cols[mapping['提出物']]);
+          // ★追加：お知らせ（列が無ければ変更しない）
+          if (mapping['お知らせ'] !== -1) next.notice = pick(before.notice, cols[mapping['お知らせ']]);
           if (mapping['休暇'] !== -1) next.vacation = pick(before.vacation, cols[mapping['休暇']]);
 
           const changed =
@@ -1991,6 +2013,7 @@
       return s;
     }
 
+    // ★お知らせ対応：ヘッダー固定（指定順）
     function exportCSV() {
       if (!authUser) {
         alert('CSVエクスポートはログイン後にできます。');
@@ -2005,7 +2028,8 @@
         return a.day - b.day;
       });
 
-      const header = ['月','日','曜日','日直','予定','出張','提出物','休暇'];
+      // ★指定ヘッダー順
+      const header = ['月','日','曜日','日直','予定','出張','提出物','お知らせ','休暇'];
       const lines = [header.map(csvEscape).join(',')];
 
       rows.forEach(it => {
@@ -2017,6 +2041,7 @@
           it.events || '',
           it.business || '',
           it.submission || '',
+          it.notice || '',   // ★追加
           it.vacation || ''
         ].map(csvEscape).join(',');
         lines.push(line);
