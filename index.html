@@ -139,7 +139,7 @@
             </div>
 
             <button id="refreshBtn" type="button" onclick="manualRefresh()"
-              class="shrink-0 px-6 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 active:scale-95 inline-flex items-center gap-2 justify-center"shrink-0 px-４ py-2 rounded-lg border border-sl>
+              class="shrink-0 px-6 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 active:scale-95 inline-flex items-center gap-2 justify-center">
               <svg id="refreshSpinner" class="hidden h-4 w-4 animate-spin text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 00-4 4H4z"></path>
@@ -273,8 +273,8 @@
   </main>
 
   <div class="no-print fixed bottom-2 left-0 right-0 text-center text-[11px] text-slate-400 select-none">
-  @School Cal  Takayuki WAYAMA
-</div>
+    @School Cal  Takayuki WAYAMA
+  </div>
 
   <!-- ★トースト（右下） -->
   <div id="toast" class="pointer-events-none hidden fixed bottom-4 right-4 z-50">
@@ -302,78 +302,77 @@
            style="max-height: calc(100vh - 2rem); overflow-y: auto; -webkit-overflow-scrolling: touch;">
         <div class="p-4 border-b border-slate-100">
           <div class="text-lg font-bold">ログイン</div>
-<div class="text-sm text-slate-500 mt-1">ID / Passwordを入力してください。</div>
+          <div class="text-sm text-slate-500 mt-1">ID / Passwordを入力してください。</div>
         </div>
 
-       <div class="p-4 space-y-4">
-  <!-- 1) ID -->
-  <div>
-    <label class="text-sm font-medium text-slate-700">ID（英数・記号 . _ -）</label>
-    <input id="idInput" type="text" placeholder=""
-      class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-  </div>
+        <div class="p-4 space-y-4">
+          <!-- 1) ID -->
+          <div>
+            <label class="text-sm font-medium text-slate-700">ID（英数・記号 . _ -）</label>
+            <input id="idInput" type="text" placeholder=""
+              class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
 
-  <!-- 2) Password -->
-  <div>
-    <label class="text-sm font-medium text-slate-700">Password（6文字以上）</label>
-    <input id="passInput" type="password" placeholder=""
-      class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-    <div class="text-xs text-slate-500 mt-1">
-    </div>
-  </div>
+          <!-- 2) Password -->
+          <div>
+            <label class="text-sm font-medium text-slate-700">Password（6文字以上）</label>
+            <input id="passInput" type="password" placeholder=""
+              class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <div class="text-xs text-slate-500 mt-1">
+            </div>
+          </div>
 
-  <!-- 3) モード切り替え -->
-  <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3">
-    <div>
-      <div class="text-sm font-medium text-slate-700">モード</div>
-      <div class="text-xs text-slate-500">ログイン後に切り替えできます</div>
-    </div>
-    <button onclick="toggleMode()"
-      class="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm">
-      <span id="modeBtnText">閲覧 ⇄ 編集</span>
-    </button>
-  </div>
+          <!-- 3) モード切り替え -->
+          <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3">
+            <div>
+              <div class="text-sm font-medium text-slate-700">モード</div>
+              <div class="text-xs text-slate-500">ログイン後に切り替えできます</div>
+            </div>
+            <button onclick="toggleMode()"
+              class="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm">
+              <span id="modeBtnText">閲覧 ⇄ 編集</span>
+            </button>
+          </div>
 
-  <!-- 4) ログインボタン・ログアウトボタン -->
-  <div class="grid grid-cols-2 gap-2">
-    <button onclick="loginWithIdPass()"
-      class="w-full px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
-      ログイン
-    </button>
+          <!-- 4) ログインボタン・ログアウトボタン -->
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="loginWithIdPass()"
+              class="w-full px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
+              ログイン
+            </button>
 
-    <button onclick="logout()"
-      class="w-full px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
-      ログアウト
-    </button>
-  </div>
+            <button onclick="logout()"
+              class="w-full px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
+              ログアウト
+            </button>
+          </div>
 
-  <!-- 5) 区切り線 -->
-  <hr class="border-slate-200" />
+          <!-- 5) 区切り線 -->
+          <hr class="border-slate-200" />
 
-  <!-- 6) ID新規作成コード -->
-  <div>
-    <label class="text-sm font-medium text-slate-700">ID新規作成コード</label>
-    <input id="createCodeInput" type="password" inputmode="numeric" placeholder=""
-      class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-    <div class="text-xs text-slate-500 mt-1">
-      ※通常のログインには不要です。<br>
-  ※不正利用防止のため、IDの新規作成は管理者（WAYAMA）が行い、許可なく作成されたアカウントは削除いたします。
-</div>
-  </div>
+          <!-- 6) ID新規作成コード -->
+          <div>
+            <label class="text-sm font-medium text-slate-700">ID新規作成コード</label>
+            <input id="createCodeInput" type="password" inputmode="numeric" placeholder=""
+              class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <div class="text-xs text-slate-500 mt-1">
+              ※通常のログインには不要です。<br>
+              ※不正利用防止のため、IDの新規作成は管理者（WAYAMA）が行い、許可なく作成されたアカウントは削除いたします。
+            </div>
+          </div>
 
-  <!-- 7) ID新規作成ボタン・キャンセルボタン -->
-  <div class="grid grid-cols-2 gap-2">
-    <button onclick="createNewAccount()"
-      class="w-full px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
-      ID新規作成
-    </button>
+          <!-- 7) ID新規作成ボタン・キャンセルボタン -->
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="createNewAccount()"
+              class="w-full px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
+              ID新規作成
+            </button>
 
-    <button onclick="closeLoginModal()"
-      class="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
-      キャンセル
-    </button>
-  </div>
-</div>
+            <button onclick="closeLoginModal()"
+              class="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
+              キャンセル
+            </button>
+          </div>
         </div>
 
       </div>
@@ -408,6 +407,9 @@
 
     // ★ツール折りたたみ状態（端末に保存）
     const TOOLS_COLLAPSED_KEY = 'schedule_tools_collapsed_v1';
+
+    // ★最後に見ていた月（端末に保存） ※リロードで4月に戻らない対策
+    const LAST_MONTH_KEY = 'schedule_last_month_v1';
 
     // ★差分同期カーソル（前回更新時点まで読み込んだupdatedAt）
     // ・更新ボタンでは「updatedAt > lastSeen」を読む
@@ -1408,6 +1410,12 @@
 
     // ========= 初期化 =========
     async function init() {
+      // ★リロードしても見ていた月を維持
+      const savedMonth = parseInt(localStorage.getItem(LAST_MONTH_KEY) || '', 10);
+      if (Number.isFinite(savedMonth) && savedMonth >= 1 && savedMonth <= 12) {
+        currentMonth = savedMonth;
+      }
+
       renderMonthNav();
       renderMonthSelect();
       setupSearch();
@@ -1573,6 +1581,10 @@
         btn.innerText = `${m}月`;
         btn.onclick = () => {
           currentMonth = m;
+
+          // ★保存（リロードしても同じ月）
+          localStorage.setItem(LAST_MONTH_KEY, String(currentMonth));
+
           renderMonthNav();
           renderMonthSelect();
           renderSchedule();
@@ -1599,6 +1611,10 @@
 
     function onMonthSelectChange(val) {
       currentMonth = parseInt(val, 10);
+
+      // ★保存（リロードしても同じ月）
+      localStorage.setItem(LAST_MONTH_KEY, String(currentMonth));
+
       renderMonthNav();
       renderSchedule();
       applyEditLockToDOM();
