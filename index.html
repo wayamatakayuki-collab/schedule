@@ -138,26 +138,21 @@
         </div>
 
         <!-- 2段目：右（ログイン/最終更新/更新/CSV） -->
-        <!-- ★スマホは左詰め、PCは右寄せ維持 -->
-        <div class="flex w-full justify-start md:justify-end">
+        <div class="flex w-full justify-end">
           <!-- 右：操作群（検索はここに置かない：常時表示エリアへ移動） -->
           <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-3 w-full md:w-auto">
             <!-- ログイン -->
-            <!-- ★左詰め＋折り返しも左から -->
             <button id="loginBtn" onclick="openLoginModal()"
-              class="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50
-                     flex flex-wrap items-center gap-x-2 gap-y-1
-                     w-full md:w-auto justify-start text-left">
-              <span class="text-slate-500 whitespace-nowrap">ログイン</span>
-              <span id="loginBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs whitespace-nowrap">未ログイン</span>
-              <span id="syncBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs whitespace-nowrap">未接続</span>
-              <span class="text-slate-400 whitespace-nowrap">モード</span>
-              <span id="modeBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs select-none whitespace-nowrap">閲覧</span>
+              class="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 flex items-center gap-2 w-full md:w-auto justify-between md:justify-start">
+              <span class="text-slate-500">ログイン</span>
+              <span id="loginBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs">未ログイン</span>
+              <span id="syncBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs">未接続</span>
+              <span class="text-slate-400">モード</span>
+              <span id="modeBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs select-none">閲覧</span>
             </button>
 
             <!-- ★ヘッダー右：最終更新 + 更新ボタン（スピナー/二重押し防止） -->
-            <!-- ★回り込んでも左詰め -->
-            <div class="flex flex-wrap items-center gap-2 w-full md:w-auto justify-start">
+            <div class="flex items-center gap-2 w-full md:w-auto">
               <div id="lastUpdateLabel"
                 class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-500 truncate">
                 最終更新：未更新
