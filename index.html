@@ -99,26 +99,28 @@
     <!-- ★ツール群：折りたたみ対象（タイトル＋ログイン＋最終更新＋更新＋CSV） -->
     <div id="toolsWrap" class="tools-wrap">
       <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
-        <!-- 左：タイトル -->
-        <div class="flex items-center space-x-3">
-          <!-- ★ここをロゴに差し替え（logo.png を同階層に置く） -->
-          <img src="./logo.png" alt="School Cal Share"
-            class="h-10 md:h-12 w-auto select-none"
-            style="display:block;" />
+       <!-- 左：ロゴ＋タイトル（★スマホだけ：タイトルと学校名をロゴの下へ） -->
+<div class="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-3">
+  <!-- ロゴ -->
+  <div class="bg-slate-300 w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center">
+    <img src="./icon-180.png" alt="School Cal" class="w-full h-full object-cover">
+  </div>
 
-          <div>
-            <div class="flex items-center space-x-2">
-              <span>西暦</span>
-              <input type="number" id="yearInput" value="2025"
-                class="w-20 font-bold text-lg text-center border-b-2 border-indigo-600 focus:outline-none"
-                onchange="generateYearlyCalendar(); updatePrintTitle();" />
-              <span class="text-xl font-bold">年度 予定表</span>
-            </div>
-            <div id="schoolName" class="text-xs text-slate-500 editable" contenteditable="true" onblur="saveSchoolName()">
-              ここに学校名等を入力してください
-            </div>
-          </div>
-        </div>
+  <!-- タイトル＋学校名（スマホ：ロゴの下 / PC：ロゴの右） -->
+  <div class="w-full">
+    <div class="flex items-center space-x-2 flex-wrap">
+      <span>西暦</span>
+      <input type="number" id="yearInput" value="2025"
+        class="w-20 font-bold text-lg text-center border-b-2 border-indigo-600 focus:outline-none"
+        onchange="generateYearlyCalendar(); updatePrintTitle();" />
+      <span class="text-xl font-bold">年度 予定表</span>
+    </div>
+
+    <div id="schoolName" class="mt-1 text-xs text-slate-500 editable" contenteditable="true" onblur="saveSchoolName()">
+      ここに学校名等を入力してください
+    </div>
+  </div>
+</div>
 
         <!-- 右：操作群（検索はここに置かない：常時表示エリアへ移動） -->
         <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-3 w-full md:w-auto">
