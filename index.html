@@ -89,6 +89,21 @@
       max-height: 0;
       opacity: 0;
     }
+
+    /* =========================
+       ② CSS（<style> 内に追記）
+       ★スマホ横(landscape)だけ：PCと同じ“横並び”にする（PCは影響なし）
+       ========================= */
+    @media (max-width: 767px) and (orientation: landscape) {
+      .mobile-landscape-row {
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 0.5rem !important;
+      }
+      .mobile-landscape-mt0 {
+        margin-top: 0 !important;
+      }
+    }
   </style>
 </head>
 
@@ -113,7 +128,8 @@
             <!-- 年度（ロゴ右：スマホでも横並びで1行固定）＋学校名 -->
             <div class="min-w-0 w-full">
               <!-- ★スマホ：縦（年度→学校名） / PC：横（年度の右に学校名） -->
-              <div class="flex flex-col md:flex-row md:items-center md:gap-2 min-w-0">
+              <!-- ① HTML（クラスを2つ足すだけ）: mobile-landscape-row を追加 -->
+              <div class="flex flex-col md:flex-row md:items-center md:gap-2 min-w-0 mobile-landscape-row">
                 <!-- 年度行（1行固定） -->
                 <div class="flex items-center gap-2 whitespace-nowrap">
                   <span class="text-sm md:text-base">西暦</span>
@@ -124,8 +140,9 @@
                 </div>
 
                 <!-- 学校名：スマホは下 / PCは年度の右（年度と同じサイズ） -->
+                <!-- ① HTML（クラスを2つ足すだけ）: mobile-landscape-mt0 を追加 -->
                 <div id="schoolName"
-                  class="mt-1 md:mt-0 min-w-0 truncate
+                  class="mt-1 md:mt-0 min-w-0 truncate mobile-landscape-mt0
                          text-xs text-slate-500 md:text-xl md:text-slate-800 md:font-bold
                          editable"
                   contenteditable="true"
