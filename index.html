@@ -1930,6 +1930,16 @@
       return c ? c : before;
     }
 
+    // ★B) UTF-8 → ダメなら Shift-JIS（iOSの文字化けもヘッダー判定でフォールバック）
+    function readFileAsText(file, encoding) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result || ''));
+        r.onerror = () => reject(r.error || new Error('FileReader error'));
+        r.readAsText(file, encoding);
+      });
+    }
+
     // ★お知らせ対応：旧CSV（お知らせ列なし）も読める
     async function importCSV(input) {
       if (!(authUser && canEdit)) {
@@ -1941,14 +1951,14 @@
       const file = input.files[0];
       if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = async function (e) {
-        const text = e.target.result;
+      try {
+        // ① まずUTF-8で読む
+        let text = await readFileAsText(file, 'UTF-8');
+        let table = parseCSV(String(text || ''));
 
-        const table = parseCSV(String(text || ''));
-        if (table.length < 2) { alert('CSVにデータ行がありません。'); input.value=''; return; }
+        if (table.length < 2) { alert('CSVにデータ行がありません。'); return; }
 
-        const headerLine = table[0].map(v => String(v ?? '').trim());
+        let headerLine = table[0].map(v => String(v ?? '').trim());
 
         // ★期待ヘッダー（順序は問わない・存在すれば読む）
         // ['月','日','曜日','日直','予定','出張','提出物','お知らせ','休暇']
@@ -1969,9 +1979,27 @@
           if (Object.prototype.hasOwnProperty.call(mapping, cleanH)) mapping[cleanH] = i;
         });
 
+        // ② UTF-8で「月」「日」が取れないなら Shift-JIS で読み直す
+        if (mapping['月'] === -1 || mapping['日'] === -1) {
+          text = await readFileAsText(file, 'Shift-JIS');
+          table = parseCSV(String(text || ''));
+
+          if (table.length < 2) { alert('CSVにデータ行がありません。'); return; }
+
+          headerLine = table[0].map(v => String(v ?? '').trim());
+
+          // mapping を作り直す（再初期化）
+          mapping['月'] = mapping['日'] = mapping['曜日'] = mapping['日直'] =
+          mapping['予定'] = mapping['出張'] = mapping['提出物'] = mapping['お知らせ'] = mapping['休暇'] = -1;
+
+          headerLine.forEach((h, i) => {
+            const cleanH = String(h ?? '').trim();
+            if (Object.prototype.hasOwnProperty.call(mapping, cleanH)) mapping[cleanH] = i;
+          });
+        }
+
         if (mapping['月'] === -1 || mapping['日'] === -1) {
           alert('CSVのヘッダーに「月」「日」が見つかりませんでした。');
-          input.value='';
           return;
         }
 
@@ -2034,8 +2062,21 @@
           renderSchedule();
           try { await batchSaveToCloud(touched); } catch (err) { console.error(err); }
 
+          // ★A) baseline更新を正しく（csvEscapeを使わない）
           touched.forEach(it => {
-            _fields().forEach(f => csvEscape(_baseValue.set(_k(it.id, f), norm(it[f] || ''))));
+            _fields().forEach(f => {
+              _baseValue.set(_k(it.id, f), norm(it[f] || '')); // baseline更新
+              clearDirty(it.id, f);                             // dirty解除
+            });
+
+            // その日を「未保存」扱いにしない（安全）
+            _pendingItemIds.delete(it.id);
+
+            // その日に既存のdebounceが残っていたら止める（安全）
+            if (_saveTimers.has(it.id)) {
+              clearTimeout(_saveTimers.get(it.id));
+              _saveTimers.delete(it.id);
+            }
           });
 
           queueScheduleCacheSave();
@@ -2044,11 +2085,12 @@
         } else {
           alert('有効なデータが見つかりませんでした。');
         }
-
+      } catch (e) {
+        console.error(e);
+        alert('CSVの読み込みに失敗しました。別の形式（UTF-8/Shift-JIS）で保存し直してお試しください。');
+      } finally {
         input.value = '';
-      };
-
-      reader.readAsText(file, 'Shift-JIS');
+      }
     }
 
     function csvEscape(v) {
