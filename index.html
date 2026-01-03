@@ -98,97 +98,107 @@
 
     <!-- ★ツール群：折りたたみ対象（タイトル＋ログイン＋最終更新＋更新＋CSV） -->
     <div id="toolsWrap" class="tools-wrap">
-      <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
-    <!-- 左：ロゴ＋タイトル（★スマホだけ：タイトルと学校名をロゴの下へ） -->
-<div class="flex flex-row items-start md:items-center gap-3 md:gap-3">
-  <!-- ロゴ -->
-  <div class="h-10 shrink-0">
-    <img src="./logo.png" alt="School Cal SHARE" class="h-full w-auto object-contain">
-  </div>
+      <!-- ★ここを「2段構成」に変更（1段目：左 / 2段目：右） -->
+      <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-3">
 
-  <!-- 年度（ロゴ右：スマホでも横並びで1行固定）＋学校名 -->
-<div class="min-w-0 w-full">
-  <!-- ★スマホ：縦（年度→学校名） / PC：横（年度の右に学校名） -->
-  <div class="flex flex-col md:flex-row md:items-center md:gap-4 min-w-0">
-    <!-- 年度行（1行固定） -->
-    <div class="flex items-center gap-2 whitespace-nowrap">
-      <span class="text-sm md:text-base">西暦</span>
-      <input type="number" id="yearInput" value="2025"
-        class="w-16 md:w-20 font-bold text-base md:text-lg text-center border-b-2 border-indigo-600 focus:outline-none"
-        onchange="generateYearlyCalendar(); updatePrintTitle();" />
-      <span class="font-bold text-base md:text-xl">年度</span>
-    </div>
-
-    <!-- 学校名：スマホは下 / PCは年度の右（年度と同じサイズ） -->
-    <div id="schoolName"
-      class="mt-1 md:mt-0 min-w-0 truncate
-             text-xs text-slate-500 md:text-xl md:text-slate-800 md:font-bold
-             editable"
-      contenteditable="true"
-      onblur="saveSchoolName()">
-      学校名を入力
-    </div>
-  </div>
-</div>
-
-        <!-- 右：操作群（検索はここに置かない：常時表示エリアへ移動） -->
-        <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-3 w-full md:w-auto">
-          <!-- ログイン -->
-          <button id="loginBtn" onclick="openLoginModal()"
-            class="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 flex items-center gap-2 w-full md:w-auto justify-between md:justify-start">
-            <span class="text-slate-500">ログイン</span>
-            <span id="loginBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs">未ログイン</span>
-            <span id="syncBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs">未接続</span>
-            <span class="text-slate-400">モード</span>
-            <span id="modeBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs select-none">閲覧</span>
-          </button>
-
-          <!-- ★ヘッダー右：最終更新 + 更新ボタン（スピナー/二重押し防止） -->
-          <div class="flex items-center gap-2 w-full md:w-auto">
-            <div id="lastUpdateLabel"
-              class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-500 truncate">
-              最終更新：未更新
+        <!-- 1段目：左（ロゴ＋年度＋学校名） -->
+        <div class="flex items-start">
+          <!-- 左：ロゴ＋タイトル（★スマホだけ：タイトルと学校名をロゴの下へ） -->
+          <div class="flex flex-row items-start md:items-center gap-3 md:gap-3">
+            <!-- ロゴ -->
+            <div class="h-10 shrink-0">
+              <img src="./logo.png" alt="School Cal SHARE" class="h-full w-auto object-contain">
             </div>
 
-           <button id="refreshBtn" type="button" onclick="manualRefresh()"
-  class="shrink-0 px-6 md:px-10 md:min-w-[140px] py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 active:scale-95 inline-flex items-center gap-2 justify-center">
-  <svg id="refreshSpinner" class="hidden h-4 w-4 animate-spin text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 00-4 4H4z"></path>
-  </svg>
-  <!-- ★「更新」を太字に -->
-  <span id="refreshBtnText" class="whitespace-nowrap font-bold">更新</span>
-</button>
-          </div>
+            <!-- 年度（ロゴ右：スマホでも横並びで1行固定）＋学校名 -->
+            <div class="min-w-0 w-full">
+              <!-- ★スマホ：縦（年度→学校名） / PC：横（年度の右に学校名） -->
+              <div class="flex flex-col md:flex-row md:items-center md:gap-2 min-w-0">
+                <!-- 年度行（1行固定） -->
+                <div class="flex items-center gap-2 whitespace-nowrap">
+                  <span class="text-sm md:text-base">西暦</span>
+                  <input type="number" id="yearInput" value="2025"
+                    class="w-16 md:w-20 font-bold text-base md:text-lg text-center border-b-2 border-indigo-600 focus:outline-none"
+                    onchange="generateYearlyCalendar(); updatePrintTitle();" />
+                  <span class="font-bold text-base md:text-xl">年度</span>
+                </div>
 
-          <!-- ★ヘッダー：CSV（インポート/エクスポート） -->
-          <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
-            <div class="flex items-center gap-2 w-full md:w-auto">
-              <div class="flex-1 md:flex-none flex items-center space-x-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl">
-                <label id="csvLabel"
-                  class="w-full md:w-auto cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center shadow-sm active:scale-95">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
-                  CSVインポート
-                  <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="importCSV(this)">
-                </label>
-
-                <button id="csvExportBtn" onclick="exportCSV()"
-                  class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center shadow-sm active:scale-95">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M7 16l-4-4m0 0l4-4m-4 4h18M17 8l4 4m0 0l-4 4" />
-                  </svg>
-                  CSVエクスポート
-                </button>
+                <!-- 学校名：スマホは下 / PCは年度の右（年度と同じサイズ） -->
+                <div id="schoolName"
+                  class="mt-1 md:mt-0 min-w-0 truncate
+                         text-xs text-slate-500 md:text-xl md:text-slate-800 md:font-bold
+                         editable"
+                  contenteditable="true"
+                  onblur="saveSchoolName()">
+                  学校名を入力
+                </div>
               </div>
             </div>
           </div>
         </div>
+
+        <!-- 2段目：右（ログイン/最終更新/更新/CSV） -->
+        <div class="flex w-full justify-end">
+          <!-- 右：操作群（検索はここに置かない：常時表示エリアへ移動） -->
+          <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-3 w-full md:w-auto">
+            <!-- ログイン -->
+            <button id="loginBtn" onclick="openLoginModal()"
+              class="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 flex items-center gap-2 w-full md:w-auto justify-between md:justify-start">
+              <span class="text-slate-500">ログイン</span>
+              <span id="loginBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs">未ログイン</span>
+              <span id="syncBadge" class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-xs">未接続</span>
+              <span class="text-slate-400">モード</span>
+              <span id="modeBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs select-none">閲覧</span>
+            </button>
+
+            <!-- ★ヘッダー右：最終更新 + 更新ボタン（スピナー/二重押し防止） -->
+            <div class="flex items-center gap-2 w-full md:w-auto">
+              <div id="lastUpdateLabel"
+                class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-500 truncate">
+                最終更新：未更新
+              </div>
+
+              <button id="refreshBtn" type="button" onclick="manualRefresh()"
+                class="shrink-0 px-6 md:px-10 md:min-w-[140px] py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 active:scale-95 inline-flex items-center gap-2 justify-center">
+                <svg id="refreshSpinner" class="hidden h-4 w-4 animate-spin text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 00-4 4H4z"></path>
+                </svg>
+                <!-- ★「更新」を太字に -->
+                <span id="refreshBtnText" class="whitespace-nowrap font-bold">更新</span>
+              </button>
+            </div>
+
+            <!-- ★ヘッダー：CSV（インポート/エクスポート） -->
+            <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
+              <div class="flex items-center gap-2 w-full md:w-auto">
+                <div class="flex-1 md:flex-none flex items-center space-x-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl">
+                  <label id="csvLabel"
+                    class="w-full md:w-auto cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center shadow-sm active:scale-95">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
+                      stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    CSVインポート
+                    <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="importCSV(this)">
+                  </label>
+
+                  <button id="csvExportBtn" onclick="exportCSV()"
+                    class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center shadow-sm active:scale-95">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
+                      stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M7 16l-4-4m0 0l4-4m-4 4h18M17 8l4 4m0 0l-4 4" />
+                    </svg>
+                    CSVエクスポート
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div><!-- /tools-wrap -->
 
@@ -319,7 +329,8 @@
             class="h-10 w-auto mx-auto select-none"
             style="display:block;" />
 
-          <div class="text-sm font-bold mt-2 text-left">ログイン</div>
+          <!-- ★「ログイン」見出し：ID新規作成コードと同じサイズに -->
+          <div class="text-sm font-medium mt-2 text-left">ログイン</div>
         </div>
 
         <div class="p-4 space-y-4">
