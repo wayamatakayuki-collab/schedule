@@ -106,37 +106,36 @@
           <!-- 左：ロゴ＋タイトル（★スマホだけ：タイトルと学校名をロゴの下へ） -->
           <div class="flex flex-row items-start md:items-center gap-3 md:gap-3">
             <!-- ロゴ -->
-            <div class="h-9 md:h-10 shrink-0">
-  <img src="./logo.png" alt="School Cal SHARE" class="h-full w-auto object-contain">
-</div>
+            <div class="h-10 shrink-0">
+              <img src="./logo.png" alt="School Cal SHARE" class="h-full w-auto object-contain">
             </div>
 
             <!-- 年度（ロゴ右：スマホでも横並びで1行固定）＋学校名 -->
-<div class="min-w-0 w-full">
-  <!-- ★スマホ：縦（年度→学校名） / PC：横（年度の右に学校名） -->
-  <div class="flex flex-col items-end md:flex-row md:items-center md:gap-2 min-w-0">
+            <div class="min-w-0 w-full">
+              <!-- ★スマホ：縦（年度→学校名） / PC：横（年度の右に学校名） -->
+              <div class="flex flex-col md:flex-row md:items-center md:gap-2 min-w-0">
+                <!-- 年度行（1行固定） -->
+                <div class="flex items-center gap-2 whitespace-nowrap">
+                  <span class="text-sm md:text-base">西暦</span>
+                  <input type="number" id="yearInput" value="2025"
+                    class="w-16 md:w-20 font-bold text-base md:text-lg text-center border-b-2 border-indigo-600 focus:outline-none"
+                    onchange="generateYearlyCalendar(); updatePrintTitle();" />
+                  <span class="font-bold text-base md:text-xl">年度</span>
+                </div>
 
-    <!-- 年度行（1行固定）：★スマホだけ右寄せ、PCはそのまま -->
-    <div class="flex items-center gap-2 whitespace-nowrap justify-end md:justify-start w-full md:w-auto">
-      <span class="text-sm md:text-base">西暦</span>
-      <input type="number" id="yearInput" value="2025"
-        class="w-16 md:w-20 font-bold text-base md:text-lg text-center border-b-2 border-indigo-600 focus:outline-none"
-        onchange="generateYearlyCalendar(); updatePrintTitle();" />
-      <span class="font-bold text-base md:text-xl">年度</span>
-    </div>
-
-    <!-- 学校名：★スマホだけ右寄せ（text-right）、PCは左寄せ（md:text-left） -->
-    <div id="schoolName"
-      class="mt-1 md:mt-0 min-w-0 truncate text-right md:text-left
-             text-xs text-slate-500 md:text-xl md:text-slate-800 md:font-bold
-             editable"
-      contenteditable="true"
-      onblur="saveSchoolName()">
-      （学校名）
-    </div>
-
-  </div>
-</div>
+                <!-- 学校名：スマホは下 / PCは年度の右（年度と同じサイズ） -->
+                <div id="schoolName"
+                  class="mt-1 md:mt-0 min-w-0 truncate
+                         text-xs text-slate-500 md:text-xl md:text-slate-800 md:font-bold
+                         editable"
+                  contenteditable="true"
+                  onblur="saveSchoolName()">
+                  学校名を入力
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- 2段目：左寄せ（ログイン/最終更新/更新/CSV） -->
         <div class="flex w-full justify-end md:justify-start">
