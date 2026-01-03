@@ -101,9 +101,10 @@
       <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
         <!-- 左：タイトル -->
         <div class="flex items-center space-x-3">
-          <div class="bg-slate-300 w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center">
-            <img src="./icon-180.png" alt="School Cal" class="w-full h-full object-cover">
-          </div>
+          <!-- ★ここをロゴに差し替え（logo.png を同階層に置く） -->
+          <img src="./logo.png" alt="School Cal Share"
+            class="h-10 md:h-12 w-auto select-none"
+            style="display:block;" />
 
           <div>
             <div class="flex items-center space-x-2">
@@ -144,7 +145,8 @@
     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 00-4 4H4z"></path>
   </svg>
-  <span id="refreshBtnText" class="whitespace-nowrap">更新</span>
+  <!-- ★「更新」を太字に -->
+  <span id="refreshBtnText" class="whitespace-nowrap font-bold">更新</span>
 </button>
           </div>
 
@@ -301,8 +303,13 @@
       <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden"
            style="max-height: calc(100vh - 2rem); overflow-y: auto; -webkit-overflow-scrolling: touch;">
         <div class="p-4 border-b border-slate-100">
-          <div class="text-lg font-bold">ログイン</div>
-          <div class="text-sm text-slate-500 mt-1">ID / Passwordを入力してください。</div>
+          <!-- ★ログイン画面にもロゴ -->
+          <img src="./logo.png" alt="School Cal Share"
+            class="h-10 w-auto mx-auto select-none"
+            style="display:block;" />
+
+          <div class="text-lg font-bold mt-2 text-center">ログイン</div>
+          <div class="text-sm text-slate-500 mt-1 text-center">ID / Passwordを入力してください。</div>
         </div>
 
         <div class="p-4 space-y-4">
@@ -2007,7 +2014,7 @@
           try { await batchSaveToCloud(touched); } catch (err) { console.error(err); }
 
           touched.forEach(it => {
-            _fields().forEach(f => _baseValue.set(_k(it.id, f), norm(it[f] || '')));
+            _fields().forEach(f => csvEscape(_baseValue.set(_k(it.id, f), norm(it[f] || ''))));
           });
 
           queueScheduleCacheSave();
