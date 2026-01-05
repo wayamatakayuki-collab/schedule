@@ -1888,10 +1888,8 @@
         const dutyVal = editable ? escapeHtml(item.duty || '') : highlightHtml(item.duty || '', queryRaw);
 
         const dutyHtml = showDuty ? `
-  <div class="bg-white px-1 py-0.5 rounded border border-slate-200 editable whitespace-nowrap overflow-hidden
-            text-center flex items-center justify-center
-            text-xl font-bold md:text-sm md:font-medium md:mt-2
-            truncate max-w-[calc(55vw-7rem)] mx-auto"
+  <div class="text-sm bg-white px-1 py-0.5 rounded border border-slate-200 font-medium md:mt-2 editable
+            truncate max-w-[calc(55vw-7rem)] mx-auto
             text-center flex items-center justify-center"
     contenteditable="true"
     onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
