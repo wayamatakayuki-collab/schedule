@@ -28,53 +28,31 @@
 
   <style>
     body { font-family: 'Noto Sans JP', sans-serif; }
-    /* ★追加：iOS Safari等の自動文字拡大を無効化（端末差対策） */
     html { -webkit-text-size-adjust: 100%; }
 
-    /* ★差し替え：スマホ横向きだけ、年度＆学校名を少し大きく（PCは影響なし） */
     @media (orientation: landscape) and (max-width: 767px) {
-      /* 年度行（年度テキスト＋入力欄＋「年度」）を少し大きく */
       .title-line,
       .title-line *{
         font-size: 1.15rem !important;
         line-height: 1.45rem !important;
       }
-
-      /* 学校名も同じ大きさへ */
       #schoolName{
         font-size: 1.15rem !important;
         line-height: 1.45rem !important;
       }
     }
 
-    /* 画面では隠す（印刷でだけ出す） */
     .print-only { display: none; }
     .print-title { font-weight: 700; font-size: 14px; color: #0f172a; }
 
     @media print {
-      /* ★A4縦＋見出し用 */
       @page { size: A4 portrait; margin: 8mm; }
-
       .no-print { display: none !important; }
       body { background-color: white !important; padding: 0 !important; }
       main { margin-top: 0 !important; }
-
-      /* ★印刷ヘッダー（見出し） */
-      .print-only {
-        display: block !important;
-        margin: 0 0 6mm 0;
-      }
-      .print-title {
-        border-bottom: 1px solid #cbd5e1;
-        padding-bottom: 3mm;
-      }
-
-      .card {
-        border: 1px solid #cbd5e1 !important;
-        break-inside: avoid;
-        margin-bottom: 2px !important;
-        box-shadow: none !important;
-      }
+      .print-only { display: block !important; margin: 0 0 6mm 0; }
+      .print-title { border-bottom: 1px solid #cbd5e1; padding-bottom: 3mm; }
+      .card { border: 1px solid #cbd5e1 !important; break-inside: avoid; margin-bottom: 2px !important; box-shadow: none !important; }
     }
 
     .scrollbar-hide::-webkit-scrollbar { display: none; }
@@ -87,7 +65,6 @@
     .editable:hover { background-color: #f8fafc; outline: 1px dashed #cbd5e1; }
     .editable:focus { background-color: white; outline: 2px solid #3b82f6; }
 
-    /* ★閲覧モードの見た目 */
     .readonly {
       pointer-events: none !important;
       user-select: text;
@@ -96,11 +73,10 @@
     }
     .readonly:hover { outline: none !important; background-color: transparent !important; }
 
-    /* ====== ★ツール折りたたみ（スマホ中心） ====== */
     .tools-wrap{
       overflow: hidden;
       transition: max-height .25s ease, opacity .2s ease;
-      max-height: 1200px; /* 展開時の最大高さ（十分大きく） */
+      max-height: 1200px;
       opacity: 1;
     }
     body.tools-collapsed .tools-wrap{
@@ -108,47 +84,32 @@
       opacity: 0;
     }
 
-    /* =========================
-       ② CSS（<style> 内に追記）
-       ★スマホ横(landscape)だけ：PCと同じ“横並び”にする（PCは影響なし）
-       ========================= */
     @media (max-width: 767px) and (orientation: landscape) {
       .mobile-landscape-row {
         flex-direction: row !important;
         align-items: center !important;
         gap: 0.5rem !important;
       }
-      .mobile-landscape-mt0 {
-        margin-top: 0 !important;
-      }
+      .mobile-landscape-mt0 { margin-top: 0 !important; }
     }
-</style>
+  </style>
 </head>
 
 <body class="bg-slate-100 text-slate-800 min-h-screen pb-10">
 
   <header class="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm no-print">
 
-    <!-- ★ツール群：折りたたみ対象（タイトル＋ログイン＋最終更新＋更新＋CSV） -->
     <div id="toolsWrap" class="tools-wrap">
-      <!-- ★ここを「2段構成」に変更（1段目：左 / 2段目：右） -->
       <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-3">
 
-        <!-- 1段目：左（ロゴ＋年度＋学校名） -->
         <div class="flex items-start">
-          <!-- 左：ロゴ＋タイトル（★スマホだけ：タイトルと学校名をロゴの下へ） -->
           <div class="flex flex-row items-start md:items-center gap-3 md:gap-3">
-            <!-- ロゴ -->
             <div class="h-10 md:h-14 shrink-0">
-  <img src="./logo.png" alt="School Cal SHARE" class="h-full w-auto object-contain">
-</div>
+              <img src="./logo.png" alt="School Cal SHARE" class="h-full w-auto object-contain">
+            </div>
 
-            <!-- 年度（ロゴ右：スマホでも横並びで1行固定）＋学校名 -->
             <div class="min-w-0 w-full">
-              <!-- ★スマホ：縦（年度→学校名） / PC：横（年度の右に学校名） -->
-              <!-- ① HTML（クラスを2つ足すだけ）: mobile-landscape-row を追加 -->
               <div class="flex flex-col md:flex-row md:items-center md:gap-2 min-w-0 mobile-landscape-row">
-                <!-- 年度行（1行固定） -->
                 <div class="title-line flex items-center gap-2 whitespace-nowrap">
                   <input type="number" id="yearInput" value="2025"
                     class="w-16 md:w-20 font-bold text-base md:text-lg text-center border-b-2 border-indigo-600 focus:outline-none"
@@ -156,26 +117,19 @@
                   <span class="font-bold text-base md:text-xl">年度</span>
                 </div>
 
-                <!-- 学校名：スマホは下 / PCは年度の右（年度と同じサイズ） -->
-                <!-- ① HTML（クラスを2つ足すだけ）: mobile-landscape-mt0 を追加 -->
-             <div id="schoolName"
-  class="mt-1 md:mt-0 min-w-0 truncate leading-tight md:leading-normal
-         text-[11px] text-slate-800 font-bold md:text-xl
-         editable"
-  contenteditable="true"
-  onblur="saveSchoolName()">
-  （学校名）
-</div>
+                <div id="schoolName"
+                  class="mt-1 md:mt-0 min-w-0 truncate leading-tight md:leading-normal text-[11px] text-slate-800 font-bold md:text-xl editable"
+                  contenteditable="true"
+                  onblur="saveSchoolName()">
+                  （学校名）
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 2段目：左寄せ（ログイン/最終更新/更新/CSV） -->
         <div class="flex w-full justify-end md:justify-start">
-          <!-- 右：操作群（検索はここに置かない：常時表示エリアへ移動） -->
           <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-3 w-full md:w-auto">
-            <!-- ログイン -->
             <button id="loginBtn" onclick="openLoginModal()"
               class="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 flex items-center gap-2 w-full md:w-auto justify-between md:justify-start">
               <span class="text-slate-500">ログイン</span>
@@ -185,7 +139,6 @@
               <span id="modeBadge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs select-none">閲覧</span>
             </button>
 
-            <!-- ★ヘッダー右：最終更新 + 更新ボタン（スピナー/二重押し防止） -->
             <div class="flex items-center gap-2 w-full md:w-auto">
               <div id="lastUpdateLabel"
                 class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-500 truncate">
@@ -193,28 +146,21 @@
               </div>
 
               <button id="refreshBtn" type="button" onclick="manualRefresh()"
- class="shrink-0 px-6 md:px-10 md:min-w-[140px] py-2 rounded-lg
-       bg-amber-100 text-amber-900 border border-amber-200
-       hover:bg-amber-200 active:scale-95
-       inline-flex items-center gap-2 justify-center
-       shadow-sm">
+                class="shrink-0 px-6 md:px-10 md:min-w-[140px] py-2 rounded-lg bg-amber-100 text-amber-900 border border-amber-200 hover:bg-amber-200 active:scale-95 inline-flex items-center gap-2 justify-center shadow-sm">
                 <svg id="refreshSpinner" class="hidden h-4 w-4 animate-spin text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 00-4 4H4z"></path>
                 </svg>
-                <!-- ★「更新」を太字に -->
                 <span id="refreshBtnText" class="whitespace-nowrap font-bold">更新</span>
               </button>
             </div>
 
-            <!-- ★ヘッダー：CSV（インポート/エクスポート） -->
             <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
               <div class="flex items-center gap-2 w-full md:w-auto">
                 <div class="flex-1 md:flex-none flex items-center space-x-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl">
                   <label id="csvLabel"
                     class="w-full md:w-auto cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center shadow-sm active:scale-95">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
-                      stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                     </svg>
@@ -224,35 +170,32 @@
 
                   <button id="csvExportBtn" onclick="exportCSV()"
                     class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center shadow-sm active:scale-95">
-                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-    d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
-</svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+                    </svg>
                     CSVエクスポート
                   </button>
                 </div>
               </div>
             </div>
+
           </div>
         </div>
 
       </div>
     </div><!-- /tools-wrap -->
 
-    <!-- ★常時表示：検索 + 「ツールを隠す／表示」 -->
     <div class="max-w-7xl mx-auto px-4 py-2 border-t border-slate-100">
       <div class="flex items-center gap-2">
-        <!-- 検索（常時表示） -->
         <div class="relative flex-1">
           <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
-              stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </span>
 
-          <!-- ★①：text-sm → text-base（iOSの自動ズーム防止） -->
           <input type="text" id="searchInput" placeholder="検索"
             class="block w-full pl-10 pr-10 py-2 border border-slate-200 rounded-lg bg-slate-50 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
 
@@ -265,7 +208,6 @@
           </button>
         </div>
 
-        <!-- ツール表示切替 -->
         <button id="toggleToolsBtn" type="button" onclick="toggleTools()"
           class="shrink-0 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50 active:scale-95">
           <span id="toggleToolsText">ツールを隠す</span>
@@ -273,7 +215,6 @@
       </div>
     </div>
 
-    <!-- 月：PCはボタン／スマホはドロップダウン -->
     <div class="max-w-7xl mx-auto px-4 border-t border-slate-100">
       <div class="hidden md:flex space-x-1 py-2 overflow-x-auto scrollbar-hide" id="monthNav"></div>
 
@@ -285,13 +226,11 @@
       </div>
     </div>
 
-    <!-- タブ -->
     <div class="max-w-7xl mx-auto px-4 overflow-x-auto scrollbar-hide">
       <div class="flex space-x-6 text-sm font-medium" id="tabsztabs">
         <button onclick="switchTab('all')" data-tab="all"
           class="tab-btn py-3 border-b-2 border-indigo-600 text-indigo-600">全体</button>
 
-        <!-- ★順番修正：提出物 と 休暇 の間に お知らせ -->
         <button onclick="switchTab('school')" data-tab="school"
           class="tab-btn py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700">予定</button>
         <button onclick="switchTab('business')" data-tab="business"
@@ -308,7 +247,6 @@
     </div>
   </header>
 
-  <!-- ★印刷用ヘッダー（画面では非表示、印刷時のみ表示） -->
   <div id="printHeader" class="print-only max-w-7xl mx-auto px-4">
     <div id="printTitle" class="print-title"></div>
   </div>
@@ -336,7 +274,6 @@
     @School Cal  Takayuki WAYAMA
   </div>
 
-  <!-- ★トースト（右下） -->
   <div id="toast" class="pointer-events-none hidden fixed bottom-4 right-4 z-50">
     <div id="toastInner"
       class="pointer-events-auto max-w-sm rounded-xl border border-slate-200 bg-white shadow-lg px-4 py-3 text-sm text-slate-700 flex items-start gap-3">
@@ -352,7 +289,6 @@
     </div>
   </div>
 
-  <!-- ★ログイン モーダル -->
   <div id="loginModal" class="hidden fixed inset-0 z-50">
     <div class="absolute inset-0 bg-black/40" onclick="closeLoginModal()"></div>
 
@@ -361,30 +297,25 @@
       <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden"
            style="max-height: calc(100vh - 2rem); overflow-y: auto; -webkit-overflow-scrolling: touch;">
         <div class="p-4 border-b border-slate-100">
-  <!-- ★ログイン画面にもロゴ -->
-  <img src="./logo.png" alt="School Cal Share"
-    class="h-10 w-auto mx-auto select-none"
-    style="display:block;" />
-</div>
+          <img src="./logo.png" alt="School Cal Share"
+            class="h-10 w-auto mx-auto select-none"
+            style="display:block;" />
+        </div>
 
         <div class="p-4 space-y-4">
-          <!-- 1) ID -->
           <div>
             <label class="text-sm font-medium text-slate-700">ID</label>
             <input id="idInput" type="text" placeholder=""
               class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
 
-          <!-- 2) Password -->
           <div>
             <label class="text-sm font-medium text-slate-700">Password（6文字以上）</label>
             <input id="passInput" type="password" placeholder=""
               class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            <div class="text-xs text-slate-500 mt-1">
-            </div>
+            <div class="text-xs text-slate-500 mt-1"></div>
           </div>
 
-          <!-- 3) モード切り替え -->
           <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3">
             <div>
               <div class="text-sm font-medium text-slate-700">モード</div>
@@ -396,7 +327,6 @@
             </button>
           </div>
 
-          <!-- 4) ログインボタン・ログアウトボタン -->
           <div class="grid grid-cols-2 gap-2">
             <button onclick="loginWithIdPass()"
               class="w-full px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
@@ -409,10 +339,8 @@
             </button>
           </div>
 
-          <!-- 5) 区切り線 -->
           <hr class="border-slate-200" />
 
-          <!-- 6) ID新規作成コード -->
           <div>
             <label class="text-sm font-medium text-slate-700">ID新規作成コード</label>
             <input id="createCodeInput" type="password" inputmode="numeric" placeholder=""
@@ -423,7 +351,6 @@
             </div>
           </div>
 
-          <!-- 7) ID新規作成ボタン・キャンセルボタン -->
           <div class="grid grid-cols-2 gap-2">
             <button onclick="createNewAccount()"
               class="w-full px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
@@ -442,21 +369,10 @@
   </div>
 
   <script>
-    // =========================================================
-    // 方針（完璧版）は崩さない：
-    //  - 更新ボタン文化（差分同期 lastSeen）そのまま
-    //  - write は変更があった日だけ
-    // 追加（軽い調整）：
-    //  - 予定データ本体（scheduleData）を端末にキャッシュして、
-    //    ログアウト→ログインでも「初回だけフルread」、以降は差分readにする
-    // =========================================================
-
     // ========= 状態 =========
     let scheduleData = [];
     let currentMonth = 4;
     let currentTab = 'all';
-
-    // ★検索語は「共通で1つ」：タブ/月を切り替えても消さない
     let globalSearchQuery = '';
 
     // ========= Firebase =========
@@ -464,47 +380,32 @@
     let db = null;
     let authUser = null;
 
-    // ログインID表示用（IDだけ保存。Passwordは保存しない）
     const LAST_ID_KEY = 'schedule_last_id_v1';
-
-    // ★ツール折りたたみ状態（端末に保存）
     const TOOLS_COLLAPSED_KEY = 'schedule_tools_collapsed_v1';
-
-    // ★最後に見ていた月（端末に保存） ※リロードで4月に戻らない対策
     const LAST_MONTH_KEY = 'schedule_last_month_v1';
-
-    // ★差分同期カーソル（前回更新時点まで読み込んだupdatedAt）
-    // ・更新ボタンでは「updatedAt > lastSeen」を読む
-    // ・0件なら lead(read) は 0ドキュメント相当
     const LAST_SEEN_KEY_PREFIX = 'schedule_last_seen_millis_v1__';
-
-    // ★予定データ本体キャッシュ（uid + 年度で分離）
     const LOCAL_CACHE_PREFIX = 'schedule_cache_v1__';
-
-    // ★ID新規作成コード（固定）
     const FIXED_CREATE_CODE = '20136684';
 
-    // モード：閲覧/編集（ログイン後に誰でも切替）
+    // モード：閲覧/編集
     let canEdit = false;
 
-    // =========================================================
-    // ★保存ロジック（ここが今回の差し替えポイント）
-    // 1) フィールド単位→「日（カード）単位」でまとめて1回だけ保存（timerキーは itemId ）
-    // 2) blur保存→「カードから完全に離れたら」だけ即保存（カードfocusoutでflush）
-    // =========================================================
+    // ================================
+    // 保存（カード単位 / dirty管理）
+    // ================================
+    const _saveTimers = new Map();
+    const _pendingItemIds = new Set();
+    const _baseValue = new Map();
+    const _dirtyKeys = new Set();
+    const _itemDirtyCount = new Map();
+    const _savingItems = new Set();
+    const _needsResaveItems = new Set();
 
-    // ★保存デバウンス（dirty管理 / カード単位 / 二重write抑制）
-    const _saveTimers = new Map();       // itemId => timer
-    const _pendingItemIds = new Set();   // item.id（未保存変更がある日）
-    const _baseValue = new Map();        // key(id__field) => baseline (normalized)
-    const _dirtyKeys = new Set();        // key(id__field)
-    const _itemDirtyCount = new Map();   // itemId => dirty field count
-    const _savingItems = new Set();      // itemId in-flight
-    const _needsResaveItems = new Set(); // itemId: save中にさらに変更が入った
+    // ★追加：itemごとに「どのfieldがdirtyか」を保持（閲覧モードのチェック保存判定に使う）
+    const _dirtyFieldsByItem = new Map(); // itemId => Set(fields)
 
     function _k(id, field) { return `${id}__${field}`; }
 
-    // 値の正規化（※現行のtrim運用に合わせる）
     function norm(v) {
       return String(v ?? '').replace(/\r\n/g, '\n').trim();
     }
@@ -515,17 +416,27 @@
       _dirtyKeys.add(key);
       _itemDirtyCount.set(id, (_itemDirtyCount.get(id) || 0) + 1);
       _pendingItemIds.add(id);
+
+      let s = _dirtyFieldsByItem.get(id);
+      if (!s) { s = new Set(); _dirtyFieldsByItem.set(id, s); }
+      s.add(field);
     }
 
     function clearDirty(id, field) {
       const key = _k(id, field);
       if (!_dirtyKeys.has(key)) return;
       _dirtyKeys.delete(key);
+
       const n = (_itemDirtyCount.get(id) || 0) - 1;
       if (n <= 0) _itemDirtyCount.delete(id);
       else _itemDirtyCount.set(id, n);
 
-      // その日が完全にdirtyじゃなく、debounceも無いならpending解除
+      const s = _dirtyFieldsByItem.get(id);
+      if (s) {
+        s.delete(field);
+        if (s.size === 0) _dirtyFieldsByItem.delete(id);
+      }
+
       if (!hasDirtyForItem(id) && !_saveTimers.has(id)) {
         _pendingItemIds.delete(id);
       }
@@ -541,30 +452,21 @@
     }
 
     function _fields() {
-      // ★追加：notice
       return ['notice', 'duty', 'events', 'business', 'submission', 'vacation'];
     }
 
-    // =========================================================
-    // ★追加：チェック済みを下へ（未完了を上）並び替え
-    //  - 行頭のチェック記号を判定し、未完了→完了の順に安定ソート
-    //  - 対象：notice/events/business/submission/vacation（dutyは除外）
-    // =========================================================
+    // ================================
+    // ★チェック並び替え（未完了→完了）
+    // ================================
     function _classifyChecklistLine(lineRaw) {
       const line = String(lineRaw ?? '');
       const t = line.replace(/^\s+/, '');
-
-      // 先頭の箇条書き記号（任意）
       const t2 = t.replace(/^[-*・●•\u2022]\s*/, '');
-
-      // 未完了系
       const unchecked = /^(?:\[\s?\]|☐|□|⬜|◻︎|▫️|◻|🔲)\b/.test(t2);
-      // 完了系
       const checked = /^(?:\[(?:x|X|✓|✔)\]|☑|✅|✔|✓|■|🗹|🔳)\b/.test(t2);
-
-      if (checked) return 2;    // 下へ
-      if (unchecked) return 1;  // 上へ
-      return 0;                 // それ以外（見出し等）
+      if (checked) return 2;
+      if (unchecked) return 1;
+      return 0;
     }
 
     function sortChecklistText(text) {
@@ -572,7 +474,6 @@
       const s = original.replace(/\r\n/g, '\n');
       const lines = s.split('\n');
 
-      // チェックっぽい行がないなら何もしない
       let hasChecklist = false;
       for (const ln of lines) {
         const c = _classifyChecklistLine(ln);
@@ -580,7 +481,6 @@
       }
       if (!hasChecklist || lines.length <= 1) return original;
 
-      // 安定ソート（同グループは元順維持）
       const tagged = lines.map((ln, idx) => ({ ln, idx, grp: _classifyChecklistLine(ln) }));
       tagged.sort((a, b) => (a.grp - b.grp) || (a.idx - b.idx));
 
@@ -591,20 +491,16 @@
     function sortChecklistInItem(item) {
       if (!item) return false;
       let changed = false;
-
       const targets = ['notice', 'events', 'business', 'submission', 'vacation'];
       targets.forEach(f => {
         const before = String(item[f] ?? '');
         const after = sortChecklistText(before);
-        if (after !== before) {
-          item[f] = after;
-          changed = true;
-        }
+        if (after !== before) { item[f] = after; changed = true; }
       });
       return changed;
     }
 
-    // ====== ★ローカルキャッシュ（予定データ本体） ======
+    // ====== ローカルキャッシュ ======
     function _cacheKey(startYear) {
       if (!authUser) return null;
       return `${LOCAL_CACHE_PREFIX}${authUser.uid}__${startYear}`;
@@ -616,19 +512,12 @@
         if (!k) return false;
         const raw = localStorage.getItem(k);
         if (!raw) return false;
-
         const arr = JSON.parse(raw);
-        // 1年分あるか軽くチェック（年度で約365）
         if (!Array.isArray(arr) || arr.length < 300) return false;
-
         scheduleData = arr;
-        // 旧キャッシュ互換：notice が無い場合に備え、空で補完
         scheduleData.forEach(it => { if (typeof it.notice !== 'string') it.notice = ''; });
         return true;
-      } catch (e) {
-        console.error(e);
-        return false;
-      }
+      } catch (e) { console.error(e); return false; }
     }
 
     let _cacheSaveTimer = null;
@@ -637,29 +526,36 @@
       const startYear = getStartYear();
       const k = _cacheKey(startYear);
       if (!k) return;
-
-      // 保存連打しないように軽くデバウンス
       if (_cacheSaveTimer) clearTimeout(_cacheSaveTimer);
       _cacheSaveTimer = setTimeout(() => {
-        try {
-          localStorage.setItem(k, JSON.stringify(scheduleData));
-        } catch (e) {
-          console.error(e);
-        }
+        try { localStorage.setItem(k, JSON.stringify(scheduleData)); }
+        catch (e) { console.error(e); }
       }, 500);
     }
 
-    // ★差し替え：commitSaveItem を「ソートする/しない」を選べるように（debounce中に並び替えでカーソルが飛ぶのを防ぐ）
-    async function commitSaveItem(itemId, { sort = false, rerender = false } = {}) {
-      if (!(authUser && canEdit)) return;
+    // ★差し替え：閲覧モードでも submission のチェック保存だけ許可
+    function _canWriteSubmissionInView(itemId) {
+      if (!authUser) return false;
+      if (canEdit) return true;
+      const s = _dirtyFieldsByItem.get(itemId);
+      if (!s || s.size === 0) return false;
+      // 閲覧モードで許可するのは submission のみ
+      for (const f of s) { if (f !== 'submission') return false; }
+      return true;
+    }
 
-      // dirtyが無いなら何もしない（write 0）
+    async function commitSaveItem(itemId, { sort = false, rerender = false, allowViewChecklist = false } = {}) {
+      if (!authUser) return;
+
+      // dirtyが無いならwrite 0
       if (!hasDirtyForItem(itemId)) {
         _pendingItemIds.delete(itemId);
         return;
       }
 
-      // 同じ日に対して並行saveを避ける
+      // 編集モード以外での保存は「submissionチェックのみ」限定
+      if (!(canEdit || (allowViewChecklist && _canWriteSubmissionInView(itemId)))) return;
+
       if (_savingItems.has(itemId)) {
         _needsResaveItems.add(itemId);
         return;
@@ -668,30 +564,24 @@
       const item = scheduleData.find(d => d.id === itemId);
       if (!item) return;
 
-      // ★並び替え（未完了→完了）は、カードを離れた時 / まとめ保存の時だけ実行（debounce中は基本しない）
-      //   ただし sort=true が来た時は実行する
       let sortedChanged = false;
-      if (sort) {
-        sortedChanged = sortChecklistInItem(item);
-      }
+      if (sort) sortedChanged = sortChecklistInItem(item);
 
       _savingItems.add(itemId);
 
       try {
         await saveDayToCloud(item);
 
-        // ★保存成功：その時点の値を baseline にし、dirty/pending を外す
+        // 保存成功：baseline更新＆dirty解除
         _fields().forEach(f => {
           _baseValue.set(_k(itemId, f), norm(item[f] || ''));
+          // ★閲覧チェック保存の時も submission だけdirty解除してOK（他はそもそもdirtyにならない設計）
           clearDirty(itemId, f);
         });
 
         _pendingItemIds.delete(itemId);
-
-        // ★端末キャッシュも更新（ログインし直しでもフルread回避）
         queueScheduleCacheSave();
 
-        // ★並び替えが走った時は表示も揃える（編集中は後回し）
         if (sortedChanged) {
           if (isEditingCell) pendingRerender = true;
           else if (rerender) renderSchedule();
@@ -701,36 +591,29 @@
       } finally {
         _savingItems.delete(itemId);
 
-        // save中にさらに変更が入っていたら、もう一度だけ追いかけ保存
         if (_needsResaveItems.has(itemId)) {
           _needsResaveItems.delete(itemId);
           if (hasDirtyForItem(itemId)) {
-            await commitSaveItem(itemId, { sort: false, rerender: false });
+            await commitSaveItem(itemId, { sort: false, rerender: false, allowViewChecklist });
           }
         }
       }
     }
 
-    // ====== ★追加：編集中のフォーカス落ち防止（見た目は変えない） ======
     let isEditingCell = false;
     let pendingRerender = false;
-    let activeEdit = null; // { id, field }
+    let activeEdit = null;
 
-    // ====== ★更新ボタン方式：二重押し防止 ======
     let isRefreshing = false;
-
-    // ====== ★最終更新表示 ======
     let lastSyncAt = null;
     let lastSyncTicker = null;
 
-    // ====== ★iOS relatedTarget=null 対策のため「直前に触った要素」を追跡 ======
     let _lastPointerDownTarget = null;
     function _trackLastPointerTarget(e) { _lastPointerDownTarget = e.target; }
     document.addEventListener('pointerdown', _trackLastPointerTarget, true);
     document.addEventListener('mousedown', _trackLastPointerTarget, true);
     document.addEventListener('touchstart', _trackLastPointerTarget, true);
 
-    // ====== ★①：文字入力したら自動で元の画面サイズへ（iOS Safariの自動ズーム解除） ======
     const _viewportMetaEl = () => document.getElementById('viewportMeta') || document.querySelector('meta[name=viewport]');
     const _baseViewportContent = (() => {
       const m = _viewportMetaEl();
@@ -757,10 +640,7 @@
       }
 
       const meta = _viewportMetaEl();
-      if (!meta) {
-        _zoomResetDoneForThisFocus = true;
-        return;
-      }
+      if (!meta) { _zoomResetDoneForThisFocus = true; return; }
 
       const y = window.scrollY;
       meta.setAttribute('content', `${_baseViewportContent}, maximum-scale=1.0`);
@@ -772,52 +652,40 @@
       _zoomResetDoneForThisFocus = true;
     }
 
-    // ★②：検索欄など blur 時に確実に元倍率へ戻す（iOS Safari対策）
     function forceResetZoom() {
       if (!_isIOSSafari()) return;
-
       const meta = _viewportMetaEl();
       if (!meta) return;
-
       const y = window.scrollY;
       meta.setAttribute('content', `${_baseViewportContent}, maximum-scale=1.0`);
-
       setTimeout(() => {
         meta.setAttribute('content', _baseViewportContent);
         window.scrollTo(0, y);
       }, 80);
     }
 
-    // ★フォーカス時点を baseline として記録（ここから変化が無ければ write 0）
     function onCellFocus(id, field, value) {
       isEditingCell = true;
       activeEdit = { id, field };
       _zoomResetDoneForThisFocus = false;
-
       setBaselineFromCurrent(id, field, value);
     }
 
-    // ★（互換のため残置）以前の onCellBlur / flushSave は使わない。
     async function onCellBlur(id, field, value) { /* no-op */ }
     async function flushSave(id, field, value) { /* no-op */ }
 
-    // ★カードから完全に離れたら保存（focusout）
-    // ✅ iOS Safariで relatedTarget が null になっても誤判定しない版
     function attachCardSaveOnLeave(card, itemId) {
       const doCommit = async () => {
-        // カード単位保存：debounceが残っていれば取消して即保存
         if (_saveTimers.has(itemId)) {
           clearTimeout(_saveTimers.get(itemId));
           _saveTimers.delete(itemId);
         }
 
-        // 編集状態を外す（必要なら再描画を後回し）
         isEditingCell = false;
         activeEdit = null;
         _zoomResetDoneForThisFocus = false;
 
-        // ★ここで「チェック済みを下へ」並び替えを実行してから保存（=未完了が上）
-        await commitSaveItem(itemId, { sort: true, rerender: true });
+        await commitSaveItem(itemId, { sort: true, rerender: true, allowViewChecklist: false });
 
         if (pendingRerender) {
           pendingRerender = false;
@@ -829,16 +697,13 @@
         if (!(authUser && canEdit)) return;
 
         const to = e.relatedTarget;
-
         if (to && card.contains(to)) return;
 
         if (!to) {
           setTimeout(() => {
             const ae = document.activeElement;
-
             if (ae && card.contains(ae)) return;
             if (_lastPointerDownTarget && card.contains(_lastPointerDownTarget)) return;
-
             doCommit();
           }, 0);
           return;
@@ -848,10 +713,8 @@
       });
     }
 
-    // ★ツール折りたたみ（表示/非表示）
     function applyToolsCollapsedState(collapsed) {
       document.body.classList.toggle('tools-collapsed', collapsed);
-
       const t = document.getElementById('toggleToolsText');
       if (t) t.textContent = collapsed ? 'ツールを表示' : 'ツールを隠す';
     }
@@ -863,23 +726,17 @@
       applyToolsCollapsedState(next);
     }
 
-    // ★印刷見出し（年度＋学校名＋◯月）を自動生成
     function updatePrintTitle() {
       const year = parseInt(document.getElementById('yearInput').value, 10);
       const school = (document.getElementById('schoolName')?.innerText || '').trim();
       const month = currentMonth;
       const schoolText = school ? school : '（学校名未入力）';
-
       const title = `${year}年度 ${schoolText} ${month}月`;
       const el = document.getElementById('printTitle');
       if (el) el.textContent = title;
     }
+    window.addEventListener('beforeprint', () => { updatePrintTitle(); });
 
-    window.addEventListener('beforeprint', () => {
-      updatePrintTitle();
-    });
-
-    // ★あなたのFirebaseプロジェクトの設定
     const firebaseConfig = {
       apiKey: "AIzaSyA-FkCxNyT8C-HicXa4PbHcjNkwIvQWWw0",
       authDomain: "schedule-collab-38ed7.firebaseapp.com",
@@ -960,6 +817,7 @@
         if (editable) el.classList.remove('readonly');
         else el.classList.add('readonly');
       });
+
       setModeBadge();
     }
 
@@ -996,24 +854,12 @@
       }
     }
 
-    // ========= Firestore参照（rooms/{uid}） =========
-    function getStartYear() {
-      return parseInt(document.getElementById('yearInput').value, 10);
-    }
-    function roomId() {
-      return authUser ? authUser.uid : null;
-    }
-    function roomDocRef() {
-      return db.collection('rooms').doc(roomId());
-    }
-    function yearDocRef(startYear) {
-      return roomDocRef().collection('years').doc(String(startYear));
-    }
-    function cloudDaysRef(startYear) {
-      return yearDocRef(startYear).collection('days');
-    }
+    function getStartYear() { return parseInt(document.getElementById('yearInput').value, 10); }
+    function roomId() { return authUser ? authUser.uid : null; }
+    function roomDocRef() { return db.collection('rooms').doc(roomId()); }
+    function yearDocRef(startYear) { return roomDocRef().collection('years').doc(String(startYear)); }
+    function cloudDaysRef(startYear) { return yearDocRef(startYear).collection('days'); }
 
-    // ========= ★差分同期カーソル（最終既読） =========
     function _seenKey(startYear) {
       if (!authUser) return null;
       return `${LAST_SEEN_KEY_PREFIX}${authUser.uid}__${startYear}`;
@@ -1047,7 +893,6 @@
       const ae = activeEdit && activeEdit.id ? activeEdit : null;
       const sameItem = ae && (target.id === ae.id);
 
-      // ★ソフト削除（isDeleted=true）は、ローカルを空にする
       if (data.isDeleted === true) {
         if (!(sameItem && ae.field === 'notice')) target.notice = '';
         if (!(sameItem && ae.field === 'duty')) target.duty = '';
@@ -1068,7 +913,6 @@
       return true;
     }
 
-    // ========= ★更新ボタン方式：差分読み込み =========
     async function loadCloudForYear({ initialFull = false } = {}) {
       if (!authUser) return { updatedCount: 0, changed: false };
       const ok = await ensureFirebase();
@@ -1089,7 +933,6 @@
       const snap = await qref.get();
 
       let updatedCount = snap.size;
-
       let changed = false;
       let maxTs = lastSeen;
 
@@ -1104,9 +947,7 @@
         }
       });
 
-      if (initialFull && !maxTs) {
-        maxTs = firebase.firestore.Timestamp.fromMillis(Date.now());
-      }
+      if (initialFull && !maxTs) maxTs = firebase.firestore.Timestamp.fromMillis(Date.now());
       if (maxTs) setLastSeenTs(startYear, maxTs);
 
       if (changed) {
@@ -1114,7 +955,6 @@
         else renderSchedule();
       }
 
-      // ========= 学校名（meta） =========
       try {
         if (initialFull || !lastSeen) {
           const metaSnap = await yearDocRef(startYear).get();
@@ -1140,16 +980,12 @@
         }
       } catch (e) { console.error(e); }
 
-      // ★予定データ本体キャッシュ（初回フル / 変更あり / 更新件数あり のときだけ保存）
-      if (initialFull || changed || updatedCount > 0) {
-        queueScheduleCacheSave();
-      }
+      if (initialFull || changed || updatedCount > 0) queueScheduleCacheSave();
 
       setSyncBadge('同期OK', 'ok');
       return { updatedCount, changed };
     }
 
-    // ========= 保存デバウンス =========
     async function saveDayToCloud(item) {
       if (!authUser) return;
       const ok = await ensureFirebase();
@@ -1170,15 +1006,8 @@
 
       if (isEmpty) {
         await ref.set({
-          year: item.year,
-          month: item.month,
-          day: item.day,
-          notice: '',
-          duty: '',
-          events: '',
-          business: '',
-          submission: '',
-          vacation: '',
+          year: item.year, month: item.month, day: item.day,
+          notice: '', duty: '', events: '', business: '', submission: '', vacation: '',
           isDeleted: true,
           deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1188,15 +1017,8 @@
       }
 
       await ref.set({
-        year: item.year,
-        month: item.month,
-        day: item.day,
-        notice,
-        duty,
-        events,
-        business,
-        submission,
-        vacation,
+        year: item.year, month: item.month, day: item.day,
+        notice, duty, events, business, submission, vacation,
         isDeleted: false,
         deletedAt: firebase.firestore.FieldValue.delete(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1227,15 +1049,8 @@
 
         if (isEmpty) {
           batch.set(ref.doc(docId), {
-            year: item.year,
-            month: item.month,
-            day: item.day,
-            notice: '',
-            duty: '',
-            events: '',
-            business: '',
-            submission: '',
-            vacation: '',
+            year: item.year, month: item.month, day: item.day,
+            notice: '', duty: '', events: '', business: '', submission: '', vacation: '',
             isDeleted: true,
             deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1243,15 +1058,8 @@
           }, { merge: true });
         } else {
           batch.set(ref.doc(docId), {
-            year: item.year,
-            month: item.month,
-            day: item.day,
-            notice,
-            duty,
-            events,
-            business,
-            submission,
-            vacation,
+            year: item.year, month: item.month, day: item.day,
+            notice, duty, events, business, submission, vacation,
             isDeleted: false,
             deletedAt: firebase.firestore.FieldValue.delete(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1262,9 +1070,16 @@
       await batch.commit();
     }
 
-    // ★入力中は「カード単位」で debounce して保存予約（保存処理は commitSaveItem(itemId) 1回）
-    function queueSave(id, field, value) {
-      if (!(authUser && canEdit)) return;
+    // ================================
+    // ★差し替え：queueSave（閲覧モードでも submission チェック保存OK）
+    // ================================
+    function queueSave(id, field, value, opts = {}) {
+      const allowViewChecklist = !!opts.allowViewChecklist;
+
+      // 通常：編集モードのみ
+      // 例外：閲覧モードでも submission のチェック保存だけOK
+      if (!authUser) return;
+      if (!(canEdit || (allowViewChecklist && field === 'submission'))) return;
 
       resetZoomIfNeeded();
 
@@ -1297,38 +1112,49 @@
 
       markDirty(id, field);
 
+      // ★チェック操作は軽めに保存（閲覧でも使う）
+      const delay = (allowViewChecklist && field === 'submission' && !canEdit) ? 800 : 3000;
+
       if (_saveTimers.has(id)) clearTimeout(_saveTimers.get(id));
       _saveTimers.set(id, setTimeout(async () => {
         _saveTimers.delete(id);
-        // ★debounce保存では並び替えはしない（入力中に動かさない）
-        await commitSaveItem(id, { sort: false, rerender: false });
-      }, 3000));
+        await commitSaveItem(id, { sort: false, rerender: false, allowViewChecklist: allowViewChecklist && field === 'submission' });
+      }, delay));
     }
 
+    // ★差し替え：閲覧モードでも submission のdirtyなら flush する（ページ離脱/更新前）
     async function flushAllPendingSaves() {
-      if (!(authUser && canEdit)) {
+      if (!authUser) {
         _saveTimers.forEach(t => clearTimeout(t));
         _saveTimers.clear();
         _pendingItemIds.clear();
         _dirtyKeys.clear();
         _itemDirtyCount.clear();
+        _dirtyFieldsByItem.clear();
         return;
       }
 
       _saveTimers.forEach(t => clearTimeout(t));
       _saveTimers.clear();
 
-      const items = [];
       const ids = Array.from(_pendingItemIds);
       _pendingItemIds.clear();
 
+      const items = [];
       let anySorted = false;
 
       ids.forEach(itemId => {
         if (!hasDirtyForItem(itemId)) return;
+
+        // 編集モード以外は「submissionのみdirty」だけ保存対象
+        if (!canEdit) {
+          const s = _dirtyFieldsByItem.get(itemId);
+          if (!s || s.size === 0) return;
+          for (const f of s) { if (f !== 'submission') return; }
+        }
+
         const it = scheduleData.find(d => d.id === itemId);
         if (it) {
-          // ★まとめ保存前にチェック並び替え（未完了→完了）
           if (sortChecklistInItem(it)) anySorted = true;
           items.push(it);
         }
@@ -1343,11 +1169,15 @@
               _baseValue.set(_k(it.id, f), norm(it[f] || ''));
               clearDirty(it.id, f);
             });
+            _pendingItemIds.delete(it.id);
+            if (_saveTimers.has(it.id)) {
+              clearTimeout(_saveTimers.get(it.id));
+              _saveTimers.delete(it.id);
+            }
           });
 
           queueScheduleCacheSave();
 
-          // ★表示も合わせる（編集中は後回し）
           if (anySorted) {
             if (isEditingCell) pendingRerender = true;
             else renderSchedule();
@@ -1358,11 +1188,9 @@
       }
     }
 
-    // ========= 学校名（クラウドのみ） =========
     async function saveSchoolName() {
       if (!(authUser && canEdit)) return;
       const name = document.getElementById('schoolName').innerText;
-
       const startYear = getStartYear();
       try {
         await yearDocRef(startYear).set({
@@ -1373,7 +1201,6 @@
       } catch (e) { console.error(e); }
     }
 
-    // ========= トースト =========
     let _toastTimer = null;
     function showToast({ title = '更新しました', line1 = '', line2 = '', kind = 'ok' } = {}) {
       const toast = document.getElementById('toast');
@@ -1405,12 +1232,9 @@
       toast.classList.remove('hidden');
 
       if (_toastTimer) clearTimeout(_toastTimer);
-      _toastTimer = setTimeout(() => {
-        toast.classList.add('hidden');
-      }, 2500);
+      _toastTimer = setTimeout(() => { toast.classList.add('hidden'); }, 2500);
     }
 
-    // ========= 最終更新表示 =========
     function _formatAgo(ms) {
       if (ms == null) return '未更新';
       const diff = Date.now() - ms;
@@ -1452,16 +1276,12 @@
 
     function startLastSyncTicker() {
       if (lastSyncTicker) clearInterval(lastSyncTicker);
-      lastSyncTicker = setInterval(() => {
-        updateLastSyncLabel();
-      }, 10000);
+      lastSyncTicker = setInterval(() => { updateLastSyncLabel(); }, 10000);
     }
 
-    // ========= 更新ボタン UI（スピナー/二重押し防止/未ログイン無効） =========
     function setRefreshButtonState() {
       const btn = document.getElementById('refreshBtn');
       if (!btn) return;
-
       if (isRefreshing) return;
 
       if (authUser) {
@@ -1476,38 +1296,29 @@
     }
 
     function setRefreshingUI(on) {
-  const btn = document.getElementById('refreshBtn');
-  const sp = document.getElementById('refreshSpinner');
-  const tx = document.getElementById('refreshBtnText');
+      const btn = document.getElementById('refreshBtn');
+      const sp = document.getElementById('refreshSpinner');
+      const tx = document.getElementById('refreshBtnText');
+      if (!btn || !sp || !tx) return;
 
-  if (!btn || !sp || !tx) return;
-
-  if (on) {
-    btn.disabled = true;
-    btn.classList.add('opacity-60', 'pointer-events-none');
-    // ★更新中だけ少し濃く（任意）
-    btn.classList.add('bg-amber-200');
-    btn.classList.remove('bg-amber-100');
-
-    sp.classList.remove('hidden');
-    tx.textContent = '更新中…';
-  } else {
-    sp.classList.add('hidden');
-    tx.textContent = '更新';
-
-    // ★元に戻す（任意）
-    btn.classList.remove('bg-amber-200');
-    btn.classList.add('bg-amber-100');
-
-    setRefreshButtonState();
-  }
-}
+      if (on) {
+        btn.disabled = true;
+        btn.classList.add('opacity-60', 'pointer-events-none');
+        btn.classList.add('bg-amber-200');
+        btn.classList.remove('bg-amber-100');
+        sp.classList.remove('hidden');
+        tx.textContent = '更新中…';
+      } else {
+        sp.classList.add('hidden');
+        tx.textContent = '更新';
+        btn.classList.remove('bg-amber-200');
+        btn.classList.add('bg-amber-100');
+        setRefreshButtonState();
+      }
+    }
 
     async function manualRefresh() {
-      if (!authUser) {
-        alert('ログインすると更新できます。');
-        return;
-      }
+      if (!authUser) { alert('ログインすると更新できます。'); return; }
       if (isRefreshing) return;
 
       isRefreshing = true;
@@ -1548,7 +1359,6 @@
       }
     }
 
-    // ========= 検索（×表示/クリア） =========
     function updateClearButton() {
       const input = document.getElementById('searchInput');
       const btn = document.getElementById('clearSearchBtn');
@@ -1565,13 +1375,9 @@
       renderSchedule();
     }
 
-    // ========= 初期化 =========
     async function init() {
-      // ★リロードしても見ていた月を維持
       const savedMonth = parseInt(localStorage.getItem(LAST_MONTH_KEY) || '', 10);
-      if (Number.isFinite(savedMonth) && savedMonth >= 1 && savedMonth <= 12) {
-        currentMonth = savedMonth;
-      }
+      if (Number.isFinite(savedMonth) && savedMonth >= 1 && savedMonth <= 12) currentMonth = savedMonth;
 
       renderMonthNav();
       renderMonthSelect();
@@ -1601,9 +1407,7 @@
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) flushAllPendingSaves();
       });
-      window.addEventListener('pagehide', () => {
-        flushAllPendingSaves();
-      });
+      window.addEventListener('pagehide', () => { flushAllPendingSaves(); });
 
       firebase.auth().onAuthStateChanged(async (u) => {
         authUser = u || null;
@@ -1617,8 +1421,7 @@
           canEdit = false;
           setModeBadge();
 
-          // ★ログイン直後：キャッシュがあれば復元してから、必要な場合だけフルread
-          const cacheLoaded = generateYearlyCalendar(); // 内部で cache を試し、描画まで行う
+          const cacheLoaded = generateYearlyCalendar();
           const startYear = getStartYear();
           const lastSeen = getLastSeenTs(startYear);
           const needFull = (!cacheLoaded) || (!lastSeen);
@@ -1628,7 +1431,6 @@
             lastSyncAt = Date.now();
             updateLastSyncLabel();
             startLastSyncTicker();
-
             queueScheduleCacheSave();
           } catch (e) { console.error(e); }
 
@@ -1653,6 +1455,7 @@
           _pendingItemIds.clear();
           _dirtyKeys.clear();
           _itemDirtyCount.clear();
+          _dirtyFieldsByItem.clear();
           _baseValue.clear();
           _savingItems.clear();
           _needsResaveItems.clear();
@@ -1679,7 +1482,6 @@
       }
     }
 
-    // ========= 年度生成 =========
     function generateYearlyCalendar() {
       const startYear = parseInt(document.getElementById('yearInput').value, 10);
       const newScheduleData = [];
@@ -1697,7 +1499,6 @@
           newScheduleData.push({
             id: `${year}-${month}-${day}`,
             year, month, day, dow,
-            // ★追加：notice
             notice: '',
             duty: '',
             events: '',
@@ -1710,13 +1511,9 @@
 
       scheduleData = newScheduleData;
 
-      // ★ログイン中なら、同年度のローカルキャッシュがあれば復元（フルread回避の鍵）
       let cacheLoaded = false;
-      if (authUser) {
-        cacheLoaded = loadScheduleCache(startYear);
-      }
+      if (authUser) cacheLoaded = loadScheduleCache(startYear);
 
-      // 旧データ互換：notice が無い場合に補完
       scheduleData.forEach(it => { if (typeof it.notice !== 'string') it.notice = ''; });
 
       renderSchedule();
@@ -1726,7 +1523,6 @@
       return cacheLoaded;
     }
 
-    // ========= 月ナビ =========
     function renderMonthNav() {
       const nav = document.getElementById('monthNav');
       if (!nav) return;
@@ -1738,10 +1534,7 @@
         btn.innerText = `${m}月`;
         btn.onclick = () => {
           currentMonth = m;
-
-          // ★保存（リロードしても同じ月）
           localStorage.setItem(LAST_MONTH_KEY, String(currentMonth));
-
           renderMonthNav();
           renderMonthSelect();
           renderSchedule();
@@ -1768,20 +1561,15 @@
 
     function onMonthSelectChange(val) {
       currentMonth = parseInt(val, 10);
-
-      // ★保存（リロードしても同じ月）
       localStorage.setItem(LAST_MONTH_KEY, String(currentMonth));
-
       renderMonthNav();
       renderSchedule();
       applyEditLockToDOM();
       updatePrintTitle();
     }
 
-    // ========= タブ別：検索対象フィールド切替（検索語は共通） =========
     function buildSearchTextForItem(item) {
       if (!item) return '';
-
       if (currentTab === 'notice') return String(item.notice || '');
       if (currentTab === 'school') return String(item.events || '');
       if (currentTab === 'business') return String(item.business || '');
@@ -1798,7 +1586,6 @@
       );
     }
 
-    // ========= ★検索ハイライト（閲覧時のみ） =========
     function escapeHtml(s) {
       return String(s ?? '')
         .replace(/&/g, '&amp;')
@@ -1807,31 +1594,26 @@
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
     }
-    function escapeRegExp(s) {
-      return String(s ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
-    function nl2br(s) {
-      return String(s ?? '').replace(/\n/g, '<br>');
-    }
+    function escapeRegExp(s) { return String(s ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+    function nl2br(s) { return String(s ?? '').replace(/\n/g, '<br>'); }
     function highlightHtml(text, query) {
       const t = String(text ?? '');
       const q = String(query ?? '').trim();
       if (!q) return nl2br(escapeHtml(t));
-
       const safeText = escapeHtml(t);
       const safeQuery = escapeHtml(q);
       const re = new RegExp(escapeRegExp(safeQuery), 'gi');
-
-      return nl2br(
-        safeText.replace(re, (m) => `<mark class="bg-yellow-200 rounded px-0.5">${m}</mark>`)
-      );
+      return nl2br(safeText.replace(re, (m) => `<mark class="bg-yellow-200 rounded px-0.5">${m}</mark>`));
     }
 
     // =========================================================
-    // ★提出物（submission）を「本物チェックボックスUI」にする
-    //  - データは submission のテキストに [ ] / [x] 形式で保存（互換）
-    //  - 表示は input type="checkbox"
-    //  - チェック済みは下へ（未完了が上）
+    // ★提出物（submission）チェックボックスUI
+    // 要件反映：
+    //  - 提出物が空の行は「チェックボックス表示なし」（閲覧は完全に何も出さない）
+    //  - チェック済み行：opacity + 打消し
+    //  - 全体タブ/報告・提出タブ 両方同じUI
+    //  - どちらでチェックしても連動（同じsubmission保存）
+    //  - 閲覧モードでもチェック可＆クラウド保存（submissionのみ）
     // =========================================================
     function parseChecklist(text) {
       const lines = String(text ?? '').replace(/\r\n/g, '\n').split('\n');
@@ -1844,35 +1626,29 @@
 
         let m;
 
-        // - [x] / [x]
         if ((m = line.match(/^\s*(?:-?\s*)?\[(x|X)\]\s*(.*)$/))) {
           items.push({ checked: true, text: (m[2] ?? '').trim(), idx: idx++ });
           continue;
         }
-        // - [ ]
         if ((m = line.match(/^\s*(?:-?\s*)?\[\s*\]\s*(.*)$/))) {
           items.push({ checked: false, text: (m[1] ?? '').trim(), idx: idx++ });
           continue;
         }
-        // symbols checked
         if ((m = line.match(/^\s*[☑✅✔︎✔️☒■🗹🔳]\s*(.*)$/))) {
           items.push({ checked: true, text: (m[1] ?? '').trim(), idx: idx++ });
           continue;
         }
-        // symbols unchecked
         if ((m = line.match(/^\s*[□☐⬜◻︎◻▫️🔲]\s*(.*)$/))) {
           items.push({ checked: false, text: (m[1] ?? '').trim(), idx: idx++ });
           continue;
         }
 
-        // それ以外は未完了として扱う
         items.push({ checked: false, text: line, idx: idx++ });
       }
       return items;
     }
 
     function serializeChecklist(items) {
-      // 空テキストでも「項目」として残せるように保持（追加直後に消えないため）
       return (items || [])
         .map(it => `${it.checked ? '[x]' : '[ ]'} ${String(it.text ?? '').replace(/\r?\n/g, ' ').trim()}`.trimEnd())
         .join('\n');
@@ -1885,11 +1661,9 @@
     }
 
     function enhanceCardChecklists(card, item, editable, queryRaw) {
-      // allタブ内（提出物）
       const host1 = card.querySelector('[data-checklist="submission"]');
       if (host1) renderChecklistField(host1, item.id, 'submission', editable, queryRaw);
 
-      // submissionタブ内（提出物）
       const host2 = card.querySelector('[data-checklist-tab="submission"]');
       if (host2) renderChecklistField(host2, item.id, 'submission', editable, queryRaw);
     }
@@ -1898,19 +1672,26 @@
       const item = scheduleData.find(d => d.id === itemId);
       if (!item) return;
 
-      const parsed = parseChecklist(item[field] || '');
-      const state = parsed.length ? parsed.slice() : [{ checked: false, text: '', idx: 0 }];
+      // まずパース
+      let parsed = parseChecklist(item[field] || '');
 
-      // 未完了→完了で表示順を作る（安定）
-      const sorted = state.slice().sort((a, b) => {
-        if (a.checked !== b.checked) return a.checked ? 1 : -1;
-        return (a.idx ?? 0) - (b.idx ?? 0);
-      });
+      // ★閲覧時：空ラベル行は「存在しない扱い」
+      if (!editable) parsed = parsed.filter(x => String(x.text || '').trim() !== '');
+
+      // ★提出物がない行はチェックボックス表示なし（閲覧は完全に空）
+      if (!editable && parsed.length === 0) {
+        host.innerHTML = '';
+        return;
+      }
 
       host.innerHTML = '';
 
+      const allowToggle = !!authUser;         // 閲覧でもチェックはできる（ログイン時）
+      const allowAdd = !!(authUser && canEdit); // 追加は編集モードのみ
+      const allowTextEdit = !!(authUser && canEdit);
+
       // 追加ボタン（編集時のみ）
-      if (editable) {
+      if (allowAdd) {
         const top = document.createElement('div');
         top.className = 'flex items-center justify-end mb-1';
         const btn = document.createElement('button');
@@ -1923,9 +1704,9 @@
           cur.push({ checked: false, text: '', idx: newIdx });
 
           const nextText = serializeChecklist(cur);
-          queueSave(itemId, field, nextText);
+          queueSave(itemId, field, nextText, { allowViewChecklist: false });
 
-          renderChecklistField(host, itemId, field, editable, queryRaw);
+          renderChecklistField(host, itemId, field, true, queryRaw);
 
           setTimeout(() => {
             const inputs = host.querySelectorAll('[data-cl-text="1"]');
@@ -1936,29 +1717,40 @@
         host.appendChild(top);
       }
 
+      // 編集時でも「何も無い」なら、ボタンだけで終わり（チェック行のプレースホルダは出さない）
+      if (parsed.length === 0 && allowAdd) return;
+
+      // 表示順：未完了→完了（安定）
+      const sorted = parsed.slice().sort((a, b) => {
+        if (a.checked !== b.checked) return a.checked ? 1 : -1;
+        return (a.idx ?? 0) - (b.idx ?? 0);
+      });
+
       const list = document.createElement('div');
       list.className = 'space-y-1';
       host.appendChild(list);
 
       const commit = (rerender) => {
         const nextText = serializeChecklist(sorted);
-        queueSave(itemId, field, nextText);
+        // ★チェック操作は閲覧でも保存：submissionのみ許可
+        queueSave(itemId, field, nextText, { allowViewChecklist: true });
         if (rerender) renderChecklistField(host, itemId, field, editable, queryRaw);
       };
 
       sorted.forEach((it, i) => {
+        // ★空ラベル行は閲覧では作られないが、編集時は残す
         const row = document.createElement('div');
         row.className = 'flex items-start gap-2';
+        if (it.checked) row.classList.add('opacity-50'); // ★薄く
         list.appendChild(row);
 
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.checked = !!it.checked;
-        cb.disabled = !editable;
+        cb.disabled = !allowToggle;
         cb.className = 'mt-1 h-4 w-4 accent-indigo-600';
         cb.onchange = () => {
           it.checked = cb.checked;
-          // チェック済みを下へ：再描画して表示順を更新
           commit(true);
         };
         row.appendChild(cb);
@@ -1966,7 +1758,9 @@
         const text = document.createElement('div');
         text.className = 'flex-1 text-sm text-amber-700 font-medium whitespace-pre-wrap leading-relaxed';
 
-        if (editable) {
+        if (it.checked) text.classList.add('line-through'); // ★打消し
+
+        if (allowTextEdit) {
           text.classList.add('editable');
           text.contentEditable = 'true';
           text.setAttribute('data-cl-text', '1');
@@ -1979,7 +1773,6 @@
             commit(false);
           });
 
-          // Enterで次項目へ（便利）
           text.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
@@ -1987,8 +1780,8 @@
               const newIdx = cur.length ? Math.max(...cur.map(x => x.idx ?? 0)) + 1 : 0;
               cur.push({ checked: false, text: '', idx: newIdx });
 
-              queueSave(itemId, field, serializeChecklist(cur));
-              renderChecklistField(host, itemId, field, editable, queryRaw);
+              queueSave(itemId, field, serializeChecklist(cur), { allowViewChecklist: false });
+              renderChecklistField(host, itemId, field, true, queryRaw);
 
               setTimeout(() => {
                 const inputs = host.querySelectorAll('[data-cl-text="1"]');
@@ -2024,7 +1817,6 @@
 
       const filteredData = scheduleData.filter(item => {
         if (item.month !== currentMonth) return false;
-
         if (q) {
           const text = buildSearchTextForItem(item).toLowerCase();
           return text.includes(q);
@@ -2050,9 +1842,7 @@
         const isSat = item.dow === '土';
         const dateBg = isSun ? 'bg-red-50 text-red-600' : (isSat ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-700');
 
-        const dutyVal = editable
-          ? escapeHtml(item.duty || '')
-          : highlightHtml(item.duty || '', queryRaw);
+        const dutyVal = editable ? escapeHtml(item.duty || '') : highlightHtml(item.duty || '', queryRaw);
 
         const dutyHtml = showDuty ? `
           <div class="text-sm bg-white px-1 py-0.5 rounded border border-slate-200 font-medium md:mt-2 editable whitespace-nowrap overflow-hidden text-center flex items-center justify-center"
@@ -2095,10 +1885,8 @@
                   onfocus="onCellFocus('${item.id}', 'business', this.innerText)"
                   oninput="queueSave('${item.id}', 'business', this.innerText)">${businessVal}</div>
 
-                <!-- ★提出物：ここをチェックボックス描画エリアに差し替え -->
                 <div data-checklist="submission" class="mt-1"></div>
 
-                <!-- ★PCのみ：提出物の下に「お知らせ」 -->
                 <div class="mt-2 hidden md:block">
                   <div class="text-[10px] font-bold text-slate-400 mb-1">お知らせ（連絡・締切・お願い・面談 等）</div>
                   <div class="text-sm whitespace-pre-wrap leading-relaxed editable" contenteditable="true"
@@ -2107,7 +1895,6 @@
                 </div>
               </div>
 
-              <!-- ★スマホのみ：提出物と休暇の間に「お知らせ」 -->
               <div class="p-2 md:hidden">
                 <div class="text-[10px] font-bold text-slate-400 mb-1">お知らせ（連絡・締切・お願い・面談 等）</div>
                 <div class="text-sm whitespace-pre-wrap leading-relaxed editable" contenteditable="true"
@@ -2130,7 +1917,6 @@
           const field = fields[currentTab];
           const fieldVal = editable ? escapeHtml(item[field] || '') : highlightHtml(item[field] || '', queryRaw);
 
-          // ★submissionタブだけ：チェックリストUIに差し替え
           if (field === 'submission') {
             contentHtml = `
               <div class="flex-1 p-3">
@@ -2151,14 +1937,12 @@
         card.innerHTML = dateSection + contentHtml;
         container.appendChild(card);
 
-        // ★カード描画後に提出物チェックリストを生成
         enhanceCardChecklists(card, item, editable, queryRaw);
       });
 
       applyEditLockToDOM();
     }
 
-    // ========= タブ =========
     function switchTab(tabId) {
       currentTab = tabId;
       document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -2168,18 +1952,12 @@
       renderSchedule();
     }
 
-    // ========= 検索 =========
     function setupSearch() {
       const input = document.getElementById('searchInput');
       if (!input) return;
 
-      input.addEventListener('focus', () => {
-        _zoomResetDoneForThisFocus = false;
-      });
-
-      input.addEventListener('blur', () => {
-        forceResetZoom();
-      });
+      input.addEventListener('focus', () => { _zoomResetDoneForThisFocus = false; });
+      input.addEventListener('blur', () => { forceResetZoom(); });
 
       input.oninput = (e) => {
         globalSearchQuery = e.target.value || '';
@@ -2245,7 +2023,6 @@
       return c ? c : before;
     }
 
-    // ★B) UTF-8 → ダメなら Shift-JIS（iOSの文字化けもヘッダー判定でフォールバック）
     function readFileAsText(file, encoding) {
       return new Promise((resolve, reject) => {
         const r = new FileReader();
@@ -2255,7 +2032,6 @@
       });
     }
 
-    // ★お知らせ対応：旧CSV（お知らせ列なし）も読める
     async function importCSV(input) {
       if (!(authUser && canEdit)) {
         alert('CSVインポートは「ログイン＋編集モード」の時だけできます。');
@@ -2267,7 +2043,6 @@
       if (!file) return;
 
       try {
-        // ① まずUTF-8で読む
         let text = await readFileAsText(file, 'UTF-8');
         let table = parseCSV(String(text || ''));
 
@@ -2275,17 +2050,15 @@
 
         let headerLine = table[0].map(v => String(v ?? '').trim());
 
-        // ★期待ヘッダー（順序は問わない・存在すれば読む）
-        // ['月','日','曜日','日直','予定','出張','提出物','お知らせ','休暇']
         const mapping = {
           '月': -1,
           '日': -1,
-          '曜日': -1,      // あっても使わない（あれば読み飛ばし）
+          '曜日': -1,
           '日直': -1,
           '予定': -1,
           '出張': -1,
           '提出物': -1,
-          'お知らせ': -1,  // ★追加
+          'お知らせ': -1,
           '休暇': -1
         };
 
@@ -2294,7 +2067,6 @@
           if (Object.prototype.hasOwnProperty.call(mapping, cleanH)) mapping[cleanH] = i;
         });
 
-        // ② UTF-8で「月」「日」が取れないなら Shift-JIS で読み直す
         if (mapping['月'] === -1 || mapping['日'] === -1) {
           text = await readFileAsText(file, 'Shift-JIS');
           table = parseCSV(String(text || ''));
@@ -2303,7 +2075,6 @@
 
           headerLine = table[0].map(v => String(v ?? '').trim());
 
-          // mapping を作り直す（再初期化）
           mapping['月'] = mapping['日'] = mapping['曜日'] = mapping['日直'] =
           mapping['予定'] = mapping['出張'] = mapping['提出物'] = mapping['お知らせ'] = mapping['休暇'] = -1;
 
@@ -2348,7 +2119,6 @@
           if (mapping['予定'] !== -1) next.events = pick(before.events, cols[mapping['予定']]);
           if (mapping['出張'] !== -1) next.business = pick(before.business, cols[mapping['出張']]);
           if (mapping['提出物'] !== -1) next.submission = pick(before.submission, cols[mapping['提出物']]);
-          // ★追加：お知らせ（列が無ければ変更しない）
           if (mapping['お知らせ'] !== -1) next.notice = pick(before.notice, cols[mapping['お知らせ']]);
           if (mapping['休暇'] !== -1) next.vacation = pick(before.vacation, cols[mapping['休暇']]);
 
@@ -2369,7 +2139,6 @@
           target.submission = next.submission;
           target.vacation = next.vacation;
 
-          // ★インポート時も並び替え（未完了→完了）
           sortChecklistInItem(target);
 
           touched.push(target);
@@ -2380,17 +2149,12 @@
           renderSchedule();
           try { await batchSaveToCloud(touched); } catch (err) { console.error(err); }
 
-          // ★A) baseline更新を正しく（csvEscapeを使わない）
           touched.forEach(it => {
             _fields().forEach(f => {
-              _baseValue.set(_k(it.id, f), norm(it[f] || '')); // baseline更新
-              clearDirty(it.id, f);                             // dirty解除
+              _baseValue.set(_k(it.id, f), norm(it[f] || ''));
+              clearDirty(it.id, f);
             });
-
-            // その日を「未保存」扱いにしない（安全）
             _pendingItemIds.delete(it.id);
-
-            // その日に既存のdebounceが残っていたら止める（安全）
             if (_saveTimers.has(it.id)) {
               clearTimeout(_saveTimers.get(it.id));
               _saveTimers.delete(it.id);
@@ -2417,12 +2181,8 @@
       return s;
     }
 
-    // ★お知らせ対応：ヘッダー固定（指定順）
     function exportCSV() {
-      if (!authUser) {
-        alert('CSVエクスポートはログイン後にできます。');
-        return;
-      }
+      if (!authUser) { alert('CSVエクスポートはログイン後にできます。'); return; }
 
       const startYear = getStartYear();
 
@@ -2432,7 +2192,6 @@
         return a.day - b.day;
       });
 
-      // ★指定ヘッダー順
       const header = ['月','日','曜日','日直','予定','出張','提出物','お知らせ','休暇'];
       const lines = [header.map(csvEscape).join(',')];
 
@@ -2445,7 +2204,7 @@
           it.events || '',
           it.business || '',
           it.submission || '',
-          it.notice || '',   // ★追加
+          it.notice || '',
           it.vacation || ''
         ].map(csvEscape).join(',');
         lines.push(line);
@@ -2472,14 +2231,11 @@
       document.getElementById('loginModal').classList.remove('hidden');
       setTimeout(() => document.getElementById('idInput').focus(), 0);
     }
-    function closeLoginModal() {
-      document.getElementById('loginModal').classList.add('hidden');
-    }
+    function closeLoginModal() { document.getElementById('loginModal').classList.add('hidden'); }
 
     async function createNewAccount() {
       const id = document.getElementById('idInput').value.trim();
       const pass = document.getElementById('passInput').value;
-
       const code = (document.getElementById('createCodeInput')?.value || '').trim();
 
       const email = toEmailFromId(id);
@@ -2492,12 +2248,9 @@
       try {
         setSyncBadge('作成中', 'wait');
         await firebase.auth().createUserWithEmailAndPassword(email, pass);
-
         localStorage.setItem(LAST_ID_KEY, id);
-
         const cc = document.getElementById('createCodeInput');
         if (cc) cc.value = '';
-
         closeLoginModal();
       } catch (e) {
         console.error(e);
@@ -2544,12 +2297,10 @@
       }
       canEdit = !canEdit;
       setModeBadge();
-      // ★チェックボックスのdisabled/編集UIも確実に反映させるため再描画
       renderSchedule();
       applyEditLockToDOM();
     }
 
-    // ========= 起動 =========
     window.onload = init;
   </script>
 </body>
