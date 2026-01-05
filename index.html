@@ -92,6 +92,9 @@
       }
       .mobile-landscape-mt0 { margin-top: 0 !important; }
     }
+
+    /* ★追加：チェック済みで薄くするのは「文字だけ」に適用するためのクラス */
+    .cl-dim { opacity: .45; }
   </style>
 </head>
 
@@ -575,7 +578,6 @@
         // 保存成功：baseline更新＆dirty解除
         _fields().forEach(f => {
           _baseValue.set(_k(itemId, f), norm(item[f] || ''));
-          // ★閲覧チェック保存の時も submission だけdirty解除してOK（他はそもそもdirtyにならない設計）
           clearDirty(itemId, f);
         });
 
@@ -1076,8 +1078,6 @@
     function queueSave(id, field, value, opts = {}) {
       const allowViewChecklist = !!opts.allowViewChecklist;
 
-      // 通常：編集モードのみ
-      // 例外：閲覧モードでも submission のチェック保存だけOK
       if (!authUser) return;
       if (!(canEdit || (allowViewChecklist && field === 'submission'))) return;
 
@@ -1112,7 +1112,6 @@
 
       markDirty(id, field);
 
-      // ★チェック操作は軽めに保存（閲覧でも使う）
       const delay = (allowViewChecklist && field === 'submission' && !canEdit) ? 800 : 3000;
 
       if (_saveTimers.has(id)) clearTimeout(_saveTimers.get(id));
@@ -1122,7 +1121,6 @@
       }, delay));
     }
 
-    // ★差し替え：閲覧モードでも submission のdirtyなら flush する（ページ離脱/更新前）
     async function flushAllPendingSaves() {
       if (!authUser) {
         _saveTimers.forEach(t => clearTimeout(t));
@@ -1146,7 +1144,6 @@
       ids.forEach(itemId => {
         if (!hasDirtyForItem(itemId)) return;
 
-        // 編集モード以外は「submissionのみdirty」だけ保存対象
         if (!canEdit) {
           const s = _dirtyFieldsByItem.get(itemId);
           if (!s || s.size === 0) return;
@@ -1606,11 +1603,54 @@
       return nl2br(safeText.replace(re, (m) => `<mark class="bg-yellow-200 rounded px-0.5">${m}</mark>`));
     }
 
+    // ★追加：チェック済みでも「検索ハイライト(mark)は薄くしない」
+    //  - 薄くするのはマッチしていない文字だけ（span.cl-dim）
+    function highlightChecklistText(text, query, checked) {
+      const raw = String(text ?? '');
+      const q = String(query ?? '').trim();
+      if (!q) {
+        const esc = escapeHtml(raw);
+        return checked ? `<span class="cl-dim">${esc}</span>` : esc;
+      }
+
+      const re = new RegExp(escapeRegExp(q), 'gi');
+      let out = '';
+      let last = 0;
+      let m;
+
+      while ((m = re.exec(raw)) !== null) {
+        const before = raw.slice(last, m.index);
+        if (before) {
+          const b = escapeHtml(before);
+          out += checked ? `<span class="cl-dim">${b}</span>` : b;
+        }
+
+        // ★ハイライト部分は薄くしない
+        out += `<mark class="bg-yellow-200 rounded px-0.5">${escapeHtml(m[0])}</mark>`;
+
+        last = m.index + m[0].length;
+      }
+
+      const after = raw.slice(last);
+      if (after) {
+        const a = escapeHtml(after);
+        out += checked ? `<span class="cl-dim">${a}</span>` : a;
+      }
+
+      if (!out) {
+        const esc = escapeHtml(raw);
+        out = checked ? `<span class="cl-dim">${esc}</span>` : esc;
+      }
+
+      return out;
+    }
+
     // =========================================================
     // ★提出物（submission）チェックボックスUI
     // 要件反映：
     //  - 提出物が空の行は「チェックボックス表示なし」（閲覧は完全に何も出さない）
-    //  - チェック済み行：opacity + 打消し
+    //  - チェック済み行：文字だけ薄く + 打消し（チェックボックスは薄くしない）
+    //  - 検索ハイライトは薄くしない
     //  - 全体タブ/報告・提出タブ 両方同じUI
     //  - どちらでチェックしても連動（同じsubmission保存）
     //  - 閲覧モードでもチェック可＆クラウド保存（submissionのみ）
@@ -1686,7 +1726,7 @@
 
       host.innerHTML = '';
 
-      const allowToggle = !!authUser;         // 閲覧でもチェックはできる（ログイン時）
+      const allowToggle = !!authUser;           // 閲覧でもチェックはできる（ログイン時）
       const allowAdd = !!(authUser && canEdit); // 追加は編集モードのみ
       const allowTextEdit = !!(authUser && canEdit);
 
@@ -1738,10 +1778,9 @@
       };
 
       sorted.forEach((it, i) => {
-        // ★空ラベル行は閲覧では作られないが、編集時は残す
         const row = document.createElement('div');
         row.className = 'flex items-start gap-2';
-        if (it.checked) row.classList.add('opacity-50'); // ★薄く
+        // ★重要：rowにopacityを掛けない（チェックボックスやmarkが薄くなるのを防ぐ）
         list.appendChild(row);
 
         const cb = document.createElement('input');
@@ -1758,9 +1797,12 @@
         const text = document.createElement('div');
         text.className = 'flex-1 text-sm text-amber-700 font-medium whitespace-pre-wrap leading-relaxed';
 
-        if (it.checked) text.classList.add('line-through'); // ★打消し
+        if (it.checked) text.classList.add('line-through'); // ★打消し（markにも線は引ける）
 
         if (allowTextEdit) {
+          // 編集時：markが無いのでコンテナ自体を薄くしてOK（チェックボックスは別要素なので薄くならない）
+          if (it.checked) text.classList.add('cl-dim');
+
           text.classList.add('editable');
           text.contentEditable = 'true';
           text.setAttribute('data-cl-text', '1');
@@ -1790,7 +1832,8 @@
             }
           });
         } else {
-          text.innerHTML = highlightHtml(it.text || '', queryRaw);
+          // 閲覧時：チェック済みでも mark は薄くしない（薄くするのはspan.cl-dimの部分だけ）
+          text.innerHTML = highlightChecklistText(it.text || '', queryRaw, !!it.checked);
         }
 
         row.appendChild(text);
