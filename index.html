@@ -1905,21 +1905,11 @@ const dutyHtml = (showDuty && (editable || hasDuty)) ? `
     </div>
   </div>
 
- <!-- ===== PC（前のコードの見た目に戻す） ===== -->
-<div class="hidden md:flex text-sm bg-white px-1 py-0.5 rounded border border-slate-200 font-medium md:mt-2 editable whitespace-nowrap overflow-hidden text-center items-center justify-center"
-  contenteditable="true"
-  onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
-  oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
-
-        const dateSection = `
-          <div class="md:w-24 ${dateBg} p-2 flex md:flex-col items-center justify-between md:justify-center md:border-r border-slate-200">
-            <div class="flex items-baseline md:flex-col md:items-center">
-              <span class="text-xl font-bold">${item.day}</span>
-              <span class="text-xs font-bold md:mt-0.5 ml-1 md:ml-0">(${item.dow})</span>
-            </div>
-            ${dutyHtml}
-          </div>
-        `;
+  <!-- ===== PC（前のコードの見た目に戻す） ===== -->
+  <div class="hidden md:flex text-sm bg-white px-1 py-0.5 rounded border border-slate-200 font-medium md:mt-2 editable whitespace-nowrap overflow-hidden text-center items-center justify-center"
+    contenteditable="true"
+    onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
+    oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
 
         let contentHtml = '';
         if (currentTab === 'all') {
