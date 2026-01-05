@@ -545,6 +545,65 @@
       return ['notice', 'duty', 'events', 'business', 'submission', 'vacation'];
     }
 
+    // =========================================================
+    // ★追加：チェック済みを下へ（未完了を上）並び替え
+    //  - 行頭のチェック記号を判定し、未完了→完了の順に安定ソート
+    //  - 対象：notice/events/business/submission/vacation（dutyは除外）
+    // =========================================================
+    function _classifyChecklistLine(lineRaw) {
+      const line = String(lineRaw ?? '');
+      const t = line.replace(/^\s+/, '');
+
+      // 先頭の箇条書き記号（任意）
+      const t2 = t.replace(/^[-*・●•\u2022]\s*/, '');
+
+      // 未完了系
+      const unchecked = /^(?:\[\s?\]|☐|□|⬜|◻︎|▫️|◻|🔲)\b/.test(t2);
+      // 完了系
+      const checked = /^(?:\[(?:x|X|✓|✔)\]|☑|✅|✔|✓|■|🗹|🔳)\b/.test(t2);
+
+      if (checked) return 2;    // 下へ
+      if (unchecked) return 1;  // 上へ
+      return 0;                 // それ以外（見出し等）
+    }
+
+    function sortChecklistText(text) {
+      const original = String(text ?? '');
+      const s = original.replace(/\r\n/g, '\n');
+      const lines = s.split('\n');
+
+      // チェックっぽい行がないなら何もしない
+      let hasChecklist = false;
+      for (const ln of lines) {
+        const c = _classifyChecklistLine(ln);
+        if (c === 1 || c === 2) { hasChecklist = true; break; }
+      }
+      if (!hasChecklist || lines.length <= 1) return original;
+
+      // 安定ソート（同グループは元順維持）
+      const tagged = lines.map((ln, idx) => ({ ln, idx, grp: _classifyChecklistLine(ln) }));
+      tagged.sort((a, b) => (a.grp - b.grp) || (a.idx - b.idx));
+
+      const sorted = tagged.map(x => x.ln).join('\n');
+      return sorted === s ? original : sorted;
+    }
+
+    function sortChecklistInItem(item) {
+      if (!item) return false;
+      let changed = false;
+
+      const targets = ['notice', 'events', 'business', 'submission', 'vacation'];
+      targets.forEach(f => {
+        const before = String(item[f] ?? '');
+        const after = sortChecklistText(before);
+        if (after !== before) {
+          item[f] = after;
+          changed = true;
+        }
+      });
+      return changed;
+    }
+
     // ====== ★ローカルキャッシュ（予定データ本体） ======
     function _cacheKey(startYear) {
       if (!authUser) return null;
@@ -590,7 +649,8 @@
       }, 500);
     }
 
-    async function commitSaveItem(itemId) {
+    // ★差し替え：commitSaveItem を「ソートする/しない」を選べるように（debounce中に並び替えでカーソルが飛ぶのを防ぐ）
+    async function commitSaveItem(itemId, { sort = false, rerender = false } = {}) {
       if (!(authUser && canEdit)) return;
 
       // dirtyが無いなら何もしない（write 0）
@@ -608,6 +668,13 @@
       const item = scheduleData.find(d => d.id === itemId);
       if (!item) return;
 
+      // ★並び替え（未完了→完了）は、カードを離れた時 / まとめ保存の時だけ実行（debounce中は基本しない）
+      //   ただし sort=true が来た時は実行する
+      let sortedChanged = false;
+      if (sort) {
+        sortedChanged = sortChecklistInItem(item);
+      }
+
       _savingItems.add(itemId);
 
       try {
@@ -623,6 +690,12 @@
 
         // ★端末キャッシュも更新（ログインし直しでもフルread回避）
         queueScheduleCacheSave();
+
+        // ★並び替えが走った時は表示も揃える（編集中は後回し）
+        if (sortedChanged) {
+          if (isEditingCell) pendingRerender = true;
+          else if (rerender) renderSchedule();
+        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -632,7 +705,7 @@
         if (_needsResaveItems.has(itemId)) {
           _needsResaveItems.delete(itemId);
           if (hasDirtyForItem(itemId)) {
-            await commitSaveItem(itemId);
+            await commitSaveItem(itemId, { sort: false, rerender: false });
           }
         }
       }
@@ -725,7 +798,6 @@
     }
 
     // ★（互換のため残置）以前の onCellBlur / flushSave は使わない。
-    //   今回は「カードから完全に離れたら保存」に統一する。
     async function onCellBlur(id, field, value) { /* no-op */ }
     async function flushSave(id, field, value) { /* no-op */ }
 
@@ -744,7 +816,8 @@
         activeEdit = null;
         _zoomResetDoneForThisFocus = false;
 
-        await commitSaveItem(itemId);
+        // ★ここで「チェック済みを下へ」並び替えを実行してから保存（=未完了が上）
+        await commitSaveItem(itemId, { sort: true, rerender: true });
 
         if (pendingRerender) {
           pendingRerender = false;
@@ -1227,7 +1300,8 @@
       if (_saveTimers.has(id)) clearTimeout(_saveTimers.get(id));
       _saveTimers.set(id, setTimeout(async () => {
         _saveTimers.delete(id);
-        await commitSaveItem(id);
+        // ★debounce保存では並び替えはしない（入力中に動かさない）
+        await commitSaveItem(id, { sort: false, rerender: false });
       }, 3000));
     }
 
@@ -1248,10 +1322,16 @@
       const ids = Array.from(_pendingItemIds);
       _pendingItemIds.clear();
 
+      let anySorted = false;
+
       ids.forEach(itemId => {
         if (!hasDirtyForItem(itemId)) return;
         const it = scheduleData.find(d => d.id === itemId);
-        if (it) items.push(it);
+        if (it) {
+          // ★まとめ保存前にチェック並び替え（未完了→完了）
+          if (sortChecklistInItem(it)) anySorted = true;
+          items.push(it);
+        }
       });
 
       if (items.length > 0) {
@@ -1266,6 +1346,12 @@
           });
 
           queueScheduleCacheSave();
+
+          // ★表示も合わせる（編集中は後回し）
+          if (anySorted) {
+            if (isEditingCell) pendingRerender = true;
+            else renderSchedule();
+          }
         } catch (e) {
           console.error(e);
         }
@@ -1741,6 +1827,183 @@
       );
     }
 
+    // =========================================================
+    // ★提出物（submission）を「本物チェックボックスUI」にする
+    //  - データは submission のテキストに [ ] / [x] 形式で保存（互換）
+    //  - 表示は input type="checkbox"
+    //  - チェック済みは下へ（未完了が上）
+    // =========================================================
+    function parseChecklist(text) {
+      const lines = String(text ?? '').replace(/\r\n/g, '\n').split('\n');
+      const items = [];
+      let idx = 0;
+
+      for (const raw of lines) {
+        const line = String(raw ?? '').trim();
+        if (!line) continue;
+
+        let m;
+
+        // - [x] / [x]
+        if ((m = line.match(/^\s*(?:-?\s*)?\[(x|X)\]\s*(.*)$/))) {
+          items.push({ checked: true, text: (m[2] ?? '').trim(), idx: idx++ });
+          continue;
+        }
+        // - [ ]
+        if ((m = line.match(/^\s*(?:-?\s*)?\[\s*\]\s*(.*)$/))) {
+          items.push({ checked: false, text: (m[1] ?? '').trim(), idx: idx++ });
+          continue;
+        }
+        // symbols checked
+        if ((m = line.match(/^\s*[☑✅✔︎✔️☒■🗹🔳]\s*(.*)$/))) {
+          items.push({ checked: true, text: (m[1] ?? '').trim(), idx: idx++ });
+          continue;
+        }
+        // symbols unchecked
+        if ((m = line.match(/^\s*[□☐⬜◻︎◻▫️🔲]\s*(.*)$/))) {
+          items.push({ checked: false, text: (m[1] ?? '').trim(), idx: idx++ });
+          continue;
+        }
+
+        // それ以外は未完了として扱う
+        items.push({ checked: false, text: line, idx: idx++ });
+      }
+      return items;
+    }
+
+    function serializeChecklist(items) {
+      // 空テキストでも「項目」として残せるように保持（追加直後に消えないため）
+      return (items || [])
+        .map(it => `${it.checked ? '[x]' : '[ ]'} ${String(it.text ?? '').replace(/\r?\n/g, ' ').trim()}`.trimEnd())
+        .join('\n');
+    }
+
+    function onChecklistFocus(itemId, field) {
+      const it = scheduleData.find(d => d.id === itemId);
+      if (!it) return;
+      onCellFocus(itemId, field, it[field] || '');
+    }
+
+    function enhanceCardChecklists(card, item, editable, queryRaw) {
+      // allタブ内（提出物）
+      const host1 = card.querySelector('[data-checklist="submission"]');
+      if (host1) renderChecklistField(host1, item.id, 'submission', editable, queryRaw);
+
+      // submissionタブ内（提出物）
+      const host2 = card.querySelector('[data-checklist-tab="submission"]');
+      if (host2) renderChecklistField(host2, item.id, 'submission', editable, queryRaw);
+    }
+
+    function renderChecklistField(host, itemId, field, editable, queryRaw) {
+      const item = scheduleData.find(d => d.id === itemId);
+      if (!item) return;
+
+      const parsed = parseChecklist(item[field] || '');
+      const state = parsed.length ? parsed.slice() : [{ checked: false, text: '', idx: 0 }];
+
+      // 未完了→完了で表示順を作る（安定）
+      const sorted = state.slice().sort((a, b) => {
+        if (a.checked !== b.checked) return a.checked ? 1 : -1;
+        return (a.idx ?? 0) - (b.idx ?? 0);
+      });
+
+      host.innerHTML = '';
+
+      // 追加ボタン（編集時のみ）
+      if (editable) {
+        const top = document.createElement('div');
+        top.className = 'flex items-center justify-end mb-1';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'text-xs px-2 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 active:scale-95';
+        btn.textContent = '＋追加';
+        btn.onclick = () => {
+          const cur = parseChecklist(item[field] || '');
+          const newIdx = cur.length ? Math.max(...cur.map(x => x.idx ?? 0)) + 1 : 0;
+          cur.push({ checked: false, text: '', idx: newIdx });
+
+          const nextText = serializeChecklist(cur);
+          queueSave(itemId, field, nextText);
+
+          renderChecklistField(host, itemId, field, editable, queryRaw);
+
+          setTimeout(() => {
+            const inputs = host.querySelectorAll('[data-cl-text="1"]');
+            if (inputs && inputs.length) inputs[inputs.length - 1].focus();
+          }, 0);
+        };
+        top.appendChild(btn);
+        host.appendChild(top);
+      }
+
+      const list = document.createElement('div');
+      list.className = 'space-y-1';
+      host.appendChild(list);
+
+      const commit = (rerender) => {
+        const nextText = serializeChecklist(sorted);
+        queueSave(itemId, field, nextText);
+        if (rerender) renderChecklistField(host, itemId, field, editable, queryRaw);
+      };
+
+      sorted.forEach((it, i) => {
+        const row = document.createElement('div');
+        row.className = 'flex items-start gap-2';
+        list.appendChild(row);
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !!it.checked;
+        cb.disabled = !editable;
+        cb.className = 'mt-1 h-4 w-4 accent-indigo-600';
+        cb.onchange = () => {
+          it.checked = cb.checked;
+          // チェック済みを下へ：再描画して表示順を更新
+          commit(true);
+        };
+        row.appendChild(cb);
+
+        const text = document.createElement('div');
+        text.className = 'flex-1 text-sm text-amber-700 font-medium whitespace-pre-wrap leading-relaxed';
+
+        if (editable) {
+          text.classList.add('editable');
+          text.contentEditable = 'true';
+          text.setAttribute('data-cl-text', '1');
+          text.innerText = it.text || '';
+
+          text.addEventListener('focus', () => onChecklistFocus(itemId, field));
+
+          text.addEventListener('input', () => {
+            it.text = String(text.innerText ?? '').replace(/\r?\n/g, ' ').trimEnd();
+            commit(false);
+          });
+
+          // Enterで次項目へ（便利）
+          text.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              const cur = parseChecklist(item[field] || '');
+              const newIdx = cur.length ? Math.max(...cur.map(x => x.idx ?? 0)) + 1 : 0;
+              cur.push({ checked: false, text: '', idx: newIdx });
+
+              queueSave(itemId, field, serializeChecklist(cur));
+              renderChecklistField(host, itemId, field, editable, queryRaw);
+
+              setTimeout(() => {
+                const inputs = host.querySelectorAll('[data-cl-text="1"]');
+                if (inputs && inputs.length) inputs[inputs.length - 1].focus();
+              }, 0);
+            }
+          });
+        } else {
+          text.innerHTML = highlightHtml(it.text || '', queryRaw);
+        }
+
+        row.appendChild(text);
+      });
+    }
+
     // ========= 描画 =========
     function renderSchedule() {
       const container = document.getElementById('scheduleContainer');
@@ -1813,12 +2076,8 @@
           const noticeVal = editable ? escapeHtml(item.notice || '') : highlightHtml(item.notice || '', queryRaw);
           const eventsVal = editable ? escapeHtml(item.events || '') : highlightHtml(item.events || '', queryRaw);
           const businessVal = editable ? escapeHtml(item.business || '') : highlightHtml(item.business || '', queryRaw);
-          const submissionVal = editable ? escapeHtml(item.submission || '') : highlightHtml(item.submission || '', queryRaw);
           const vacationVal = editable ? escapeHtml(item.vacation || '') : highlightHtml(item.vacation || '', queryRaw);
 
-          // ★指定どおりの配置に修正：
-          //  PC(md以上) … 「出張・提出物」(提出物の下) に お知らせ
-          //  スマホ(md未満) … 「提出物」タブと「休暇」タブの間（＝出張・提出物ブロックの次、休暇の前）に お知らせ
           contentHtml = `
             <div class="flex-1 grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-100">
 
@@ -1831,12 +2090,13 @@
 
               <div class="p-2 md:col-span-6">
                 <div class="text-[10px] font-bold text-slate-400 mb-1">出張・校外行事 / ◻︎報告・提出物</div>
+
                 <div class="text-sm whitespace-pre-wrap leading-relaxed editable mb-1" contenteditable="true"
                   onfocus="onCellFocus('${item.id}', 'business', this.innerText)"
                   oninput="queueSave('${item.id}', 'business', this.innerText)">${businessVal}</div>
-                <div class="text-sm text-amber-700 font-medium whitespace-pre-wrap editable" contenteditable="true"
-                  onfocus="onCellFocus('${item.id}', 'submission', this.innerText)"
-                  oninput="queueSave('${item.id}', 'submission', this.innerText)">${submissionVal}</div>
+
+                <!-- ★提出物：ここをチェックボックス描画エリアに差し替え -->
+                <div data-checklist="submission" class="mt-1"></div>
 
                 <!-- ★PCのみ：提出物の下に「お知らせ」 -->
                 <div class="mt-2 hidden md:block">
@@ -1870,17 +2130,29 @@
           const field = fields[currentTab];
           const fieldVal = editable ? escapeHtml(item[field] || '') : highlightHtml(item[field] || '', queryRaw);
 
-          contentHtml = `
-            <div class="flex-1 p-3">
-              <div class="text-base whitespace-pre-wrap leading-relaxed editable h-full" contenteditable="true"
-                onfocus="onCellFocus('${item.id}', '${field}', this.innerText)"
-                oninput="queueSave('${item.id}', '${field}', this.innerText)">${fieldVal}</div>
-            </div>
-          `;
+          // ★submissionタブだけ：チェックリストUIに差し替え
+          if (field === 'submission') {
+            contentHtml = `
+              <div class="flex-1 p-3">
+                <div data-checklist-tab="submission"></div>
+              </div>
+            `;
+          } else {
+            contentHtml = `
+              <div class="flex-1 p-3">
+                <div class="text-base whitespace-pre-wrap leading-relaxed editable h-full" contenteditable="true"
+                  onfocus="onCellFocus('${item.id}', '${field}', this.innerText)"
+                  oninput="queueSave('${item.id}', '${field}', this.innerText)">${fieldVal}</div>
+              </div>
+            `;
+          }
         }
 
         card.innerHTML = dateSection + contentHtml;
         container.appendChild(card);
+
+        // ★カード描画後に提出物チェックリストを生成
+        enhanceCardChecklists(card, item, editable, queryRaw);
       });
 
       applyEditLockToDOM();
@@ -2097,6 +2369,9 @@
           target.submission = next.submission;
           target.vacation = next.vacation;
 
+          // ★インポート時も並び替え（未完了→完了）
+          sortChecklistInItem(target);
+
           touched.push(target);
           count++;
         });
@@ -2269,6 +2544,8 @@
       }
       canEdit = !canEdit;
       setModeBadge();
+      // ★チェックボックスのdisabled/編集UIも確実に反映させるため再描画
+      renderSchedule();
       applyEditLockToDOM();
     }
 
