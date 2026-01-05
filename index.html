@@ -28,16 +28,25 @@
 
   <style>
     body { font-family: 'Noto Sans JP', sans-serif; }
-/* ★追加：iOS Safari等の自動文字拡大を無効化（端末差対策） */
-html { -webkit-text-size-adjust: 100%; }
+    /* ★追加：iOS Safari等の自動文字拡大を無効化（端末差対策） */
+    html { -webkit-text-size-adjust: 100%; }
 
-/* ★追加：スマホ横向き時は「学校名」を「年度」と同じサイズに */
-@media (orientation: landscape) and (max-width: 767px) {
-  #schoolName{
-    font-size: 1rem;      /* ← text-base（年度と同等） */
-    line-height: 1.25rem;
-  }
-}
+    /* ★差し替え：スマホ横向きだけ、年度＆学校名を少し大きく（PCは影響なし） */
+    @media (orientation: landscape) and (max-width: 767px) {
+      /* 年度行（年度テキスト＋入力欄＋「年度」）を少し大きく */
+      .title-line,
+      .title-line *{
+        font-size: 1.05rem !important;
+        line-height: 1.35rem !important;
+      }
+
+      /* 学校名も同じ大きさへ */
+      #schoolName{
+        font-size: 1.05rem !important;
+        line-height: 1.35rem !important;
+      }
+    }
+
     /* 画面では隠す（印刷でだけ出す） */
     .print-only { display: none; }
     .print-title { font-weight: 700; font-size: 14px; color: #0f172a; }
@@ -113,7 +122,7 @@ html { -webkit-text-size-adjust: 100%; }
         margin-top: 0 !important;
       }
     }
-  </style>
+</style>
 </head>
 
 <body class="bg-slate-100 text-slate-800 min-h-screen pb-10">
