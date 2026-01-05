@@ -28,7 +28,16 @@
 
   <style>
     body { font-family: 'Noto Sans JP', sans-serif; }
+/* ★追加：iOS Safari等の自動文字拡大を無効化（端末差対策） */
+html { -webkit-text-size-adjust: 100%; }
 
+/* ★追加：スマホ横向き時は「学校名」を「年度」と同じサイズに */
+@media (orientation: landscape) and (max-width: 767px) {
+  #schoolName{
+    font-size: 1rem;      /* ← text-base（年度と同等） */
+    line-height: 1.25rem;
+  }
+}
     /* 画面では隠す（印刷でだけ出す） */
     .print-only { display: none; }
     .print-title { font-weight: 700; font-size: 14px; color: #0f172a; }
