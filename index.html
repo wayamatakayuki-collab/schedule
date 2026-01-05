@@ -1885,15 +1885,21 @@
         const isSat = item.dow === '土';
         const dateBg = isSun ? 'bg-red-50 text-red-600' : (isSat ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-700');
 
-        const dutyVal = editable ? escapeHtml(item.duty || '') : highlightHtml(item.duty || '', queryRaw);
+        const dutyTextRaw = String(item.duty || '').trim();
+const showDutyLabelMobile = editable || dutyTextRaw; // 空のときは表示しない（編集時は出す）
 
-        const dutyHtml = showDuty ? `
-  <div class="text-sm bg-white px-1 py-0.5 rounded border border-slate-200 font-bold md:mt-2 editable
-            truncate max-w-[calc(55vw-7rem)] mx-auto
-            text-center flex items-center justify-center"
-    contenteditable="true"
-    onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
-    oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
+const dutyHtml = showDuty ? `
+  <div class="w-full self-stretch md:self-auto md:w-auto md:mt-2 flex justify-end md:justify-center">
+    <div class="flex items-center gap-1 whitespace-nowrap overflow-hidden
+                text-xl font-bold bg-transparent border-0 px-0 py-0
+                md:text-sm md:font-medium md:bg-white md:px-1 md:py-0.5 md:rounded md:border md:border-slate-200">
+      ${showDutyLabelMobile ? `<span class="md:hidden">日直：</span>` : ``}
+      <div class="editable whitespace-nowrap overflow-hidden text-right"
+        contenteditable="true"
+        onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
+        oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
+    </div>
+  </div>
 ` : '';
 
         const dateSection = `
