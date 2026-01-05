@@ -1905,12 +1905,17 @@ const dutyHtml = (showDuty && (editable || hasDuty)) ? `
     </div>
   </div>
 
-  <!-- ===== PC（前のコードの見た目に戻す） ===== -->
-  <div class="hidden md:flex text-sm bg-white px-1 py-0.5 rounded border border-slate-200 font-medium md:mt-2 editable whitespace-nowrap overflow-hidden text-center items-center justify-center"
-    contenteditable="true"
-    onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
-    oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
-` : '';
+ <!-- ===== PC（スマホと同じ：枠なし） ===== -->
+<div class="hidden md:flex w-full self-stretch md:self-auto md:w-auto md:mt-2 justify-center">
+  <div class="flex items-center gap-1 whitespace-nowrap overflow-hidden
+              text-base font-bold bg-transparent border-0 px-0 py-0">
+    <span>日直：</span>
+    <div class="editable whitespace-nowrap overflow-hidden text-center"
+      contenteditable="true"
+      onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
+      oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
+  </div>
+</div>
 
         const dateSection = `
           <div class="md:w-24 ${dateBg} p-2 flex md:flex-col items-center justify-between md:justify-center md:border-r border-slate-200">
