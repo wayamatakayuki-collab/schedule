@@ -1381,23 +1381,32 @@ html { -webkit-text-size-adjust: 100%; }
     }
 
     function setRefreshingUI(on) {
-      const btn = document.getElementById('refreshBtn');
-      const sp = document.getElementById('refreshSpinner');
-      const tx = document.getElementById('refreshBtnText');
+  const btn = document.getElementById('refreshBtn');
+  const sp = document.getElementById('refreshSpinner');
+  const tx = document.getElementById('refreshBtnText');
 
-      if (!btn || !sp || !tx) return;
+  if (!btn || !sp || !tx) return;
 
-      if (on) {
-        btn.disabled = true;
-        btn.classList.add('opacity-60', 'pointer-events-none');
-        sp.classList.remove('hidden');
-        tx.textContent = '更新中…';
-      } else {
-        sp.classList.add('hidden');
-        tx.textContent = '更新';
-        setRefreshButtonState();
-      }
-    }
+  if (on) {
+    btn.disabled = true;
+    btn.classList.add('opacity-60', 'pointer-events-none');
+    // ★更新中だけ少し濃く（任意）
+    btn.classList.add('bg-amber-200');
+    btn.classList.remove('bg-amber-100');
+
+    sp.classList.remove('hidden');
+    tx.textContent = '更新中…';
+  } else {
+    sp.classList.add('hidden');
+    tx.textContent = '更新';
+
+    // ★元に戻す（任意）
+    btn.classList.remove('bg-amber-200');
+    btn.classList.add('bg-amber-100');
+
+    setRefreshButtonState();
+  }
+}
 
     async function manualRefresh() {
       if (!authUser) {
