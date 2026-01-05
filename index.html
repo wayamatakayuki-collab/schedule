@@ -1886,6 +1886,7 @@
         const dateBg = isSun ? 'bg-red-50 text-red-600' : (isSat ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-700');
 
         const dutyTextRaw = String(item.duty || '').trim();
+const dutyVal = editable ? escapeHtml(item.duty || '') : highlightHtml(item.duty || '', queryRaw); // ★追加
 const showDutyLabelMobile = editable || dutyTextRaw.length > 0; // 空ならスマホは「日直：」も出さない
 const dutyPrefix = showDutyLabelMobile ? '<span class="md:hidden">日直：</span>' : '';
 
