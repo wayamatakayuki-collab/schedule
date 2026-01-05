@@ -1910,6 +1910,7 @@ const dutyHtml = (showDuty && (editable || hasDuty)) ? `
     contenteditable="true"
     onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
     oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
+` : '';
 
         let contentHtml = '';
         if (currentTab === 'all') {
