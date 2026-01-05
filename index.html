@@ -545,65 +545,6 @@
       return ['notice', 'duty', 'events', 'business', 'submission', 'vacation'];
     }
 
-    // =========================================================
-    // ★追加：チェック済みを下へ（未完了を上）並び替え
-    //  - 行頭のチェック記号を判定し、未完了→完了の順に安定ソート
-    //  - 対象：notice/events/business/submission/vacation（dutyは除外）
-    // =========================================================
-    function _classifyChecklistLine(lineRaw) {
-      const line = String(lineRaw ?? '');
-      const t = line.replace(/^\s+/, '');
-
-      // 先頭の箇条書き記号（任意）
-      const t2 = t.replace(/^[-*・●•\u2022]\s*/, '');
-
-      // 未完了系
-      const unchecked = /^(?:\[\s?\]|☐|□|⬜|◻︎|▫️|◻|🔲)\b/.test(t2);
-      // 完了系
-      const checked = /^(?:\[(?:x|X|✓|✔)\]|☑|✅|✔|✓|■|🗹|🔳)\b/.test(t2);
-
-      if (checked) return 2;    // 下へ
-      if (unchecked) return 1;  // 上へ
-      return 0;                 // それ以外（見出し等）
-    }
-
-    function sortChecklistText(text) {
-      const original = String(text ?? '');
-      const s = original.replace(/\r\n/g, '\n');
-      const lines = s.split('\n');
-
-      // チェックっぽい行がないなら何もしない
-      let hasChecklist = false;
-      for (const ln of lines) {
-        const c = _classifyChecklistLine(ln);
-        if (c === 1 || c === 2) { hasChecklist = true; break; }
-      }
-      if (!hasChecklist || lines.length <= 1) return original;
-
-      // 安定ソート（同グループは元順維持）
-      const tagged = lines.map((ln, idx) => ({ ln, idx, grp: _classifyChecklistLine(ln) }));
-      tagged.sort((a, b) => (a.grp - b.grp) || (a.idx - b.idx));
-
-      const sorted = tagged.map(x => x.ln).join('\n');
-      return sorted === s ? original : sorted;
-    }
-
-    function sortChecklistInItem(item) {
-      if (!item) return false;
-      let changed = false;
-
-      const targets = ['notice', 'events', 'business', 'submission', 'vacation'];
-      targets.forEach(f => {
-        const before = String(item[f] ?? '');
-        const after = sortChecklistText(before);
-        if (after !== before) {
-          item[f] = after;
-          changed = true;
-        }
-      });
-      return changed;
-    }
-
     // ====== ★ローカルキャッシュ（予定データ本体） ======
     function _cacheKey(startYear) {
       if (!authUser) return null;
@@ -649,8 +590,7 @@
       }, 500);
     }
 
-    // ★差し替え：commitSaveItem を「ソートする/しない」を選べるように（debounce中に並び替えでカーソルが飛ぶのを防ぐ）
-    async function commitSaveItem(itemId, { sort = false, rerender = false } = {}) {
+    async function commitSaveItem(itemId) {
       if (!(authUser && canEdit)) return;
 
       // dirtyが無いなら何もしない（write 0）
@@ -668,15 +608,6 @@
       const item = scheduleData.find(d => d.id === itemId);
       if (!item) return;
 
-      // ★並び替え（未完了→完了）は、カードを離れた時 / まとめ保存の時だけ実行（debounce中は基本しない）
-      //   ただし sort=true が来た時は実行する
-      let sortedChanged = false;
-      if (sort) {
-        sortedChanged = sortChecklistInItem(item);
-        // ソートで値が変わった場合は dirty を増やさない（保存直前の加工扱い）ので、
-        // baseline更新は「保存成功後」にまとめて行う（既存の処理でOK）
-      }
-
       _savingItems.add(itemId);
 
       try {
@@ -692,12 +623,6 @@
 
         // ★端末キャッシュも更新（ログインし直しでもフルread回避）
         queueScheduleCacheSave();
-
-        // ★並び替えが走った時は表示も揃える（編集中は後回し）
-        if (sortedChanged) {
-          if (isEditingCell) pendingRerender = true;
-          else if (rerender) renderSchedule();
-        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -707,7 +632,7 @@
         if (_needsResaveItems.has(itemId)) {
           _needsResaveItems.delete(itemId);
           if (hasDirtyForItem(itemId)) {
-            await commitSaveItem(itemId, { sort: false, rerender: false });
+            await commitSaveItem(itemId);
           }
         }
       }
@@ -819,8 +744,7 @@
         activeEdit = null;
         _zoomResetDoneForThisFocus = false;
 
-        // ★ここで「チェック済みを下へ」並び替えを実行してから保存（=未完了が上）
-        await commitSaveItem(itemId, { sort: true, rerender: true });
+        await commitSaveItem(itemId);
 
         if (pendingRerender) {
           pendingRerender = false;
@@ -1303,8 +1227,7 @@
       if (_saveTimers.has(id)) clearTimeout(_saveTimers.get(id));
       _saveTimers.set(id, setTimeout(async () => {
         _saveTimers.delete(id);
-        // ★debounce保存では並び替えはしない（入力中に動かさない）
-        await commitSaveItem(id, { sort: false, rerender: false });
+        await commitSaveItem(id);
       }, 3000));
     }
 
@@ -1325,16 +1248,10 @@
       const ids = Array.from(_pendingItemIds);
       _pendingItemIds.clear();
 
-      let anySorted = false;
-
       ids.forEach(itemId => {
         if (!hasDirtyForItem(itemId)) return;
         const it = scheduleData.find(d => d.id === itemId);
-        if (it) {
-          // ★まとめ保存前にチェック並び替え（未完了→完了）
-          if (sortChecklistInItem(it)) anySorted = true;
-          items.push(it);
-        }
+        if (it) items.push(it);
       });
 
       if (items.length > 0) {
@@ -1349,12 +1266,6 @@
           });
 
           queueScheduleCacheSave();
-
-          // ★表示も合わせる（編集中は後回し）
-          if (anySorted) {
-            if (isEditingCell) pendingRerender = true;
-            else renderSchedule();
-          }
         } catch (e) {
           console.error(e);
         }
@@ -2185,9 +2096,6 @@
           target.business = next.business;
           target.submission = next.submission;
           target.vacation = next.vacation;
-
-          // ★インポート時も並び替え（未完了→完了）
-          sortChecklistInItem(target);
 
           touched.push(target);
           count++;
