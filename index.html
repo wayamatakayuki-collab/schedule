@@ -1885,45 +1885,24 @@
         const isSat = item.dow === '土';
         const dateBg = isSun ? 'bg-red-50 text-red-600' : (isSat ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-700');
 
-        const dutyTextRaw = String(item.duty || '').trim();
-const hasDuty = dutyTextRaw.length > 0;
+        const dutyVal = editable ? escapeHtml(item.duty || '') : highlightHtml(item.duty || '', queryRaw);
 
-const dutyVal = editable
-  ? escapeHtml(dutyTextRaw)
-  : highlightHtml(dutyTextRaw, queryRaw);
+        const dutyHtml = showDuty ? `
+          <div class="text-sm bg-white px-1 py-0.5 rounded border border-slate-200 font-medium md:mt-2 editable whitespace-nowrap overflow-hidden text-center flex items-center justify-center"
+            contenteditable="true"
+            onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
+            oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
+        ` : '';
 
-// ★日直が空なら「欄を出さない」
-// ただし編集モードでは入力できるように出す
-const dutyHtml = (showDuty && (editable || hasDuty)) ? `
-  <!-- ===== スマホ（右寄せで表示） ===== -->
-  <div class="md:hidden w-full flex justify-end">
-    <div class="flex items-center gap-1 whitespace-nowrap overflow-hidden
-                text-base font-bold bg-transparent border-0 px-0 py-0">
-      <span>日直：</span>
-      <div class="editable whitespace-nowrap overflow-hidden text-right"
-        contenteditable="true"
-        onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
-        oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
-    </div>
-  </div>
-
-  <!-- ===== PC（見た目を戻す） ===== -->
-  <div class="hidden md:flex text-sm bg-white px-1 py-0.5 rounded border border-slate-200 font-medium md:mt-2 editable whitespace-nowrap overflow-hidden text-center items-center justify-center"
-    contenteditable="true"
-    onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
-    oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
-` : '';
-
-// ★スマホで dutyHtml が「w-full」でも崩れないように dateSection を縦並びにする
-const dateSection = `
-  <div class="w-full md:w-24 ${dateBg} p-2 flex flex-col md:flex-col md:items-center md:justify-center md:border-r border-slate-200">
-    <div class="flex items-baseline justify-between w-full md:flex-col md:items-center md:justify-start">
-      <span class="text-xl font-bold">${item.day}</span>
-      <span class="text-xs font-bold md:mt-0.5">(${item.dow})</span>
-    </div>
-    ${dutyHtml}
-  </div>
-`;
+        const dateSection = `
+          <div class="md:w-24 ${dateBg} p-2 flex md:flex-col items-center justify-between md:justify-center md:border-r border-slate-200">
+            <div class="flex items-baseline md:flex-col md:items-center">
+              <span class="text-xl font-bold">${item.day}</span>
+              <span class="text-xs font-bold md:mt-0.5 ml-1 md:ml-0">(${item.dow})</span>
+            </div>
+            ${dutyHtml}
+          </div>
+        `;
 
         let contentHtml = '';
         if (currentTab === 'all') {
