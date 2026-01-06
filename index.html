@@ -454,8 +454,9 @@
       _baseValue.set(key, norm(value));
     }
 
+    // ★祝日(holiday)を保存対象に追加
     function _fields() {
-      return ['notice', 'duty', 'events', 'business', 'submission', 'vacation'];
+      return ['notice', 'duty', 'events', 'business', 'submission', 'vacation', 'holiday'];
     }
 
     // ================================
@@ -518,7 +519,10 @@
         const arr = JSON.parse(raw);
         if (!Array.isArray(arr) || arr.length < 300) return false;
         scheduleData = arr;
-        scheduleData.forEach(it => { if (typeof it.notice !== 'string') it.notice = ''; });
+        scheduleData.forEach(it => {
+          if (typeof it.notice !== 'string') it.notice = '';
+          if (typeof it.holiday !== 'string') it.holiday = ''; // ★追加：祝日
+        });
         return true;
       } catch (e) { console.error(e); return false; }
     }
@@ -542,7 +546,6 @@
       if (canEdit) return true;
       const s = _dirtyFieldsByItem.get(itemId);
       if (!s || s.size === 0) return false;
-      // 閲覧モードで許可するのは submission のみ
       for (const f of s) { if (f !== 'submission') return false; }
       return true;
     }
@@ -550,13 +553,11 @@
     async function commitSaveItem(itemId, { sort = false, rerender = false, allowViewChecklist = false } = {}) {
       if (!authUser) return;
 
-      // dirtyが無いならwrite 0
       if (!hasDirtyForItem(itemId)) {
         _pendingItemIds.delete(itemId);
         return;
       }
 
-      // 編集モード以外での保存は「submissionチェックのみ」限定
       if (!(canEdit || (allowViewChecklist && _canWriteSubmissionInView(itemId)))) return;
 
       if (_savingItems.has(itemId)) {
@@ -575,7 +576,6 @@
       try {
         await saveDayToCloud(item);
 
-        // 保存成功：baseline更新＆dirty解除
         _fields().forEach(f => {
           _baseValue.set(_k(itemId, f), norm(item[f] || ''));
           clearDirty(itemId, f);
@@ -857,27 +857,27 @@
     }
 
     function getStartYear() { return parseInt(document.getElementById('yearInput').value, 10); }
-function roomId() { return authUser ? authUser.uid : null; }
-function roomDocRef() { return db.collection('rooms').doc(roomId()); }
-function yearDocRef(startYear) { return roomDocRef().collection('years').doc(String(startYear)); }
-function cloudDaysRef(startYear) { return yearDocRef(startYear).collection('days'); }
+    function roomId() { return authUser ? authUser.uid : null; }
+    function roomDocRef() { return db.collection('rooms').doc(roomId()); }
+    function yearDocRef(startYear) { return roomDocRef().collection('years').doc(String(startYear)); }
+    function cloudDaysRef(startYear) { return yearDocRef(startYear).collection('days'); }
 
-// ★追加：ログイン時に「学校名」を毎回1回読み込む（(学校名)リセット対策）
-async function loadSchoolNameAlways() {
-  if (!authUser) return;
-  try {
-    const startYear = getStartYear();
-    const metaSnap = await yearDocRef(startYear).get();
-    if (metaSnap.exists) {
-      const md = metaSnap.data() || {};
-      if (typeof md.schoolName === 'string' && md.schoolName.trim()) {
-        document.getElementById('schoolName').innerText = md.schoolName;
+    // ★追加：ログイン時に「学校名」を毎回1回読み込む（(学校名)リセット対策）
+    async function loadSchoolNameAlways() {
+      if (!authUser) return;
+      try {
+        const startYear = getStartYear();
+        const metaSnap = await yearDocRef(startYear).get();
+        if (metaSnap.exists) {
+          const md = metaSnap.data() || {};
+          if (typeof md.schoolName === 'string' && md.schoolName.trim()) {
+            document.getElementById('schoolName').innerText = md.schoolName;
+          }
+        }
+      } catch (e) {
+        console.error(e);
       }
     }
-  } catch (e) {
-    console.error(e);
-  }
-}
 
     function _seenKey(startYear) {
       if (!authUser) return null;
@@ -901,6 +901,7 @@ async function loadSchoolNameAlways() {
       return scheduleData.find(it => it.year === y && it.month === m && it.day === d) || null;
     }
 
+    // ★祝日(holiday)もクラウド→ローカル反映
     function applyCloudDocToLocal(docData) {
       const data = docData || {};
       const y = data.year, m = data.month, d = data.day;
@@ -919,6 +920,7 @@ async function loadSchoolNameAlways() {
         if (!(sameItem && ae.field === 'business')) target.business = '';
         if (!(sameItem && ae.field === 'submission')) target.submission = '';
         if (!(sameItem && ae.field === 'vacation')) target.vacation = '';
+        if (!(sameItem && ae.field === 'holiday')) target.holiday = ''; // ★追加
         return true;
       }
 
@@ -928,6 +930,7 @@ async function loadSchoolNameAlways() {
       if (!(sameItem && ae.field === 'business')) target.business = data.business || '';
       if (!(sameItem && ae.field === 'submission')) target.submission = data.submission || '';
       if (!(sameItem && ae.field === 'vacation')) target.vacation = data.vacation || '';
+      if (!(sameItem && ae.field === 'holiday')) target.holiday = data.holiday || ''; // ★追加
 
       return true;
     }
@@ -1005,6 +1008,7 @@ async function loadSchoolNameAlways() {
       return { updatedCount, changed };
     }
 
+    // ★祝日(holiday)も保存対象（CSVには入れないがクラウド同期はする）
     async function saveDayToCloud(item) {
       if (!authUser) return;
       const ok = await ensureFirebase();
@@ -1020,13 +1024,15 @@ async function loadSchoolNameAlways() {
       const business = (item.business || '').trim();
       const submission = (item.submission || '').trim();
       const vacation = (item.vacation || '').trim();
+      const holiday = (item.holiday || '').trim(); // ★追加
 
-      const isEmpty = !notice && !duty && !events && !business && !submission && !vacation;
+      const isEmpty = !notice && !duty && !events && !business && !submission && !vacation && !holiday; // ★holiday含む
 
       if (isEmpty) {
         await ref.set({
           year: item.year, month: item.month, day: item.day,
           notice: '', duty: '', events: '', business: '', submission: '', vacation: '',
+          holiday: '', // ★追加
           isDeleted: true,
           deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1038,6 +1044,7 @@ async function loadSchoolNameAlways() {
       await ref.set({
         year: item.year, month: item.month, day: item.day,
         notice, duty, events, business, submission, vacation,
+        holiday, // ★追加
         isDeleted: false,
         deletedAt: firebase.firestore.FieldValue.delete(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1045,6 +1052,7 @@ async function loadSchoolNameAlways() {
       }, { merge: true });
     }
 
+    // ★祝日(holiday)もバッチ保存対象
     async function batchSaveToCloud(items) {
       if (!authUser) return;
       const ok = await ensureFirebase();
@@ -1063,13 +1071,15 @@ async function loadSchoolNameAlways() {
         const business = (item.business || '').trim();
         const submission = (item.submission || '').trim();
         const vacation = (item.vacation || '').trim();
+        const holiday = (item.holiday || '').trim(); // ★追加
 
-        const isEmpty = !notice && !duty && !events && !business && !submission && !vacation;
+        const isEmpty = !notice && !duty && !events && !business && !submission && !vacation && !holiday; // ★追加
 
         if (isEmpty) {
           batch.set(ref.doc(docId), {
             year: item.year, month: item.month, day: item.day,
             notice: '', duty: '', events: '', business: '', submission: '', vacation: '',
+            holiday: '', // ★追加
             isDeleted: true,
             deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1079,6 +1089,7 @@ async function loadSchoolNameAlways() {
           batch.set(ref.doc(docId), {
             year: item.year, month: item.month, day: item.day,
             notice, duty, events, business, submission, vacation,
+            holiday, // ★追加
             isDeleted: false,
             deletedAt: firebase.firestore.FieldValue.delete(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1419,11 +1430,12 @@ async function loadSchoolNameAlways() {
       });
 
       document.addEventListener('visibilitychange', () => {
-  if (document.hidden) flushAllPendingSaves();
-  if (document.hidden) saveSchoolName(); // ★追加
-});
-window.addEventListener('pagehide', () => { flushAllPendingSaves(); });
-window.addEventListener('pagehide', () => { saveSchoolName(); }); // ★追加
+        if (document.hidden) flushAllPendingSaves();
+        if (document.hidden) saveSchoolName();
+      });
+      window.addEventListener('pagehide', () => { flushAllPendingSaves(); });
+      window.addEventListener('pagehide', () => { saveSchoolName(); });
+
       firebase.auth().onAuthStateChanged(async (u) => {
         authUser = u || null;
 
@@ -1437,19 +1449,19 @@ window.addEventListener('pagehide', () => { saveSchoolName(); }); // ★追加
           setModeBadge();
 
           const cacheLoaded = generateYearlyCalendar();
-await loadSchoolNameAlways(); // ★追加：学校名だけは毎回ここで復元する
+          await loadSchoolNameAlways();
 
-const startYear = getStartYear();
-const lastSeen = getLastSeenTs(startYear);
-const needFull = (!cacheLoaded) || (!lastSeen);
+          const startYear = getStartYear();
+          const lastSeen = getLastSeenTs(startYear);
+          const needFull = (!cacheLoaded) || (!lastSeen);
 
-try {
-  await loadCloudForYear({ initialFull: needFull });
-  lastSyncAt = Date.now();
-  updateLastSyncLabel();
-  startLastSyncTicker();
-  queueScheduleCacheSave();
-} catch (e) { console.error(e); }
+          try {
+            await loadCloudForYear({ initialFull: needFull });
+            lastSyncAt = Date.now();
+            updateLastSyncLabel();
+            startLastSyncTicker();
+            queueScheduleCacheSave();
+          } catch (e) { console.error(e); }
           setSyncBadge('同期OK', 'ok');
         } else {
           setLoginBadge('未ログイン', 'off');
@@ -1498,6 +1510,7 @@ try {
       }
     }
 
+    // ★holiday(祝日)フィールド追加
     function generateYearlyCalendar() {
       const startYear = parseInt(document.getElementById('yearInput').value, 10);
       const newScheduleData = [];
@@ -1520,7 +1533,8 @@ try {
             events: '',
             business: '',
             submission: '',
-            vacation: ''
+            vacation: '',
+            holiday: '' // ★追加：祝日名（手入力・端末間同期）
           });
         }
       }
@@ -1530,7 +1544,10 @@ try {
       let cacheLoaded = false;
       if (authUser) cacheLoaded = loadScheduleCache(startYear);
 
-      scheduleData.forEach(it => { if (typeof it.notice !== 'string') it.notice = ''; });
+      scheduleData.forEach(it => {
+        if (typeof it.notice !== 'string') it.notice = '';
+        if (typeof it.holiday !== 'string') it.holiday = ''; // ★追加
+      });
 
       renderSchedule();
       applyEditLockToDOM();
@@ -1584,13 +1601,14 @@ try {
       updatePrintTitle();
     }
 
+    // ★検索対象に祝日名も入れる
     function buildSearchTextForItem(item) {
       if (!item) return '';
-      if (currentTab === 'notice') return String(item.notice || '');
-      if (currentTab === 'school') return String(item.events || '');
-      if (currentTab === 'business') return String(item.business || '');
-      if (currentTab === 'submission') return String(item.submission || '');
-      if (currentTab === 'vacation') return String(item.vacation || '');
+      if (currentTab === 'notice') return String(item.notice || '') + '\n' + String(item.holiday || '');
+      if (currentTab === 'school') return String(item.events || '') + '\n' + String(item.holiday || '');
+      if (currentTab === 'business') return String(item.business || '') + '\n' + String(item.holiday || '');
+      if (currentTab === 'submission') return String(item.submission || '') + '\n' + String(item.holiday || '');
+      if (currentTab === 'vacation') return String(item.vacation || '') + '\n' + String(item.holiday || '');
 
       return (
         String(item.notice || '') + '\n' +
@@ -1598,7 +1616,8 @@ try {
         String(item.business || '') + '\n' +
         String(item.submission || '') + '\n' +
         String(item.vacation || '') + '\n' +
-        String(item.duty || '') + '\n'
+        String(item.duty || '') + '\n' +
+        String(item.holiday || '') + '\n'
       );
     }
 
@@ -1610,6 +1629,7 @@ try {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
     }
+    function escapeAttr(s) { return escapeHtml(s); } // ★追加（input value用）
     function escapeRegExp(s) { return String(s ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
     function nl2br(s) { return String(s ?? '').replace(/\n/g, '<br>'); }
     function highlightHtml(text, query) {
@@ -1622,8 +1642,6 @@ try {
       return nl2br(safeText.replace(re, (m) => `<mark class="bg-yellow-200 rounded px-0.5">${m}</mark>`));
     }
 
-    // ★追加：チェック済みでも「検索ハイライト(mark)は薄くしない」
-    //  - 薄くするのはマッチしていない文字だけ（span.cl-dim）
     function highlightChecklistText(text, query, checked) {
       const raw = String(text ?? '');
       const q = String(query ?? '').trim();
@@ -1643,10 +1661,7 @@ try {
           const b = escapeHtml(before);
           out += checked ? `<span class="cl-dim">${b}</span>` : b;
         }
-
-        // ★ハイライト部分は薄くしない
         out += `<mark class="bg-yellow-200 rounded px-0.5">${escapeHtml(m[0])}</mark>`;
-
         last = m.index + m[0].length;
       }
 
@@ -1664,16 +1679,7 @@ try {
       return out;
     }
 
-    // =========================================================
-    // ★提出物（submission）チェックボックスUI
-    // 要件反映：
-    //  - 提出物が空の行は「チェックボックス表示なし」（閲覧は完全に何も出さない）
-    //  - チェック済み行：文字だけ薄く + 打消し（チェックボックスは薄くしない）
-    //  - 検索ハイライトは薄くしない
-    //  - 全体タブ/報告・提出タブ 両方同じUI
-    //  - どちらでチェックしても連動（同じsubmission保存）
-    //  - 閲覧モードでもチェック可＆クラウド保存（submissionのみ）
-    // =========================================================
+    // ===== 提出物チェックUI（元のまま） =====
     function parseChecklist(text) {
       const lines = String(text ?? '').replace(/\r\n/g, '\n').split('\n');
       const items = [];
@@ -1731,13 +1737,8 @@ try {
       const item = scheduleData.find(d => d.id === itemId);
       if (!item) return;
 
-      // まずパース
       let parsed = parseChecklist(item[field] || '');
-
-      // ★閲覧時：空ラベル行は「存在しない扱い」
       if (!editable) parsed = parsed.filter(x => String(x.text || '').trim() !== '');
-
-      // ★提出物がない行はチェックボックス表示なし（閲覧は完全に空）
       if (!editable && parsed.length === 0) {
         host.innerHTML = '';
         return;
@@ -1745,11 +1746,10 @@ try {
 
       host.innerHTML = '';
 
-      const allowToggle = !!authUser;           // 閲覧でもチェックはできる（ログイン時）
-      const allowAdd = !!(authUser && canEdit); // 追加は編集モードのみ
+      const allowToggle = !!authUser;
+      const allowAdd = !!(authUser && canEdit);
       const allowTextEdit = !!(authUser && canEdit);
 
-      // 追加ボタン（編集時のみ）
       if (allowAdd) {
         const top = document.createElement('div');
         top.className = 'flex items-center justify-end mb-1';
@@ -1776,10 +1776,8 @@ try {
         host.appendChild(top);
       }
 
-      // 編集時でも「何も無い」なら、ボタンだけで終わり（チェック行のプレースホルダは出さない）
       if (parsed.length === 0 && allowAdd) return;
 
-      // 表示順：未完了→完了（安定）
       const sorted = parsed.slice().sort((a, b) => {
         if (a.checked !== b.checked) return a.checked ? 1 : -1;
         return (a.idx ?? 0) - (b.idx ?? 0);
@@ -1791,7 +1789,6 @@ try {
 
       const commit = (rerender) => {
         const nextText = serializeChecklist(sorted);
-        // ★チェック操作は閲覧でも保存：submissionのみ許可
         queueSave(itemId, field, nextText, { allowViewChecklist: true });
         if (rerender) renderChecklistField(host, itemId, field, editable, queryRaw);
       };
@@ -1799,7 +1796,6 @@ try {
       sorted.forEach((it, i) => {
         const row = document.createElement('div');
         row.className = 'flex items-start gap-2';
-        // ★重要：rowにopacityを掛けない（チェックボックスやmarkが薄くなるのを防ぐ）
         list.appendChild(row);
 
         const cb = document.createElement('input');
@@ -1816,10 +1812,9 @@ try {
         const text = document.createElement('div');
         text.className = 'flex-1 text-sm text-amber-700 font-medium whitespace-pre-wrap leading-relaxed';
 
-        if (it.checked) text.classList.add('line-through'); // ★打消し（markにも線は引ける）
+        if (it.checked) text.classList.add('line-through');
 
         if (allowTextEdit) {
-          // 編集時：markが無いのでコンテナ自体を薄くしてOK（チェックボックスは別要素なので薄くならない）
           if (it.checked) text.classList.add('cl-dim');
 
           text.classList.add('editable');
@@ -1851,7 +1846,6 @@ try {
             }
           });
         } else {
-          // 閲覧時：チェック済みでも mark は薄くしない（薄くするのはspan.cl-dimの部分だけ）
           text.innerHTML = highlightChecklistText(it.text || '', queryRaw, !!it.checked);
         }
 
@@ -1900,42 +1894,70 @@ try {
 
         attachCardSaveOnLeave(card, item.id);
 
+        // ★祝日が入っていたら日曜と同じ赤にする（優先）
         const isSun = item.dow === '日';
         const isSat = item.dow === '土';
-        const dateBg = isSun ? 'bg-red-50 text-red-600' : (isSat ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-700');
+        const holidayTrim = String(item.holiday || '').trim();
+        const isHoliday = holidayTrim.length > 0;
+
+        const dateBg = (isHoliday || isSun)
+          ? 'bg-red-50 text-red-600'
+          : (isSat ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-700');
 
         const dutyTextRaw = String(item.duty || '').trim();
-const hasDuty = dutyTextRaw.length > 0;
+        const hasDuty = dutyTextRaw.length > 0;
 
-const dutyVal = editable ? escapeHtml(item.duty || '') : highlightHtml(item.duty || '', queryRaw);
+        const dutyVal = editable ? escapeHtml(item.duty || '') : highlightHtml(item.duty || '', queryRaw);
 
-// ★日直が空なら「欄を出さない」
-// ただし編集モードでは入力できるように出す
-const dutyHtml = (showDuty && (editable || hasDuty)) ? `
-  <!-- ===== スマホ（今の“完璧”を維持） ===== -->
-  <div class="md:hidden w-full self-stretch flex justify-end">
-    <div class="flex items-center gap-1 whitespace-nowrap overflow-hidden
-                text-base font-bold bg-transparent border-0 px-0 py-0">
-      <span>日直：</span>
-      <div class="editable whitespace-nowrap overflow-hidden text-right"
-        contenteditable="true"
-        onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
-        oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
-    </div>
-  </div>
+        const dutyHtml = (showDuty && (editable || hasDuty)) ? `
+          <!-- ===== スマホ ===== -->
+          <div class="md:hidden w-full self-stretch flex justify-end">
+            <div class="flex items-center gap-1 whitespace-nowrap overflow-hidden
+                        text-base font-bold bg-transparent border-0 px-0 py-0">
+              <span>日直：</span>
+              <div class="editable whitespace-nowrap overflow-hidden text-right"
+                contenteditable="true"
+                onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
+                oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
+            </div>
+          </div>
 
-  <!-- ===== PC（前のコードの見た目に戻す） ===== -->
-  <div class="hidden md:flex text-sm bg-white px-1 py-0.5 rounded font-medium md:mt-2 editable whitespace-nowrap overflow-hidden text-center items-center justify-center"
-    contenteditable="true"
-    onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
-    oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
-` : '';
+          <!-- ===== PC ===== -->
+          <div class="hidden md:flex text-sm bg-white px-1 py-0.5 rounded font-medium md:mt-2 editable whitespace-nowrap overflow-hidden text-center items-center justify-center"
+            contenteditable="true"
+            onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
+            oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
+        ` : '';
+
+        // ★祝日入力UI：PC=曜日の下 / スマホ=曜日の右
+        const holidayViewHtml = isHoliday ? `<div class="text-[11px] font-bold leading-tight mt-1">${highlightHtml(item.holiday || '', queryRaw)}</div>` : '';
+        const holidayPcHtml = editable ? `
+          <input type="text"
+            class="hidden md:block mt-1 w-full px-1 py-0.5 rounded bg-white/70 border border-slate-200 text-[11px] font-bold text-red-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="祝日"
+            value="${escapeAttr(item.holiday || '')}"
+            onfocus="onCellFocus('${item.id}','holiday', this.value)"
+            oninput="queueSave('${item.id}','holiday', this.value)">
+        ` : (isHoliday ? `<div class="hidden md:block text-red-600">${holidayViewHtml}</div>` : '');
+
+        const holidayMobileHtml = editable ? `
+          <input type="text"
+            class="md:hidden ml-2 w-24 max-w-[40vw] px-1 py-0.5 rounded bg-white/70 border border-slate-200 text-[11px] font-bold text-red-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="祝日"
+            value="${escapeAttr(item.holiday || '')}"
+            onfocus="onCellFocus('${item.id}','holiday', this.value)"
+            oninput="queueSave('${item.id}','holiday', this.value)">
+        ` : (isHoliday ? `<div class="md:hidden ml-2 text-[11px] font-bold text-red-600 truncate max-w-[45vw]">${highlightHtml(item.holiday || '', queryRaw)}</div>` : '');
 
         const dateSection = `
           <div class="md:w-24 ${dateBg} p-2 flex md:flex-col items-center justify-between md:justify-center md:border-r border-slate-200">
-            <div class="flex items-baseline md:flex-col md:items-center">
-              <span class="text-xl font-bold">${item.day}</span>
-              <span class="text-xs font-bold md:mt-0.5 ml-1 md:ml-0">(${item.dow})</span>
+            <div class="flex items-baseline md:flex-col md:items-center min-w-0">
+              <div class="flex items-baseline min-w-0">
+                <span class="text-xl font-bold">${item.day}</span>
+                <span class="text-xs font-bold md:mt-0.5 ml-1 md:ml-0">(${item.dow})</span>
+                ${holidayMobileHtml}
+              </div>
+              ${holidayPcHtml}
             </div>
             ${dutyHtml}
           </div>
@@ -2046,7 +2068,7 @@ const dutyHtml = (showDuty && (editable || hasDuty)) ? `
       };
     }
 
-    // ========= CSV =========
+    // ========= CSV（holidayは入れない＝要件通り） =========
     function parseCSV(text) {
       const rows = [];
       let row = [];
@@ -2191,6 +2213,7 @@ const dutyHtml = (showDuty && (editable || hasDuty)) ? `
             business: norm(target.business),
             submission: norm(target.submission),
             vacation: norm(target.vacation),
+            // ★holidayはCSV対象外なので触らない（保持）
           };
 
           const next = { ...before };
@@ -2272,6 +2295,7 @@ const dutyHtml = (showDuty && (editable || hasDuty)) ? `
         return a.day - b.day;
       });
 
+      // ★holiday列は作らない（要件通り）
       const header = ['月','日','曜日','日直','予定','出張','提出物','お知らせ','休暇'];
       const lines = [header.map(csvEscape).join(',')];
 
