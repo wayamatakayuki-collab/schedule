@@ -1885,12 +1885,11 @@
         const isSat = item.dow === '土';
         const dateBg = isSun ? 'bg-red-50 text-red-600' : (isSat ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-700');
 
-        const dutyTextRaw = String(item.duty || '').trim();
+      const dutyTextRaw = String(item.duty || '').trim();
 const hasDuty = dutyTextRaw.length > 0;
 
 const dutyVal = editable ? escapeHtml(item.duty || '') : highlightHtml(item.duty || '', queryRaw);
 
-const dutyHtml = (showDuty && (editable || hasDuty)) ? `...` : '';
 // ★日直が空なら「欄を出さない」
 // ただし編集モードでは入力できるように出す
 const dutyHtml = (showDuty && (editable || hasDuty)) ? `
