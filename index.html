@@ -2373,13 +2373,16 @@ if (!(sameItem && ae.field === 'holiday')) {
           if (mapping['お知らせ'] !== -1) next.notice = pick(before.notice, cols[mapping['お知らせ']]);
           if (mapping['休暇'] !== -1) next.vacation = pick(before.vacation, cols[mapping['休暇']]);
 
-          // ★祝日（空欄＝「その日が自動祝日なら抑制」、非祝日なら上書き無し）
-          if (mapping['祝日'] !== -1) {
-            const cell = norm(cols[mapping['祝日']]);
-            const auto = String(target._autoHoliday || '').trim();
-            if (cell) next.holiday = cell;                 // 上書き
-            else next.holiday = auto ? '' : null;          // autoがある日は抑制、無い日は上書き無し
-          }
+          // ★祝日：空欄＝上書き無し（自動祝日を活かす）
+if (mapping['祝日'] !== -1) {
+  const cell = String(norm(cols[mapping['祝日']]) || '').trim();
+
+  if (cell) {
+    next.holiday = cell;   // 上書き（祝日名の変更/手入力祝日）
+  } else {
+    next.holiday = null;   // 空欄＝上書き無し → 自動祝日がそのまま出る
+  }
+}
 
           const changed =
             next.notice !== before.notice ||
