@@ -1437,18 +1437,19 @@ window.addEventListener('pagehide', () => { saveSchoolName(); }); // ★追加
           setModeBadge();
 
           const cacheLoaded = generateYearlyCalendar();
-          const startYear = getStartYear();
-          const lastSeen = getLastSeenTs(startYear);
-          const needFull = (!cacheLoaded) || (!lastSeen);
+await loadSchoolNameAlways(); // ★追加：学校名だけは毎回ここで復元する
 
-          try {
-            await loadCloudForYear({ initialFull: needFull });
-            lastSyncAt = Date.now();
-            updateLastSyncLabel();
-            startLastSyncTicker();
-            queueScheduleCacheSave();
-          } catch (e) { console.error(e); }
+const startYear = getStartYear();
+const lastSeen = getLastSeenTs(startYear);
+const needFull = (!cacheLoaded) || (!lastSeen);
 
+try {
+  await loadCloudForYear({ initialFull: needFull });
+  lastSyncAt = Date.now();
+  updateLastSyncLabel();
+  startLastSyncTicker();
+  queueScheduleCacheSave();
+} catch (e) { console.error(e); }
           setSyncBadge('同期OK', 'ok');
         } else {
           setLoginBadge('未ログイン', 'off');
