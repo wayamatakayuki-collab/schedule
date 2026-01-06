@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
@@ -95,16 +95,6 @@
 
     /* ★追加：チェック済みで薄くするのは「文字だけ」に適用するためのクラス */
     .cl-dim { opacity: .45; }
-
-    /* ★追加：contenteditable が空でも“タップできる幅”＋プレースホルダ表示（保存されない） */
-    [contenteditable][data-placeholder]:empty:before{
-      content: attr(data-placeholder);
-      color: #94a3b8; /* slate-400 */
-      font-weight: 600;
-    }
-    [contenteditable][data-placeholder]:empty:focus:before{
-      content: '';
-    }
   </style>
 </head>
 
@@ -470,10 +460,8 @@
     }
 
     // ================================
-    // ★祝日（自動生成＋手入力上書き＋自動祝日抑止）
+    // ★祝日（自動生成＋手入力上書き）
     // ================================
-    const HOLIDAY_SUPPRESS = '__NO_HOLIDAY__'; // ★自動祝日を「無効化」するための印
-
     function _pad2(n) { return String(n).padStart(2, '0'); }
     function ymdKey(y, m, d) { return `${y}-${_pad2(m)}-${_pad2(d)}`; }
     function _dateKey(dt) { return `${dt.getFullYear()}-${_pad2(dt.getMonth() + 1)}-${_pad2(dt.getDate())}`; }
@@ -570,12 +558,10 @@
     }
 
     // holidayの扱い：
-    // - item.holiday === HOLIDAY_SUPPRESS：自動祝日も含めて非表示（平日に戻す）
     // - item.holiday が「空でない文字列」：手入力上書き
     // - それ以外（null/未定義/空文字）：自動祝日（_autoHoliday）
     function getHolidayEffective(item) {
       if (!item) return '';
-      if (item.holiday === HOLIDAY_SUPPRESS) return '';
       if (typeof item.holiday === 'string') {
         const s = String(item.holiday || '').trim();
         if (s) return s;
@@ -583,30 +569,13 @@
       return String(item._autoHoliday || '').trim();
     }
 
-    // 編集欄に表示する値（抑止中は空欄で見せる）
     function getHolidayEditValue(item) {
       if (!item) return '';
-      if (item.holiday === HOLIDAY_SUPPRESS) return '';
       if (typeof item.holiday === 'string') {
         const s = String(item.holiday || '').trim();
         if (s) return String(item.holiday || '');
       }
       return String(item._autoHoliday || '');
-    }
-
-    function setHolidaySuppress(itemId, on) {
-      if (!(authUser && canEdit)) return;
-      const it = scheduleData.find(d => d.id === itemId);
-      if (!it) return;
-
-      if (on) {
-        queueSave(itemId, 'holiday', HOLIDAY_SUPPRESS);
-      } else {
-        // 空欄＝上書き解除（自動に戻す）
-        queueSave(itemId, 'holiday', '');
-      }
-      renderSchedule();
-      applyEditLockToDOM();
     }
 
     // ================================
@@ -1081,24 +1050,19 @@
       if (!(sameItem && ae.field === 'submission')) target.submission = data.submission || '';
       if (!(sameItem && ae.field === 'vacation')) target.vacation = data.vacation || '';
 
-      // ★holiday：
-      // - "__NO_HOLIDAY__" なら抑止
-      // - 空文字は解除（null）
-      // - 通常文字列は上書き
+      // ★holiday：空文字は「上書き解除（null）」扱い
       if (!(sameItem && ae.field === 'holiday')) {
         const hasHolidayField = Object.prototype.hasOwnProperty.call(data, 'holiday');
 
         if (!hasHolidayField) {
           target.holiday = null; // フィールド無し＝上書き無し（自動祝日が出る）
         } else if (typeof data.holiday === 'string') {
-          const raw = String(data.holiday || '');
-          const s = raw.trim();
-          if (s === HOLIDAY_SUPPRESS) target.holiday = HOLIDAY_SUPPRESS;
-          else target.holiday = s ? s : null; // ★空文字は解除
+          const s = String(data.holiday || '').trim();
+          target.holiday = s ? s : null; // ★空文字は解除
         } else if (data.holiday == null) {
-          target.holiday = null;
+          target.holiday = null; // null＝上書き無し（自動祝日が出る）
         } else {
-          target.holiday = null;
+          target.holiday = null; // 想定外も上書き無し扱い
         }
       }
 
@@ -1194,17 +1158,9 @@
       const submission = (item.submission || '').trim();
       const vacation = (item.vacation || '').trim();
 
-      // ★holiday：
-      // - "__NO_HOLIDAY__" は抑止として保存
-      // - 通常文字列は上書きとして保存
-      // - 空/null は上書き解除（delete）
-      const hasHolidayOverride =
-        (item.holiday === HOLIDAY_SUPPRESS) ||
-        (typeof item.holiday === 'string' && String(item.holiday || '').trim() !== '');
-
-      const holidayOverride =
-        (item.holiday === HOLIDAY_SUPPRESS) ? HOLIDAY_SUPPRESS :
-        (hasHolidayOverride ? String(item.holiday || '').trim() : null);
+      // ★holiday：空でない文字列のみ「上書き」として保存（空欄は自動に戻る）
+      const hasHolidayOverride = (typeof item.holiday === 'string' && String(item.holiday || '').trim() !== '');
+      const holidayOverride = hasHolidayOverride ? String(item.holiday || '').trim() : null;
 
       const isEmpty = !notice && !duty && !events && !business && !submission && !vacation && !hasHolidayOverride;
 
@@ -1251,13 +1207,8 @@
         const submission = (item.submission || '').trim();
         const vacation = (item.vacation || '').trim();
 
-        const hasHolidayOverride =
-          (item.holiday === HOLIDAY_SUPPRESS) ||
-          (typeof item.holiday === 'string' && String(item.holiday || '').trim() !== '');
-
-        const holidayOverride =
-          (item.holiday === HOLIDAY_SUPPRESS) ? HOLIDAY_SUPPRESS :
-          (hasHolidayOverride ? String(item.holiday || '').trim() : null);
+        const hasHolidayOverride = (typeof item.holiday === 'string' && String(item.holiday || '').trim() !== '');
+        const holidayOverride = hasHolidayOverride ? String(item.holiday || '').trim() : null;
 
         const isEmpty = !notice && !duty && !events && !business && !submission && !vacation && !hasHolidayOverride;
 
@@ -1308,9 +1259,7 @@
 
       const v = norm(value);
 
-      // ★holiday：
-      // - 空欄は「上書き解除（null）」＝自動祝日に戻す
-      // - HOLIDAY_SUPPRESS はそのまま保存（抑止）
+      // ★holiday：空欄は「上書き解除（null）」＝自動祝日に戻す
       let storeValue = v;
       if (field === 'holiday' && v === '') storeValue = null;
 
@@ -1728,7 +1677,7 @@
             business: '',
             submission: '',
             vacation: '',
-            holiday: null,     // 手入力上書き（null=自動 / HOLIDAY_SUPPRESS=抑止）
+            holiday: null,     // 手入力上書き（null=自動）
             _autoHoliday: ''   // 自動祝日（表示用）
           });
         }
@@ -2144,69 +2093,21 @@
             oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
         ` : '';
 
-        // ===== 祝日表示（PC:曜日の下 / スマホ:曜日の右）＋編集モードだけボタン =====
+        // ★祝日表示（PC:曜日の下 / スマホ:曜日の右）
         const holidayEditVal = editable ? escapeHtml(getHolidayEditValue(item)) : escapeHtml(holidayEff);
 
-        const isSuppressed = (item.holiday === HOLIDAY_SUPPRESS);
-        const hasManualOverride = (typeof item.holiday === 'string' && String(item.holiday || '').trim() !== '' && item.holiday !== HOLIDAY_SUPPRESS);
-        const hasAutoHoliday = String(item._autoHoliday || '').trim().length > 0;
-
-        // ボタン表示ルール（編集モードのみ）
-        const showSuppressBtn = editable && !isSuppressed && (hasAutoHoliday || hasManualOverride);
-        const showRestoreBtn  = editable && (isSuppressed || hasManualOverride);
-
-        // スマホ：曜日の右（同じ行）に祝日テキスト＋ボタン
-        // ★修正：空欄でもタップできるように inline-block + min-width + placeholder
-        const holidayMobile = (editable || hasHoliday || isSuppressed) ? `
-          <span class="md:hidden ml-1 inline-flex items-center gap-1 min-w-0">
-            <span
-              class="text-[11px] font-bold text-red-600 editable inline-block min-w-[5.5rem] whitespace-nowrap overflow-hidden align-middle"
-              data-placeholder="祝日（任意）"
-              contenteditable="true"
-              onfocus="onCellFocus('${item.id}', 'holiday', this.innerText)"
-              oninput="queueSave('${item.id}', 'holiday', this.innerText)">${holidayEditVal}</span>
-
-            ${showSuppressBtn ? `
-              <button type="button"
-                class="shrink-0 text-[10px] leading-none px-2 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 active:scale-95"
-                onclick="setHolidaySuppress('${item.id}', true)">祝日を消す</button>
-            ` : ''}
-
-            ${showRestoreBtn ? `
-              <button type="button"
-                class="shrink-0 text-[10px] leading-none px-2 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 active:scale-95"
-                onclick="setHolidaySuppress('${item.id}', false)">自動に戻す</button>
-            ` : ''}
-          </span>
+        const holidayMobile = (editable || hasHoliday) ? `
+          <span class="md:hidden ml-1 text-[11px] font-bold text-red-600 editable whitespace-nowrap overflow-hidden"
+            contenteditable="true"
+            onfocus="onCellFocus('${item.id}', 'holiday', this.innerText)"
+            oninput="queueSave('${item.id}', 'holiday', this.innerText)">${holidayEditVal}</span>
         ` : '';
 
-        // PC：曜日の下に祝日テキスト、その下にボタン（崩れないよう中央寄せ）
-        // ★修正：placeholder付与（PCでも空欄が分かりやすい）
-        const holidayPC = (editable || hasHoliday || isSuppressed) ? `
-          <div class="hidden md:block mt-0.5">
-            <div
-              class="text-[11px] font-bold text-red-600 leading-tight editable text-center"
-              data-placeholder="祝日（任意）"
-              contenteditable="true"
-              onfocus="onCellFocus('${item.id}', 'holiday', this.innerText)"
-              oninput="queueSave('${item.id}', 'holiday', this.innerText)">${holidayEditVal}</div>
-
-            ${editable ? `
-              <div class="mt-1 flex items-center justify-center gap-1">
-                ${showSuppressBtn ? `
-                  <button type="button"
-                    class="text-[10px] leading-none px-2 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 active:scale-95"
-                    onclick="setHolidaySuppress('${item.id}', true)">祝日を消す</button>
-                ` : ''}
-
-                ${showRestoreBtn ? `
-                  <button type="button"
-                    class="text-[10px] leading-none px-2 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 active:scale-95"
-                    onclick="setHolidaySuppress('${item.id}', false)">自動に戻す</button>
-                ` : ''}
-              </div>
-            ` : ''}
-          </div>
+        const holidayPC = (editable || hasHoliday) ? `
+          <div class="hidden md:block mt-0.5 text-[11px] font-bold text-red-600 leading-tight editable text-center"
+            contenteditable="true"
+            onfocus="onCellFocus('${item.id}', 'holiday', this.innerText)"
+            oninput="queueSave('${item.id}', 'holiday', this.innerText)">${holidayEditVal}</div>
         ` : '';
 
         const dateSection = `
