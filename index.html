@@ -95,13 +95,6 @@
 
     /* ★追加：チェック済みで薄くするのは「文字だけ」に適用するためのクラス */
     .cl-dim { opacity: .45; }
-
-    /* ★追加：祝日入力（ローカルのみ） */
-    .holiday-input {
-      appearance: none;
-      -webkit-appearance: none;
-      outline: none;
-    }
   </style>
 </head>
 
@@ -397,11 +390,6 @@
     const LOCAL_CACHE_PREFIX = 'schedule_cache_v1__';
     const FIXED_CREATE_CODE = '20136684';
 
-    // ★追加：祝日（手入力・ローカル保存のみ / CSV&クラウド非反映）
-    const LOCAL_HOLIDAY_PREFIX = 'schedule_local_holidays_v1__'; // uid__startYear
-    let localHolidays = {}; // { "YYYY-M-D": "祝日名" }
-    let _holidaySaveTimer = null;
-
     // モード：閲覧/編集
     let canEdit = false;
 
@@ -546,122 +534,6 @@
         try { localStorage.setItem(k, JSON.stringify(scheduleData)); }
         catch (e) { console.error(e); }
       }, 500);
-    }
-
-    // ================================
-    // ★祝日（手入力・ローカル保存のみ）
-    //  - 編集モード時に入力
-    //  - 入力がある日は「日曜と同じ赤」
-    //  - 検索対象に含める
-    //  - CSV/クラウドには反映しない
-    // ================================
-    function _holidayKey(startYear) {
-      if (!authUser) return null;
-      return `${LOCAL_HOLIDAY_PREFIX}${authUser.uid}__${startYear}`;
-    }
-
-    function loadLocalHolidays(startYear) {
-      localHolidays = {};
-      if (!authUser) return;
-      try {
-        const k = _holidayKey(startYear);
-        if (!k) return;
-        const raw = localStorage.getItem(k);
-        if (raw) {
-          const obj = JSON.parse(raw);
-          if (obj && typeof obj === 'object') localHolidays = obj;
-        }
-      } catch (e) { console.error(e); localHolidays = {}; }
-
-      // scheduleDataに反映
-      scheduleData.forEach(it => {
-        const docId = `${it.year}-${it.month}-${it.day}`;
-        const v = localHolidays[docId];
-        it.holiday = (typeof v === 'string') ? v : '';
-      });
-    }
-
-    function queueSaveLocalHolidays() {
-      if (!authUser) return;
-      const startYear = getStartYear();
-      const k = _holidayKey(startYear);
-      if (!k) return;
-      if (_holidaySaveTimer) clearTimeout(_holidaySaveTimer);
-      _holidaySaveTimer = setTimeout(() => {
-        try { localStorage.setItem(k, JSON.stringify(localHolidays || {})); }
-        catch (e) { console.error(e); }
-      }, 400);
-    }
-
-    function setHolidayForItem(itemId, rawName) {
-      const item = scheduleData.find(d => d.id === itemId);
-      if (!item) return;
-      const name = String(rawName ?? '').trim();
-
-      item.holiday = name;
-
-      const docId = `${item.year}-${item.month}-${item.day}`;
-      if (name) localHolidays[docId] = name;
-      else delete localHolidays[docId];
-
-      queueSaveLocalHolidays();
-    }
-
-    function _removeDateColorClasses(el) {
-      if (!el) return;
-      el.classList.remove('bg-red-50', 'text-red-600', 'bg-blue-50', 'text-blue-600', 'bg-slate-50', 'text-slate-700');
-    }
-
-    function _applyDateColor(el, { isSun=false, isSat=false, isHoliday=false } = {}) {
-      if (!el) return;
-      _removeDateColorClasses(el);
-      if (isHoliday || isSun) {
-        el.classList.add('bg-red-50', 'text-red-600');
-      } else if (isSat) {
-        el.classList.add('bg-blue-50', 'text-blue-600');
-      } else {
-        el.classList.add('bg-slate-50', 'text-slate-700');
-      }
-    }
-
-    function updateHolidayUIForCard(itemId) {
-      const card = document.querySelector(`.card[data-item-id="${itemId}"]`);
-      if (!card) return;
-      const item = scheduleData.find(d => d.id === itemId);
-      if (!item) return;
-
-      const dateBox = card.querySelector('[data-datebox="1"]');
-      const isSun = item.dow === '日';
-      const isSat = item.dow === '土';
-      const isHoliday = String(item.holiday || '').trim().length > 0;
-      _applyDateColor(dateBox, { isSun, isSat, isHoliday });
-
-      // （閲覧時表示の祝日名）も更新したい場合に備え、表示領域を更新
-      const viewLabel = card.querySelector('[data-holiday-view="1"]');
-      if (viewLabel) {
-        const queryRaw = String(globalSearchQuery || '').trim();
-        if (isHoliday) {
-          viewLabel.innerHTML = highlightHtml(item.holiday || '', queryRaw);
-          viewLabel.classList.remove('hidden');
-        } else {
-          viewLabel.innerHTML = '';
-          viewLabel.classList.add('hidden');
-        }
-      }
-    }
-
-    function onHolidayInput(el, itemId) {
-      if (!(authUser && canEdit)) return;
-      setHolidayForItem(itemId, el.value);
-      updateHolidayUIForCard(itemId);
-    }
-
-    function onHolidayBlur(el, itemId) {
-      if (!(authUser && canEdit)) return;
-      const v = String(el.value ?? '').trim();
-      el.value = v;
-      setHolidayForItem(itemId, v);
-      updateHolidayUIForCard(itemId);
     }
 
     // ★差し替え：閲覧モードでも submission のチェック保存だけ許可
@@ -985,27 +857,27 @@
     }
 
     function getStartYear() { return parseInt(document.getElementById('yearInput').value, 10); }
-    function roomId() { return authUser ? authUser.uid : null; }
-    function roomDocRef() { return db.collection('rooms').doc(roomId()); }
-    function yearDocRef(startYear) { return roomDocRef().collection('years').doc(String(startYear)); }
-    function cloudDaysRef(startYear) { return yearDocRef(startYear).collection('days'); }
+function roomId() { return authUser ? authUser.uid : null; }
+function roomDocRef() { return db.collection('rooms').doc(roomId()); }
+function yearDocRef(startYear) { return roomDocRef().collection('years').doc(String(startYear)); }
+function cloudDaysRef(startYear) { return yearDocRef(startYear).collection('days'); }
 
-    // ★追加：ログイン時に「学校名」を毎回1回読み込む（(学校名)リセット対策）
-    async function loadSchoolNameAlways() {
-      if (!authUser) return;
-      try {
-        const startYear = getStartYear();
-        const metaSnap = await yearDocRef(startYear).get();
-        if (metaSnap.exists) {
-          const md = metaSnap.data() || {};
-          if (typeof md.schoolName === 'string' && md.schoolName.trim()) {
-            document.getElementById('schoolName').innerText = md.schoolName;
-          }
-        }
-      } catch (e) {
-        console.error(e);
+// ★追加：ログイン時に「学校名」を毎回1回読み込む（(学校名)リセット対策）
+async function loadSchoolNameAlways() {
+  if (!authUser) return;
+  try {
+    const startYear = getStartYear();
+    const metaSnap = await yearDocRef(startYear).get();
+    if (metaSnap.exists) {
+      const md = metaSnap.data() || {};
+      if (typeof md.schoolName === 'string' && md.schoolName.trim()) {
+        document.getElementById('schoolName').innerText = md.schoolName;
       }
     }
+  } catch (e) {
+    console.error(e);
+  }
+}
 
     function _seenKey(startYear) {
       if (!authUser) return null;
@@ -1547,12 +1419,11 @@
       });
 
       document.addEventListener('visibilitychange', () => {
-        if (document.hidden) flushAllPendingSaves();
-        if (document.hidden) saveSchoolName(); // ★追加
-      });
-      window.addEventListener('pagehide', () => { flushAllPendingSaves(); });
-      window.addEventListener('pagehide', () => { saveSchoolName(); }); // ★追加
-
+  if (document.hidden) flushAllPendingSaves();
+  if (document.hidden) saveSchoolName(); // ★追加
+});
+window.addEventListener('pagehide', () => { flushAllPendingSaves(); });
+window.addEventListener('pagehide', () => { saveSchoolName(); }); // ★追加
       firebase.auth().onAuthStateChanged(async (u) => {
         authUser = u || null;
 
@@ -1566,19 +1437,19 @@
           setModeBadge();
 
           const cacheLoaded = generateYearlyCalendar();
-          await loadSchoolNameAlways(); // ★追加：学校名だけは毎回ここで復元する
+await loadSchoolNameAlways(); // ★追加：学校名だけは毎回ここで復元する
 
-          const startYear = getStartYear();
-          const lastSeen = getLastSeenTs(startYear);
-          const needFull = (!cacheLoaded) || (!lastSeen);
+const startYear = getStartYear();
+const lastSeen = getLastSeenTs(startYear);
+const needFull = (!cacheLoaded) || (!lastSeen);
 
-          try {
-            await loadCloudForYear({ initialFull: needFull });
-            lastSyncAt = Date.now();
-            updateLastSyncLabel();
-            startLastSyncTicker();
-            queueScheduleCacheSave();
-          } catch (e) { console.error(e); }
+try {
+  await loadCloudForYear({ initialFull: needFull });
+  lastSyncAt = Date.now();
+  updateLastSyncLabel();
+  startLastSyncTicker();
+  queueScheduleCacheSave();
+} catch (e) { console.error(e); }
           setSyncBadge('同期OK', 'ok');
         } else {
           setLoginBadge('未ログイン', 'off');
@@ -1604,10 +1475,6 @@
           _baseValue.clear();
           _savingItems.clear();
           _needsResaveItems.clear();
-
-          // ★祝日ローカルもリセット（データはlocalStorageに残るがメモリ側は空に）
-          localHolidays = {};
-          if (_holidaySaveTimer) { clearTimeout(_holidaySaveTimer); _holidaySaveTimer = null; }
         }
 
         applyEditLockToDOM();
@@ -1653,9 +1520,7 @@
             events: '',
             business: '',
             submission: '',
-            vacation: '',
-            // ★追加：祝日名（ローカルのみ）
-            holiday: ''
+            vacation: ''
           });
         }
       }
@@ -1665,13 +1530,7 @@
       let cacheLoaded = false;
       if (authUser) cacheLoaded = loadScheduleCache(startYear);
 
-      scheduleData.forEach(it => {
-        if (typeof it.notice !== 'string') it.notice = '';
-        if (typeof it.holiday !== 'string') it.holiday = '';
-      });
-
-      // ★追加：祝日ローカルを毎回読み込み（CSV/クラウドに影響しない）
-      if (authUser) loadLocalHolidays(startYear);
+      scheduleData.forEach(it => { if (typeof it.notice !== 'string') it.notice = ''; });
 
       renderSchedule();
       applyEditLockToDOM();
@@ -1727,13 +1586,11 @@
 
     function buildSearchTextForItem(item) {
       if (!item) return '';
-      const h = String(item.holiday || '');
-
-      if (currentTab === 'notice') return String(item.notice || '') + '\n' + h;
-      if (currentTab === 'school') return String(item.events || '') + '\n' + h;
-      if (currentTab === 'business') return String(item.business || '') + '\n' + h;
-      if (currentTab === 'submission') return String(item.submission || '') + '\n' + h;
-      if (currentTab === 'vacation') return String(item.vacation || '') + '\n' + h;
+      if (currentTab === 'notice') return String(item.notice || '');
+      if (currentTab === 'school') return String(item.events || '');
+      if (currentTab === 'business') return String(item.business || '');
+      if (currentTab === 'submission') return String(item.submission || '');
+      if (currentTab === 'vacation') return String(item.vacation || '');
 
       return (
         String(item.notice || '') + '\n' +
@@ -1741,8 +1598,7 @@
         String(item.business || '') + '\n' +
         String(item.submission || '') + '\n' +
         String(item.vacation || '') + '\n' +
-        String(item.duty || '') + '\n' +
-        h + '\n'
+        String(item.duty || '') + '\n'
       );
     }
 
@@ -1810,6 +1666,13 @@
 
     // =========================================================
     // ★提出物（submission）チェックボックスUI
+    // 要件反映：
+    //  - 提出物が空の行は「チェックボックス表示なし」（閲覧は完全に何も出さない）
+    //  - チェック済み行：文字だけ薄く + 打消し（チェックボックスは薄くしない）
+    //  - 検索ハイライトは薄くしない
+    //  - 全体タブ/報告・提出タブ 両方同じUI
+    //  - どちらでチェックしても連動（同じsubmission保存）
+    //  - 閲覧モードでもチェック可＆クラウド保存（submissionのみ）
     // =========================================================
     function parseChecklist(text) {
       const lines = String(text ?? '').replace(/\r\n/g, '\n').split('\n');
@@ -1936,6 +1799,7 @@
       sorted.forEach((it, i) => {
         const row = document.createElement('div');
         row.className = 'flex items-start gap-2';
+        // ★重要：rowにopacityを掛けない（チェックボックスやmarkが薄くなるのを防ぐ）
         list.appendChild(row);
 
         const cb = document.createElement('input');
@@ -1952,9 +1816,10 @@
         const text = document.createElement('div');
         text.className = 'flex-1 text-sm text-amber-700 font-medium whitespace-pre-wrap leading-relaxed';
 
-        if (it.checked) text.classList.add('line-through');
+        if (it.checked) text.classList.add('line-through'); // ★打消し（markにも線は引ける）
 
         if (allowTextEdit) {
+          // 編集時：markが無いのでコンテナ自体を薄くしてOK（チェックボックスは別要素なので薄くならない）
           if (it.checked) text.classList.add('cl-dim');
 
           text.classList.add('editable');
@@ -1986,6 +1851,7 @@
             }
           });
         } else {
+          // 閲覧時：チェック済みでも mark は薄くしない（薄くするのはspan.cl-dimの部分だけ）
           text.innerHTML = highlightChecklistText(it.text || '', queryRaw, !!it.checked);
         }
 
@@ -2036,91 +1902,40 @@
 
         const isSun = item.dow === '日';
         const isSat = item.dow === '土';
-        const holidayName = String(item.holiday || '').trim();
-        const isHoliday = holidayName.length > 0;
-
-        // ★祝日が入っていたら「日曜と同じ赤」
-        const dateBg = (isHoliday || isSun) ? 'bg-red-50 text-red-600'
-                     : (isSat ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-700');
+        const dateBg = isSun ? 'bg-red-50 text-red-600' : (isSat ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-700');
 
         const dutyTextRaw = String(item.duty || '').trim();
-        const hasDuty = dutyTextRaw.length > 0;
+const hasDuty = dutyTextRaw.length > 0;
 
-        const dutyVal = editable ? escapeHtml(item.duty || '') : highlightHtml(item.duty || '', queryRaw);
+const dutyVal = editable ? escapeHtml(item.duty || '') : highlightHtml(item.duty || '', queryRaw);
 
-        // ★日直が空なら「欄を出さない」
-        // ただし編集モードでは入力できるように出す
-        const dutyHtml = (showDuty && (editable || hasDuty)) ? `
-          <!-- ===== スマホ（今の“完璧”を維持） ===== -->
-          <div class="md:hidden w-full self-stretch flex justify-end">
-            <div class="flex items-center gap-1 whitespace-nowrap overflow-hidden
-                        text-base font-bold bg-transparent border-0 px-0 py-0">
-              <span>日直：</span>
-              <div class="editable whitespace-nowrap overflow-hidden text-right"
-                contenteditable="true"
-                onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
-                oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
-            </div>
-          </div>
+// ★日直が空なら「欄を出さない」
+// ただし編集モードでは入力できるように出す
+const dutyHtml = (showDuty && (editable || hasDuty)) ? `
+  <!-- ===== スマホ（今の“完璧”を維持） ===== -->
+  <div class="md:hidden w-full self-stretch flex justify-end">
+    <div class="flex items-center gap-1 whitespace-nowrap overflow-hidden
+                text-base font-bold bg-transparent border-0 px-0 py-0">
+      <span>日直：</span>
+      <div class="editable whitespace-nowrap overflow-hidden text-right"
+        contenteditable="true"
+        onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
+        oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
+    </div>
+  </div>
 
-          <!-- ===== PC（前のコードの見た目に戻す） ===== -->
-          <div class="hidden md:flex text-sm bg-white px-1 py-0.5 rounded font-medium md:mt-2 editable whitespace-nowrap overflow-hidden text-center items-center justify-center"
-            contenteditable="true"
-            onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
-            oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
-        ` : '';
-
-        // ★祝日入力（編集モードのみ表示）
-        //  - PC：曜日の下（md以上）
-        //  - スマホ：曜日の右（md未満）
-        const holidayValEsc = escapeHtml(item.holiday || '');
-        const holidayViewHtml = `
-          <div data-holiday-view="1" class="${isHoliday ? '' : 'hidden'} text-[11px] font-bold text-red-600 leading-tight">
-            ${highlightHtml(item.holiday || '', queryRaw)}
-          </div>
-        `;
-
-        const holidayEditMobile = editable ? `
-          <input
-            type="text"
-            class="holiday-input ml-1 px-1 py-0.5 text-[11px] leading-tight rounded-md border border-red-200 bg-white/80 text-red-700 placeholder:text-red-300 w-[5.5rem]"
-            placeholder="祝日"
-            value="${holidayValEsc}"
-            oninput="onHolidayInput(this, '${item.id}')"
-            onblur="onHolidayBlur(this, '${item.id}')"
-          />
-        ` : `
-          <span class="ml-1">${holidayViewHtml}</span>
-        `;
-
-        const holidayEditPC = editable ? `
-          <input
-            type="text"
-            class="holiday-input mt-1 w-full px-1 py-0.5 text-[11px] leading-tight rounded-md border border-red-200 bg-white/80 text-red-700 placeholder:text-red-300"
-            placeholder="祝日"
-            value="${holidayValEsc}"
-            oninput="onHolidayInput(this, '${item.id}')"
-            onblur="onHolidayBlur(this, '${item.id}')"
-          />
-        ` : `
-          <div class="mt-1">${holidayViewHtml}</div>
-        `;
+  <!-- ===== PC（前のコードの見た目に戻す） ===== -->
+  <div class="hidden md:flex text-sm bg-white px-1 py-0.5 rounded font-medium md:mt-2 editable whitespace-nowrap overflow-hidden text-center items-center justify-center"
+    contenteditable="true"
+    onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
+    oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
+` : '';
 
         const dateSection = `
-          <div data-datebox="1" class="md:w-24 ${dateBg} p-2 flex md:flex-col items-center justify-between md:justify-center md:border-r border-slate-200">
+          <div class="md:w-24 ${dateBg} p-2 flex md:flex-col items-center justify-between md:justify-center md:border-r border-slate-200">
             <div class="flex items-baseline md:flex-col md:items-center">
               <span class="text-xl font-bold">${item.day}</span>
               <span class="text-xs font-bold md:mt-0.5 ml-1 md:ml-0">(${item.dow})</span>
-
-              <!-- ★スマホ：曜日の右 -->
-              <span class="md:hidden inline-flex items-center">
-                ${holidayEditMobile}
-              </span>
-
-              <!-- ★PC：曜日の下 -->
-              <div class="hidden md:block w-full">
-                ${holidayEditPC}
-              </div>
             </div>
             ${dutyHtml}
           </div>
