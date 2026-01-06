@@ -1890,6 +1890,7 @@ const hasDuty = dutyTextRaw.length > 0;
 
 const dutyVal = editable ? escapeHtml(item.duty || '') : highlightHtml(item.duty || '', queryRaw);
 
+const dutyHtml = (showDuty && (editable || hasDuty)) ? `...` : '';
 // ★日直が空なら「欄を出さない」
 // ただし編集モードでは入力できるように出す
 const dutyHtml = (showDuty && (editable || hasDuty)) ? `
