@@ -644,15 +644,10 @@
       return map;
     }
 
-    function getJapaneseHolidayName(year, month, day){
-      if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return '';
-      let mp = _jpHolidayCache.get(year);
-      if (!mp) {
-        mp = _buildJapaneseHolidayMap(year);
-        _jpHolidayCache.set(year, mp);
-      }
-      return mp.get(_keyMD(month, day)) || '';
-    }
+    // ★自動祝日を無効化（手入力 holiday は残る）
+function getJapaneseHolidayName(year, month, day){
+  return '';
+}
 
     function getEffectiveHolidayNameFromItem(item){
       if (!item) return '';
