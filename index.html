@@ -1044,12 +1044,20 @@
       if (!(sameItem && ae.field === 'submission')) target.submission = data.submission || '';
       if (!(sameItem && ae.field === 'vacation')) target.vacation = data.vacation || '';
 
-      // ★追加：holiday（フィールドが無い場合は「上書き無し」に戻す）
-      if (!(sameItem && ae.field === 'holiday')) {
-        const hasHolidayField = Object.prototype.hasOwnProperty.call(data, 'holiday');
-        if (hasHolidayField) target.holiday = (typeof data.holiday === 'string') ? data.holiday : '';
-        else target.holiday = null;
-      }
+      // ★追加：holiday（nullは「上書き無し」として扱う）
+if (!(sameItem && ae.field === 'holiday')) {
+  const hasHolidayField = Object.prototype.hasOwnProperty.call(data, 'holiday');
+
+  if (!hasHolidayField) {
+    target.holiday = null; // フィールド無し＝上書き無し（自動祝日が出る）
+  } else if (typeof data.holiday === 'string') {
+    target.holiday = data.holiday; // 文字列（空文字含む）＝上書きあり（空なら抑制）
+  } else if (data.holiday == null) {
+    target.holiday = null; // null＝上書き無し（自動祝日が出る）
+  } else {
+    target.holiday = null; // 想定外も上書き無し扱い
+  }
+}
 
       return true;
     }
