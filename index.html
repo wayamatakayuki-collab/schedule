@@ -454,7 +454,7 @@
       _baseValue.set(key, norm(value));
     }
 
-    // ★祝日を追加
+    // ★祝日を含む
     function _fields() {
       return ['notice', 'duty', 'events', 'business', 'submission', 'vacation', 'holiday'];
     }
@@ -558,17 +558,23 @@
     }
 
     // holidayの扱い：
-    // - item.holiday が string の時：それが「手入力上書き」（空文字なら祝日抑制）
-    // - item.holiday が未定義/非string：自動祝日（_autoHoliday）を使う
+    // - item.holiday が「空でない文字列」：手入力上書き
+    // - それ以外（null/未定義/空文字）：自動祝日（_autoHoliday）
     function getHolidayEffective(item) {
       if (!item) return '';
-      if (typeof item.holiday === 'string') return String(item.holiday || '').trim();
+      if (typeof item.holiday === 'string') {
+        const s = String(item.holiday || '').trim();
+        if (s) return s;
+      }
       return String(item._autoHoliday || '').trim();
     }
 
     function getHolidayEditValue(item) {
       if (!item) return '';
-      if (typeof item.holiday === 'string') return String(item.holiday || '');
+      if (typeof item.holiday === 'string') {
+        const s = String(item.holiday || '').trim();
+        if (s) return String(item.holiday || '');
+      }
       return String(item._autoHoliday || '');
     }
 
@@ -1033,7 +1039,7 @@
         if (!(sameItem && ae.field === 'business')) target.business = '';
         if (!(sameItem && ae.field === 'submission')) target.submission = '';
         if (!(sameItem && ae.field === 'vacation')) target.vacation = '';
-        if (!(sameItem && ae.field === 'holiday')) target.holiday = null; // ★追加
+        if (!(sameItem && ae.field === 'holiday')) target.holiday = null;
         return true;
       }
 
@@ -1044,20 +1050,21 @@
       if (!(sameItem && ae.field === 'submission')) target.submission = data.submission || '';
       if (!(sameItem && ae.field === 'vacation')) target.vacation = data.vacation || '';
 
-      // ★追加：holiday（nullは「上書き無し」として扱う）
-if (!(sameItem && ae.field === 'holiday')) {
-  const hasHolidayField = Object.prototype.hasOwnProperty.call(data, 'holiday');
+      // ★holiday：空文字は「上書き解除（null）」扱い
+      if (!(sameItem && ae.field === 'holiday')) {
+        const hasHolidayField = Object.prototype.hasOwnProperty.call(data, 'holiday');
 
-  if (!hasHolidayField) {
-    target.holiday = null; // フィールド無し＝上書き無し（自動祝日が出る）
-  } else if (typeof data.holiday === 'string') {
-    target.holiday = data.holiday; // 文字列（空文字含む）＝上書きあり（空なら抑制）
-  } else if (data.holiday == null) {
-    target.holiday = null; // null＝上書き無し（自動祝日が出る）
-  } else {
-    target.holiday = null; // 想定外も上書き無し扱い
-  }
-}
+        if (!hasHolidayField) {
+          target.holiday = null; // フィールド無し＝上書き無し（自動祝日が出る）
+        } else if (typeof data.holiday === 'string') {
+          const s = String(data.holiday || '').trim();
+          target.holiday = s ? s : null; // ★空文字は解除
+        } else if (data.holiday == null) {
+          target.holiday = null; // null＝上書き無し（自動祝日が出る）
+        } else {
+          target.holiday = null; // 想定外も上書き無し扱い
+        }
+      }
 
       return true;
     }
@@ -1151,18 +1158,17 @@ if (!(sameItem && ae.field === 'holiday')) {
       const submission = (item.submission || '').trim();
       const vacation = (item.vacation || '').trim();
 
-      // ★追加：holiday（上書き）… stringなら保存（空文字でも抑制として意味がある）
-      const hasHolidayOverride = (typeof item.holiday === 'string');
+      // ★holiday：空でない文字列のみ「上書き」として保存（空欄は自動に戻る）
+      const hasHolidayOverride = (typeof item.holiday === 'string' && String(item.holiday || '').trim() !== '');
       const holidayOverride = hasHolidayOverride ? String(item.holiday || '').trim() : null;
 
-      // ★重要：holidayOverrideが「存在する（空でも）」なら isEmpty 扱いにしない
       const isEmpty = !notice && !duty && !events && !business && !submission && !vacation && !hasHolidayOverride;
 
       if (isEmpty) {
         await ref.set({
           year: item.year, month: item.month, day: item.day,
           notice: '', duty: '', events: '', business: '', submission: '', vacation: '',
-          holiday: firebase.firestore.FieldValue.delete(), // ★追加
+          holiday: firebase.firestore.FieldValue.delete(),
           isDeleted: true,
           deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1174,7 +1180,7 @@ if (!(sameItem && ae.field === 'holiday')) {
       await ref.set({
         year: item.year, month: item.month, day: item.day,
         notice, duty, events, business, submission, vacation,
-        holiday: hasHolidayOverride ? holidayOverride : firebase.firestore.FieldValue.delete(), // ★追加
+        holiday: hasHolidayOverride ? holidayOverride : firebase.firestore.FieldValue.delete(),
         isDeleted: false,
         deletedAt: firebase.firestore.FieldValue.delete(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1201,7 +1207,7 @@ if (!(sameItem && ae.field === 'holiday')) {
         const submission = (item.submission || '').trim();
         const vacation = (item.vacation || '').trim();
 
-        const hasHolidayOverride = (typeof item.holiday === 'string');
+        const hasHolidayOverride = (typeof item.holiday === 'string' && String(item.holiday || '').trim() !== '');
         const holidayOverride = hasHolidayOverride ? String(item.holiday || '').trim() : null;
 
         const isEmpty = !notice && !duty && !events && !business && !submission && !vacation && !hasHolidayOverride;
@@ -1252,11 +1258,17 @@ if (!(sameItem && ae.field === 'holiday')) {
       }
 
       const v = norm(value);
-      item[field] = v;
+
+      // ★holiday：空欄は「上書き解除（null）」＝自動祝日に戻す
+      let storeValue = v;
+      if (field === 'holiday' && v === '') storeValue = null;
+
+      item[field] = storeValue;
 
       const base = _baseValue.get(key);
+      const comp = (storeValue == null) ? '' : String(storeValue);
 
-      if (v === base) {
+      if (comp === base) {
         clearDirty(id, field);
 
         if (!hasDirtyForItem(id)) {
@@ -1562,10 +1574,10 @@ if (!(sameItem && ae.field === 'holiday')) {
 
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) flushAllPendingSaves();
-        if (document.hidden) saveSchoolName(); // ★追加
+        if (document.hidden) saveSchoolName();
       });
       window.addEventListener('pagehide', () => { flushAllPendingSaves(); });
-      window.addEventListener('pagehide', () => { saveSchoolName(); }); // ★追加
+      window.addEventListener('pagehide', () => { saveSchoolName(); });
 
       firebase.auth().onAuthStateChanged(async (u) => {
         authUser = u || null;
@@ -1580,7 +1592,7 @@ if (!(sameItem && ae.field === 'holiday')) {
           setModeBadge();
 
           const cacheLoaded = generateYearlyCalendar();
-          await loadSchoolNameAlways(); // ★追加：学校名だけは毎回ここで復元する
+          await loadSchoolNameAlways();
 
           const startYear = getStartYear();
           const lastSeen = getLastSeenTs(startYear);
@@ -1665,8 +1677,8 @@ if (!(sameItem && ae.field === 'holiday')) {
             business: '',
             submission: '',
             vacation: '',
-            holiday: null,     // ★追加：手入力上書き（null=自動）
-            _autoHoliday: ''   // ★追加：自動祝日（表示用）
+            holiday: null,     // 手入力上書き（null=自動）
+            _autoHoliday: ''   // 自動祝日（表示用）
           });
         }
       }
@@ -1678,7 +1690,7 @@ if (!(sameItem && ae.field === 'holiday')) {
 
       scheduleData.forEach(it => { if (typeof it.notice !== 'string') it.notice = ''; });
 
-      // ★追加：自動祝日を毎回付与（年度を変えたら自動で入る）
+      // ★自動祝日を毎回付与（年度を変えたら自動で入る）
       applyAutoHolidaysToSchedule();
 
       renderSchedule();
@@ -1733,7 +1745,7 @@ if (!(sameItem && ae.field === 'holiday')) {
       updatePrintTitle();
     }
 
-    // ★検索対象に祝日名を含める
+    // ★検索対象に祝日名を含める（表示は自動＋手入力上書き）
     function buildSearchTextForItem(item) {
       if (!item) return '';
       const hol = getHolidayEffective(item);
@@ -2299,11 +2311,11 @@ if (!(sameItem && ae.field === 'holiday')) {
 
         let headerLine = table[0].map(v => String(v ?? '').trim());
 
+        // ★仕様変更：CSVに「祝日列」を入れない（＝読まない）
         const mapping = {
           '月': -1,
           '日': -1,
           '曜日': -1,
-          '祝日': -1,   // ★追加
           '日直': -1,
           '予定': -1,
           '出張': -1,
@@ -2325,8 +2337,9 @@ if (!(sameItem && ae.field === 'holiday')) {
 
           headerLine = table[0].map(v => String(v ?? '').trim());
 
-          mapping['月'] = mapping['日'] = mapping['曜日'] = mapping['祝日'] =
-          mapping['日直'] = mapping['予定'] = mapping['出張'] = mapping['提出物'] = mapping['お知らせ'] = mapping['休暇'] = -1;
+          mapping['月'] = mapping['日'] = mapping['曜日'] =
+          mapping['日直'] = mapping['予定'] = mapping['出張'] =
+          mapping['提出物'] = mapping['お知らせ'] = mapping['休暇'] = -1;
 
           headerLine.forEach((h, i) => {
             const cleanH = String(h ?? '').trim();
@@ -2360,8 +2373,7 @@ if (!(sameItem && ae.field === 'holiday')) {
             events: norm(target.events),
             business: norm(target.business),
             submission: norm(target.submission),
-            vacation: norm(target.vacation),
-            holiday: (typeof target.holiday === 'string') ? norm(target.holiday) : null
+            vacation: norm(target.vacation)
           };
 
           const next = { ...before };
@@ -2373,25 +2385,13 @@ if (!(sameItem && ae.field === 'holiday')) {
           if (mapping['お知らせ'] !== -1) next.notice = pick(before.notice, cols[mapping['お知らせ']]);
           if (mapping['休暇'] !== -1) next.vacation = pick(before.vacation, cols[mapping['休暇']]);
 
-          // ★祝日：空欄＝上書き無し（自動祝日を活かす）
-if (mapping['祝日'] !== -1) {
-  const cell = String(norm(cols[mapping['祝日']]) || '').trim();
-
-  if (cell) {
-    next.holiday = cell;   // 上書き（祝日名の変更/手入力祝日）
-  } else {
-    next.holiday = null;   // 空欄＝上書き無し → 自動祝日がそのまま出る
-  }
-}
-
           const changed =
             next.notice !== before.notice ||
             next.duty !== before.duty ||
             next.events !== before.events ||
             next.business !== before.business ||
             next.submission !== before.submission ||
-            next.vacation !== before.vacation ||
-            next.holiday !== before.holiday;
+            next.vacation !== before.vacation;
 
           if (!changed) return;
 
@@ -2401,7 +2401,6 @@ if (mapping['祝日'] !== -1) {
           target.business = next.business;
           target.submission = next.submission;
           target.vacation = next.vacation;
-          target.holiday = next.holiday;
 
           sortChecklistInItem(target);
 
@@ -2456,17 +2455,15 @@ if (mapping['祝日'] !== -1) {
         return a.day - b.day;
       });
 
-      // ★祝日列を追加
-      const header = ['月','日','曜日','祝日','日直','予定','出張','提出物','お知らせ','休暇'];
+      // ★仕様変更：CSVに「祝日列」を入れない（＝出さない）
+      const header = ['月','日','曜日','日直','予定','出張','提出物','お知らせ','休暇'];
       const lines = [header.map(csvEscape).join(',')];
 
       rows.forEach(it => {
-        const hol = getHolidayEffective(it);
         const line = [
           it.month,
           it.day,
           it.dow || '',
-          hol || '',
           it.duty || '',
           it.events || '',
           it.business || '',
