@@ -1885,6 +1885,32 @@
       if (host2) renderChecklistField(host2, item.id, 'submission', editable, queryRaw);
     }
 
+    // ★追加：提出物の「＋追加」を“日付欄（曜日の右/下）”で押したときの処理
+    function addSubmissionItem(itemId) {
+      if (!(authUser && canEdit)) return;
+
+      const item = scheduleData.find(d => d.id === itemId);
+      if (!item) return;
+
+      const cur = parseChecklist(item.submission || '');
+      const newIdx = cur.length ? Math.max(...cur.map(x => x.idx ?? 0)) + 1 : 0;
+      cur.push({ checked: false, text: '', idx: newIdx });
+
+      const nextText = serializeChecklist(cur);
+      queueSave(itemId, 'submission', nextText, { allowViewChecklist: false });
+
+      // いったん全体再描画（レイアウト崩れ防止＆確実にDOM反映）
+      renderSchedule();
+
+      // 追加した行へフォーカス（編集モード時のみ）
+      setTimeout(() => {
+        const card = document.querySelector(`[data-item-id="${CSS.escape(itemId)}"]`);
+        if (!card) return;
+        const inputs = card.querySelectorAll('[data-cl-text="1"]');
+        if (inputs && inputs.length) inputs[inputs.length - 1].focus();
+      }, 0);
+    }
+
     function renderChecklistField(host, itemId, field, editable, queryRaw) {
       const item = scheduleData.find(d => d.id === itemId);
       if (!item) return;
@@ -1904,38 +1930,10 @@
       host.innerHTML = '';
 
       const allowToggle = !!authUser;           // 閲覧でもチェックはできる（ログイン時）
-      const allowAdd = !!(authUser && canEdit); // 追加は編集モードのみ
       const allowTextEdit = !!(authUser && canEdit);
 
-      // 追加ボタン（編集時のみ）
-      if (allowAdd) {
-        const top = document.createElement('div');
-        top.className = 'flex items-center justify-end mb-1';
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'text-xs px-2 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 active:scale-95';
-        btn.textContent = '＋追加';
-        btn.onclick = () => {
-          const cur = parseChecklist(item[field] || '');
-          const newIdx = cur.length ? Math.max(...cur.map(x => x.idx ?? 0)) + 1 : 0;
-          cur.push({ checked: false, text: '', idx: newIdx });
-
-          const nextText = serializeChecklist(cur);
-          queueSave(itemId, field, nextText, { allowViewChecklist: false });
-
-          renderChecklistField(host, itemId, field, true, queryRaw);
-
-          setTimeout(() => {
-            const inputs = host.querySelectorAll('[data-cl-text="1"]');
-            if (inputs && inputs.length) inputs[inputs.length - 1].focus();
-          }, 0);
-        };
-        top.appendChild(btn);
-        host.appendChild(top);
-      }
-
-      // 編集時でも「何も無い」なら、ボタンだけで終わり（チェック行のプレースホルダは出さない）
-      if (parsed.length === 0 && allowAdd) return;
+      // ★編集時でも「何も無い」なら、ここは何も出さない（追加は日付欄ボタンで行う）
+      if (parsed.length === 0) return;
 
       // 表示順：未完了→完了（安定）
       const sorted = parsed.slice().sort((a, b) => {
@@ -1954,7 +1952,7 @@
         if (rerender) renderChecklistField(host, itemId, field, editable, queryRaw);
       };
 
-      sorted.forEach((it, i) => {
+      sorted.forEach((it) => {
         const row = document.createElement('div');
         row.className = 'flex items-start gap-2';
         list.appendChild(row);
@@ -1993,17 +1991,7 @@
           text.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
-              const cur = parseChecklist(item[field] || '');
-              const newIdx = cur.length ? Math.max(...cur.map(x => x.idx ?? 0)) + 1 : 0;
-              cur.push({ checked: false, text: '', idx: newIdx });
-
-              queueSave(itemId, field, serializeChecklist(cur), { allowViewChecklist: false });
-              renderChecklistField(host, itemId, field, true, queryRaw);
-
-              setTimeout(() => {
-                const inputs = host.querySelectorAll('[data-cl-text="1"]');
-                if (inputs && inputs.length) inputs[inputs.length - 1].focus();
-              }, 0);
+              addSubmissionItem(itemId);
             }
           });
         } else {
@@ -2110,12 +2098,28 @@
             oninput="queueSave('${item.id}', 'holiday', this.innerText)">${holidayEditVal}</div>
         ` : '';
 
+        // ★差し替え：UIボタン（＋追加）位置
+        //  - スマホ：曜日の右（(曜)のすぐ右）
+        //  - PC：曜日の下
+        //  - 閲覧モードでは非表示／編集モードのみ表示
+        const addBtnMobile = editable ? `
+          <button type="button" class="md:hidden ml-1 shrink-0 px-2 py-0.5 rounded-md border border-slate-200 bg-white text-[11px] text-slate-600 hover:bg-slate-50 active:scale-95"
+            onclick="addSubmissionItem('${item.id}')">＋追加</button>
+        ` : '';
+
+        const addBtnPC = editable ? `
+          <button type="button" class="hidden md:inline-flex mt-1 px-2 py-1 rounded-md border border-slate-200 bg-white text-[11px] text-slate-600 hover:bg-slate-50 active:scale-95"
+            onclick="addSubmissionItem('${item.id}')">＋追加</button>
+        ` : '';
+
         const dateSection = `
           <div class="md:w-24 ${dateBg} p-2 flex md:flex-col items-center justify-between md:justify-center md:border-r border-slate-200">
             <div class="flex items-baseline md:flex-col md:items-center min-w-0">
               <span class="text-xl font-bold">${item.day}</span>
               <span class="text-xs font-bold md:mt-0.5 ml-1 md:ml-0">(${item.dow})</span>
+              ${addBtnMobile}
               ${holidayMobile}
+              ${addBtnPC}
               ${holidayPC}
             </div>
             ${dutyHtml}
