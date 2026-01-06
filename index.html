@@ -945,24 +945,35 @@
     }
 
     function applyEditLockToDOM() {
-      if (isEditingCell) return;
+  // ★ここで return しない（これが原因で解除できなくなる）
+  const editable = !!(authUser && canEdit);
 
-      const editable = !!(authUser && canEdit);
+  // ★編集中セルだけは、閲覧モードに戻す瞬間に触らない（カーソル飛び防止）
+  const active = document.activeElement;
 
-      const schoolEl = document.getElementById('schoolName');
+  const schoolEl = document.getElementById('schoolName');
+  if (schoolEl) {
+    // schoolNameも同様に制御
+    if (!( !editable && isEditingCell && active && schoolEl === active )) {
       schoolEl.setAttribute('contenteditable', editable ? 'true' : 'false');
       if (editable) schoolEl.classList.remove('readonly');
       else schoolEl.classList.add('readonly');
-
-      document.querySelectorAll('[contenteditable]').forEach(el => {
-        if (el.id === 'schoolName') return;
-        el.setAttribute('contenteditable', editable ? 'true' : 'false');
-        if (editable) el.classList.remove('readonly');
-        else el.classList.add('readonly');
-      });
-
-      setModeBadge();
     }
+  }
+
+  document.querySelectorAll('[contenteditable]').forEach(el => {
+    if (el.id === 'schoolName') return;
+
+    // ★閲覧に戻す時だけ、今まさに編集中の要素は触らない
+    if (!editable && isEditingCell && active && el === active) return;
+
+    el.setAttribute('contenteditable', editable ? 'true' : 'false');
+    if (editable) el.classList.remove('readonly');
+    else el.classList.add('readonly');
+  });
+
+  setModeBadge();
+}
 
     function toEmailFromId(id) {
       const s = String(id || '').trim();
