@@ -1419,10 +1419,11 @@ async function loadSchoolNameAlways() {
       });
 
       document.addEventListener('visibilitychange', () => {
-        if (document.hidden) flushAllPendingSaves();
-      });
-      window.addEventListener('pagehide', () => { flushAllPendingSaves(); });
-
+  if (document.hidden) flushAllPendingSaves();
+  if (document.hidden) saveSchoolName(); // ★追加
+});
+window.addEventListener('pagehide', () => { flushAllPendingSaves(); });
+window.addEventListener('pagehide', () => { saveSchoolName(); }); // ★追加
       firebase.auth().onAuthStateChanged(async (u) => {
         authUser = u || null;
 
