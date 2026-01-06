@@ -1,4 +1,4 @@
-!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
@@ -454,128 +454,8 @@
       _baseValue.set(key, norm(value));
     }
 
-    // ★祝日を含む
     function _fields() {
-      return ['notice', 'duty', 'events', 'business', 'submission', 'vacation', 'holiday'];
-    }
-
-    // ================================
-    // ★祝日（自動生成＋手入力上書き）
-    // ================================
-    function _pad2(n) { return String(n).padStart(2, '0'); }
-    function ymdKey(y, m, d) { return `${y}-${_pad2(m)}-${_pad2(d)}`; }
-    function _dateKey(dt) { return `${dt.getFullYear()}-${_pad2(dt.getMonth() + 1)}-${_pad2(dt.getDate())}`; }
-
-    // N回目の曜日（例：第2月曜）
-    function nthWeekdayOfMonth(year, month, weekday, nth) {
-      // weekday: 0=日 ... 6=土
-      const first = new Date(year, month - 1, 1);
-      const firstDow = first.getDay();
-      const delta = (weekday - firstDow + 7) % 7;
-      const day = 1 + delta + 7 * (nth - 1);
-      return day;
-    }
-
-    // 春分・秋分（概算式：1980年基準）
-    function calcVernalEquinoxDay(year) {
-      return Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
-    }
-    function calcAutumnalEquinoxDay(year) {
-      return Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
-    }
-
-    function getJapaneseHolidays(year) {
-      const H = new Map();
-      const add = (m, d, name) => H.set(ymdKey(year, m, d), name);
-
-      // 固定
-      add(1, 1, '元日');
-      add(2, 11, '建国記念の日');
-      add(2, 23, '天皇誕生日');
-      add(4, 29, '昭和の日');
-      add(5, 3, '憲法記念日');
-      add(5, 4, 'みどりの日');
-      add(5, 5, 'こどもの日');
-      add(8, 11, '山の日');
-      add(11, 3, '文化の日');
-      add(11, 23, '勤労感謝の日');
-
-      // ハッピーマンデー
-      add(1, nthWeekdayOfMonth(year, 1, 1, 2), '成人の日');           // 第2月曜
-      add(7, nthWeekdayOfMonth(year, 7, 1, 3), '海の日');             // 第3月曜
-      add(9, nthWeekdayOfMonth(year, 9, 1, 3), '敬老の日');           // 第3月曜
-      add(10, nthWeekdayOfMonth(year, 10, 1, 2), 'スポーツの日');     // 第2月曜
-
-      // 春分・秋分
-      add(3, calcVernalEquinoxDay(year), '春分の日');
-      add(9, calcAutumnalEquinoxDay(year), '秋分の日');
-
-      // 振替休日（祝日が日曜なら次の平日へ繰り下げ）
-      const baseKeys = Array.from(H.keys()).sort();
-      for (const k of baseKeys) {
-        const [y, m, d] = k.split('-').map(Number);
-        const dt = new Date(y, m - 1, d);
-        if (dt.getDay() === 0) {
-          const nd = new Date(dt);
-          nd.setDate(nd.getDate() + 1);
-          while (H.has(_dateKey(nd))) nd.setDate(nd.getDate() + 1);
-          H.set(_dateKey(nd), '振替休日');
-        }
-      }
-
-      // 国民の休日（祝日に挟まれた平日）
-      for (let dt = new Date(year, 0, 1); dt.getFullYear() === year; dt.setDate(dt.getDate() + 1)) {
-        const k = _dateKey(dt);
-        if (H.has(k)) continue;
-        const dow = dt.getDay();
-        if (dow === 0 || dow === 6) continue; // 土日除外
-
-        const prev = new Date(dt); prev.setDate(prev.getDate() - 1);
-        const next = new Date(dt); next.setDate(next.getDate() + 1);
-        const pk = _dateKey(prev);
-        const nk = _dateKey(next);
-        if (H.has(pk) && H.has(nk)) {
-          H.set(k, '国民の休日');
-        }
-      }
-
-      return H;
-    }
-
-    const _holidayCache = new Map(); // year -> Map
-    function _holidayMapForYear(year) {
-      if (_holidayCache.has(year)) return _holidayCache.get(year);
-      const m = getJapaneseHolidays(year);
-      _holidayCache.set(year, m);
-      return m;
-    }
-
-    function applyAutoHolidaysToSchedule() {
-      scheduleData.forEach(it => {
-        const map = _holidayMapForYear(it.year);
-        it._autoHoliday = map.get(ymdKey(it.year, it.month, it.day)) || '';
-      });
-    }
-
-    // holidayの扱い：
-    // - item.holiday が「空でない文字列」：手入力上書き
-    // - それ以外（null/未定義/空文字）：自動祝日（_autoHoliday）
-    function getHolidayEffective(item) {
-      if (!item) return '';
-      if (typeof item.holiday === 'string') {
-        const s = String(item.holiday || '').trim();
-        if (s) return s;
-      }
-      return String(item._autoHoliday || '').trim();
-    }
-
-    function getHolidayEditValue(item) {
-      if (!item) return '';
-      if (typeof item.holiday === 'string') {
-        const s = String(item.holiday || '').trim();
-        if (s) return String(item.holiday || '');
-      }
-      return String(item._autoHoliday || '');
+      return ['notice', 'duty', 'events', 'business', 'submission', 'vacation'];
     }
 
     // ================================
@@ -977,27 +857,27 @@
     }
 
     function getStartYear() { return parseInt(document.getElementById('yearInput').value, 10); }
-    function roomId() { return authUser ? authUser.uid : null; }
-    function roomDocRef() { return db.collection('rooms').doc(roomId()); }
-    function yearDocRef(startYear) { return roomDocRef().collection('years').doc(String(startYear)); }
-    function cloudDaysRef(startYear) { return yearDocRef(startYear).collection('days'); }
+function roomId() { return authUser ? authUser.uid : null; }
+function roomDocRef() { return db.collection('rooms').doc(roomId()); }
+function yearDocRef(startYear) { return roomDocRef().collection('years').doc(String(startYear)); }
+function cloudDaysRef(startYear) { return yearDocRef(startYear).collection('days'); }
 
-    // ★追加：ログイン時に「学校名」を毎回1回読み込む（(学校名)リセット対策）
-    async function loadSchoolNameAlways() {
-      if (!authUser) return;
-      try {
-        const startYear = getStartYear();
-        const metaSnap = await yearDocRef(startYear).get();
-        if (metaSnap.exists) {
-          const md = metaSnap.data() || {};
-          if (typeof md.schoolName === 'string' && md.schoolName.trim()) {
-            document.getElementById('schoolName').innerText = md.schoolName;
-          }
-        }
-      } catch (e) {
-        console.error(e);
+// ★追加：ログイン時に「学校名」を毎回1回読み込む（(学校名)リセット対策）
+async function loadSchoolNameAlways() {
+  if (!authUser) return;
+  try {
+    const startYear = getStartYear();
+    const metaSnap = await yearDocRef(startYear).get();
+    if (metaSnap.exists) {
+      const md = metaSnap.data() || {};
+      if (typeof md.schoolName === 'string' && md.schoolName.trim()) {
+        document.getElementById('schoolName').innerText = md.schoolName;
       }
     }
+  } catch (e) {
+    console.error(e);
+  }
+}
 
     function _seenKey(startYear) {
       if (!authUser) return null;
@@ -1039,7 +919,6 @@
         if (!(sameItem && ae.field === 'business')) target.business = '';
         if (!(sameItem && ae.field === 'submission')) target.submission = '';
         if (!(sameItem && ae.field === 'vacation')) target.vacation = '';
-        if (!(sameItem && ae.field === 'holiday')) target.holiday = null;
         return true;
       }
 
@@ -1049,22 +928,6 @@
       if (!(sameItem && ae.field === 'business')) target.business = data.business || '';
       if (!(sameItem && ae.field === 'submission')) target.submission = data.submission || '';
       if (!(sameItem && ae.field === 'vacation')) target.vacation = data.vacation || '';
-
-      // ★holiday：空文字は「上書き解除（null）」扱い
-      if (!(sameItem && ae.field === 'holiday')) {
-        const hasHolidayField = Object.prototype.hasOwnProperty.call(data, 'holiday');
-
-        if (!hasHolidayField) {
-          target.holiday = null; // フィールド無し＝上書き無し（自動祝日が出る）
-        } else if (typeof data.holiday === 'string') {
-          const s = String(data.holiday || '').trim();
-          target.holiday = s ? s : null; // ★空文字は解除
-        } else if (data.holiday == null) {
-          target.holiday = null; // null＝上書き無し（自動祝日が出る）
-        } else {
-          target.holiday = null; // 想定外も上書き無し扱い
-        }
-      }
 
       return true;
     }
@@ -1158,17 +1021,12 @@
       const submission = (item.submission || '').trim();
       const vacation = (item.vacation || '').trim();
 
-      // ★holiday：空でない文字列のみ「上書き」として保存（空欄は自動に戻る）
-      const hasHolidayOverride = (typeof item.holiday === 'string' && String(item.holiday || '').trim() !== '');
-      const holidayOverride = hasHolidayOverride ? String(item.holiday || '').trim() : null;
-
-      const isEmpty = !notice && !duty && !events && !business && !submission && !vacation && !hasHolidayOverride;
+      const isEmpty = !notice && !duty && !events && !business && !submission && !vacation;
 
       if (isEmpty) {
         await ref.set({
           year: item.year, month: item.month, day: item.day,
           notice: '', duty: '', events: '', business: '', submission: '', vacation: '',
-          holiday: firebase.firestore.FieldValue.delete(),
           isDeleted: true,
           deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1180,7 +1038,6 @@
       await ref.set({
         year: item.year, month: item.month, day: item.day,
         notice, duty, events, business, submission, vacation,
-        holiday: hasHolidayOverride ? holidayOverride : firebase.firestore.FieldValue.delete(),
         isDeleted: false,
         deletedAt: firebase.firestore.FieldValue.delete(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1207,16 +1064,12 @@
         const submission = (item.submission || '').trim();
         const vacation = (item.vacation || '').trim();
 
-        const hasHolidayOverride = (typeof item.holiday === 'string' && String(item.holiday || '').trim() !== '');
-        const holidayOverride = hasHolidayOverride ? String(item.holiday || '').trim() : null;
-
-        const isEmpty = !notice && !duty && !events && !business && !submission && !vacation && !hasHolidayOverride;
+        const isEmpty = !notice && !duty && !events && !business && !submission && !vacation;
 
         if (isEmpty) {
           batch.set(ref.doc(docId), {
             year: item.year, month: item.month, day: item.day,
             notice: '', duty: '', events: '', business: '', submission: '', vacation: '',
-            holiday: firebase.firestore.FieldValue.delete(),
             isDeleted: true,
             deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1226,7 +1079,6 @@
           batch.set(ref.doc(docId), {
             year: item.year, month: item.month, day: item.day,
             notice, duty, events, business, submission, vacation,
-            holiday: hasHolidayOverride ? holidayOverride : firebase.firestore.FieldValue.delete(),
             isDeleted: false,
             deletedAt: firebase.firestore.FieldValue.delete(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1258,17 +1110,11 @@
       }
 
       const v = norm(value);
-
-      // ★holiday：空欄は「上書き解除（null）」＝自動祝日に戻す
-      let storeValue = v;
-      if (field === 'holiday' && v === '') storeValue = null;
-
-      item[field] = storeValue;
+      item[field] = v;
 
       const base = _baseValue.get(key);
-      const comp = (storeValue == null) ? '' : String(storeValue);
 
-      if (comp === base) {
+      if (v === base) {
         clearDirty(id, field);
 
         if (!hasDirtyForItem(id)) {
@@ -1573,12 +1419,11 @@
       });
 
       document.addEventListener('visibilitychange', () => {
-        if (document.hidden) flushAllPendingSaves();
-        if (document.hidden) saveSchoolName();
-      });
-      window.addEventListener('pagehide', () => { flushAllPendingSaves(); });
-      window.addEventListener('pagehide', () => { saveSchoolName(); });
-
+  if (document.hidden) flushAllPendingSaves();
+  if (document.hidden) saveSchoolName(); // ★追加
+});
+window.addEventListener('pagehide', () => { flushAllPendingSaves(); });
+window.addEventListener('pagehide', () => { saveSchoolName(); }); // ★追加
       firebase.auth().onAuthStateChanged(async (u) => {
         authUser = u || null;
 
@@ -1592,20 +1437,19 @@
           setModeBadge();
 
           const cacheLoaded = generateYearlyCalendar();
-          await loadSchoolNameAlways();
+await loadSchoolNameAlways(); // ★追加：学校名だけは毎回ここで復元する
 
-          const startYear = getStartYear();
-          const lastSeen = getLastSeenTs(startYear);
-          const needFull = (!cacheLoaded) || (!lastSeen);
+const startYear = getStartYear();
+const lastSeen = getLastSeenTs(startYear);
+const needFull = (!cacheLoaded) || (!lastSeen);
 
-          try {
-            await loadCloudForYear({ initialFull: needFull });
-            lastSyncAt = Date.now();
-            updateLastSyncLabel();
-            startLastSyncTicker();
-            queueScheduleCacheSave();
-          } catch (e) { console.error(e); }
-
+try {
+  await loadCloudForYear({ initialFull: needFull });
+  lastSyncAt = Date.now();
+  updateLastSyncLabel();
+  startLastSyncTicker();
+  queueScheduleCacheSave();
+} catch (e) { console.error(e); }
           setSyncBadge('同期OK', 'ok');
         } else {
           setLoginBadge('未ログイン', 'off');
@@ -1676,9 +1520,7 @@
             events: '',
             business: '',
             submission: '',
-            vacation: '',
-            holiday: null,     // 手入力上書き（null=自動）
-            _autoHoliday: ''   // 自動祝日（表示用）
+            vacation: ''
           });
         }
       }
@@ -1689,9 +1531,6 @@
       if (authUser) cacheLoaded = loadScheduleCache(startYear);
 
       scheduleData.forEach(it => { if (typeof it.notice !== 'string') it.notice = ''; });
-
-      // ★自動祝日を毎回付与（年度を変えたら自動で入る）
-      applyAutoHolidaysToSchedule();
 
       renderSchedule();
       applyEditLockToDOM();
@@ -1745,19 +1584,15 @@
       updatePrintTitle();
     }
 
-    // ★検索対象に祝日名を含める（表示は自動＋手入力上書き）
     function buildSearchTextForItem(item) {
       if (!item) return '';
-      const hol = getHolidayEffective(item);
-
-      if (currentTab === 'notice') return hol + '\n' + String(item.notice || '');
-      if (currentTab === 'school') return hol + '\n' + String(item.events || '');
-      if (currentTab === 'business') return hol + '\n' + String(item.business || '');
-      if (currentTab === 'submission') return hol + '\n' + String(item.submission || '');
-      if (currentTab === 'vacation') return hol + '\n' + String(item.vacation || '');
+      if (currentTab === 'notice') return String(item.notice || '');
+      if (currentTab === 'school') return String(item.events || '');
+      if (currentTab === 'business') return String(item.business || '');
+      if (currentTab === 'submission') return String(item.submission || '');
+      if (currentTab === 'vacation') return String(item.vacation || '');
 
       return (
-        hol + '\n' +
         String(item.notice || '') + '\n' +
         String(item.events || '') + '\n' +
         String(item.business || '') + '\n' +
@@ -1831,6 +1666,13 @@
 
     // =========================================================
     // ★提出物（submission）チェックボックスUI
+    // 要件反映：
+    //  - 提出物が空の行は「チェックボックス表示なし」（閲覧は完全に何も出さない）
+    //  - チェック済み行：文字だけ薄く + 打消し（チェックボックスは薄くしない）
+    //  - 検索ハイライトは薄くしない
+    //  - 全体タブ/報告・提出タブ 両方同じUI
+    //  - どちらでチェックしても連動（同じsubmission保存）
+    //  - 閲覧モードでもチェック可＆クラウド保存（submissionのみ）
     // =========================================================
     function parseChecklist(text) {
       const lines = String(text ?? '').replace(/\r\n/g, '\n').split('\n');
@@ -1957,6 +1799,7 @@
       sorted.forEach((it, i) => {
         const row = document.createElement('div');
         row.className = 'flex items-start gap-2';
+        // ★重要：rowにopacityを掛けない（チェックボックスやmarkが薄くなるのを防ぐ）
         list.appendChild(row);
 
         const cb = document.createElement('input');
@@ -1973,9 +1816,10 @@
         const text = document.createElement('div');
         text.className = 'flex-1 text-sm text-amber-700 font-medium whitespace-pre-wrap leading-relaxed';
 
-        if (it.checked) text.classList.add('line-through');
+        if (it.checked) text.classList.add('line-through'); // ★打消し（markにも線は引ける）
 
         if (allowTextEdit) {
+          // 編集時：markが無いのでコンテナ自体を薄くしてOK（チェックボックスは別要素なので薄くならない）
           if (it.checked) text.classList.add('cl-dim');
 
           text.classList.add('editable');
@@ -2007,6 +1851,7 @@
             }
           });
         } else {
+          // 閲覧時：チェック済みでも mark は薄くしない（薄くするのはspan.cl-dimの部分だけ）
           text.innerHTML = highlightChecklistText(it.text || '', queryRaw, !!it.checked);
         }
 
@@ -2055,68 +1900,42 @@
 
         attachCardSaveOnLeave(card, item.id);
 
-        const holidayEff = getHolidayEffective(item);
-        const hasHoliday = String(holidayEff || '').trim().length > 0;
-
         const isSun = item.dow === '日';
         const isSat = item.dow === '土';
-
-        // ★祝日も赤（祝日があるなら優先）
-        const dateBg = (hasHoliday || isSun)
-          ? 'bg-red-50 text-red-600'
-          : (isSat ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-700');
+        const dateBg = isSun ? 'bg-red-50 text-red-600' : (isSat ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-700');
 
         const dutyTextRaw = String(item.duty || '').trim();
-        const hasDuty = dutyTextRaw.length > 0;
+const hasDuty = dutyTextRaw.length > 0;
 
-        const dutyVal = editable ? escapeHtml(item.duty || '') : highlightHtml(item.duty || '', queryRaw);
+const dutyVal = editable ? escapeHtml(item.duty || '') : highlightHtml(item.duty || '', queryRaw);
 
-        // ★日直が空なら「欄を出さない」
-        // ただし編集モードでは入力できるように出す
-        const dutyHtml = (showDuty && (editable || hasDuty)) ? `
-          <!-- ===== スマホ（今の“完璧”を維持） ===== -->
-          <div class="md:hidden w-full self-stretch flex justify-end">
-            <div class="flex items-center gap-1 whitespace-nowrap overflow-hidden
-                        text-base font-bold bg-transparent border-0 px-0 py-0">
-              <span>日直：</span>
-              <div class="editable whitespace-nowrap overflow-hidden text-right"
-                contenteditable="true"
-                onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
-                oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
-            </div>
-          </div>
+// ★日直が空なら「欄を出さない」
+// ただし編集モードでは入力できるように出す
+const dutyHtml = (showDuty && (editable || hasDuty)) ? `
+  <!-- ===== スマホ（今の“完璧”を維持） ===== -->
+  <div class="md:hidden w-full self-stretch flex justify-end">
+    <div class="flex items-center gap-1 whitespace-nowrap overflow-hidden
+                text-base font-bold bg-transparent border-0 px-0 py-0">
+      <span>日直：</span>
+      <div class="editable whitespace-nowrap overflow-hidden text-right"
+        contenteditable="true"
+        onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
+        oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
+    </div>
+  </div>
 
-          <!-- ===== PC（前のコードの見た目に戻す） ===== -->
-          <div class="hidden md:flex text-sm bg-white px-1 py-0.5 rounded font-medium md:mt-2 editable whitespace-nowrap overflow-hidden text-center items-center justify-center"
-            contenteditable="true"
-            onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
-            oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
-        ` : '';
-
-        // ★祝日表示（PC:曜日の下 / スマホ:曜日の右）
-        const holidayEditVal = editable ? escapeHtml(getHolidayEditValue(item)) : escapeHtml(holidayEff);
-
-        const holidayMobile = (editable || hasHoliday) ? `
-          <span class="md:hidden ml-1 text-[11px] font-bold text-red-600 editable whitespace-nowrap overflow-hidden"
-            contenteditable="true"
-            onfocus="onCellFocus('${item.id}', 'holiday', this.innerText)"
-            oninput="queueSave('${item.id}', 'holiday', this.innerText)">${holidayEditVal}</span>
-        ` : '';
-
-        const holidayPC = (editable || hasHoliday) ? `
-          <div class="hidden md:block mt-0.5 text-[11px] font-bold text-red-600 leading-tight editable text-center"
-            contenteditable="true"
-            onfocus="onCellFocus('${item.id}', 'holiday', this.innerText)"
-            oninput="queueSave('${item.id}', 'holiday', this.innerText)">${holidayEditVal}</div>
-        ` : '';
+  <!-- ===== PC（前のコードの見た目に戻す） ===== -->
+  <div class="hidden md:flex text-sm bg-white px-1 py-0.5 rounded font-medium md:mt-2 editable whitespace-nowrap overflow-hidden text-center items-center justify-center"
+    contenteditable="true"
+    onfocus="onCellFocus('${item.id}', 'duty', this.innerText)"
+    oninput="queueSave('${item.id}', 'duty', this.innerText)">${dutyVal}</div>
+` : '';
 
         const dateSection = `
           <div class="md:w-24 ${dateBg} p-2 flex md:flex-col items-center justify-between md:justify-center md:border-r border-slate-200">
-            <div class="flex items-baseline md:flex-col md:items-center min-w-0">
+            <div class="flex items-baseline md:flex-col md:items-center">
               <span class="text-xl font-bold">${item.day}</span>
               <span class="text-xs font-bold md:mt-0.5 ml-1 md:ml-0">(${item.dow})</span>
-              ${holidayMobile}
-              ${holidayPC}
             </div>
             ${dutyHtml}
           </div>
@@ -2311,7 +2130,6 @@
 
         let headerLine = table[0].map(v => String(v ?? '').trim());
 
-        // ★仕様変更：CSVに「祝日列」を入れない（＝読まない）
         const mapping = {
           '月': -1,
           '日': -1,
@@ -2337,9 +2155,8 @@
 
           headerLine = table[0].map(v => String(v ?? '').trim());
 
-          mapping['月'] = mapping['日'] = mapping['曜日'] =
-          mapping['日直'] = mapping['予定'] = mapping['出張'] =
-          mapping['提出物'] = mapping['お知らせ'] = mapping['休暇'] = -1;
+          mapping['月'] = mapping['日'] = mapping['曜日'] = mapping['日直'] =
+          mapping['予定'] = mapping['出張'] = mapping['提出物'] = mapping['お知らせ'] = mapping['休暇'] = -1;
 
           headerLine.forEach((h, i) => {
             const cleanH = String(h ?? '').trim();
@@ -2373,7 +2190,7 @@
             events: norm(target.events),
             business: norm(target.business),
             submission: norm(target.submission),
-            vacation: norm(target.vacation)
+            vacation: norm(target.vacation),
           };
 
           const next = { ...before };
@@ -2455,7 +2272,6 @@
         return a.day - b.day;
       });
 
-      // ★仕様変更：CSVに「祝日列」を入れない（＝出さない）
       const header = ['月','日','曜日','日直','予定','出張','提出物','お知らせ','休暇'];
       const lines = [header.map(csvEscape).join(',')];
 
