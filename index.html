@@ -857,10 +857,27 @@
     }
 
     function getStartYear() { return parseInt(document.getElementById('yearInput').value, 10); }
-    function roomId() { return authUser ? authUser.uid : null; }
-    function roomDocRef() { return db.collection('rooms').doc(roomId()); }
-    function yearDocRef(startYear) { return roomDocRef().collection('years').doc(String(startYear)); }
-    function cloudDaysRef(startYear) { return yearDocRef(startYear).collection('days'); }
+function roomId() { return authUser ? authUser.uid : null; }
+function roomDocRef() { return db.collection('rooms').doc(roomId()); }
+function yearDocRef(startYear) { return roomDocRef().collection('years').doc(String(startYear)); }
+function cloudDaysRef(startYear) { return yearDocRef(startYear).collection('days'); }
+
+// ★追加：ログイン時に「学校名」を毎回1回読み込む（(学校名)リセット対策）
+async function loadSchoolNameAlways() {
+  if (!authUser) return;
+  try {
+    const startYear = getStartYear();
+    const metaSnap = await yearDocRef(startYear).get();
+    if (metaSnap.exists) {
+      const md = metaSnap.data() || {};
+      if (typeof md.schoolName === 'string' && md.schoolName.trim()) {
+        document.getElementById('schoolName').innerText = md.schoolName;
+      }
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
 
     function _seenKey(startYear) {
       if (!authUser) return null;
