@@ -1969,7 +1969,7 @@ const dutyHtml = (showDuty && (editable || hasDuty)) ? `
 
                 <div class="mt-2 hidden md:block">
                   <div class="text-[10px] font-bold text-slate-400 mb-1">お知らせ（連絡・締切・お願い・面談 等）</div>
-                  <div class="text-sm whitespace-pre-wrap leading-relaxed editable text-rose-600" contenteditable="true"
+                  <div class="text-sm whitespace-pre-wrap leading-relaxed editable text-rose-600 font-bold" contenteditable="true"
                     onfocus="onCellFocus('${item.id}', 'notice', this.innerText)"
                     oninput="queueSave('${item.id}', 'notice', this.innerText)">${noticeVal}</div>
                 </div>
@@ -1977,7 +1977,7 @@ const dutyHtml = (showDuty && (editable || hasDuty)) ? `
 
               <div class="p-2 md:hidden">
                 <div class="text-[10px] font-bold text-slate-400 mb-1">お知らせ（連絡・締切・お願い・面談 等）</div>
-                <div class="text-sm whitespace-pre-wrap leading-relaxed editable text-rose-600" contenteditable="true"
+                <div class="text-sm whitespace-pre-wrap leading-relaxed editable text-rose-600 font-bold" contenteditable="true"
                   onfocus="onCellFocus('${item.id}', 'notice', this.innerText)"
                   oninput="queueSave('${item.id}', 'notice', this.innerText)">${noticeVal}</div>
               </div>
